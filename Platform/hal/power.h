@@ -1,0 +1,93 @@
+
+/*******************************************************************************
+	[2014-08-28] Compatible with V2.1
+*******************************************************************************/
+
+
+#ifndef __MG2470_POWER_H__
+#define __MG2470_POWER_H__
+#define __MG2470_POWER_RTC_INCLUDE_
+#define __MG2470_POWER_SLEEP_INCLUDE_
+#define __MG2470_POWER_IDLE_INCLUDE_
+#define __MG2470_POWER_PM1_INCLUDE_
+#define __MG2470_POWER_PM2_INCLUDE_
+#define __MG2470_POWER_PM3_INCLUDE_
+#define __MG2470_POWER_GPIO_INCLUDE_
+
+#define	POWER_WAKEUP_ONLY_GPIO			BIT0
+#define	POWER_WAKEUP_EXT_RCOSC			BIT1
+#define	POWER_WAKEUP_TIMER_DIVIDE_128	BIT7
+
+#define	POWER_WAKEUP_DISABLE			0
+#define	POWER_WAKEUP_ENABLE				1
+#define	POWER_WAKEUP_FALLING_EDGE		0
+#define	POWER_WAKEUP_RISING_EDGE		1
+
+// u8WakeIE
+#define	POWER_IDLE_WAKEUP_UART1			BIT6
+#define	POWER_IDLE_WAKEUP_UART0			BIT4
+#define	POWER_IDLE_WAKEUP_TIMER1		BIT3
+#define	POWER_IDLE_WAKEUP_EXT1			BIT2
+#define	POWER_IDLE_WAKEUP_TIMER0		BIT1
+#define	POWER_IDLE_WAKEUP_EXT0			BIT0
+
+// u8WakeEIE1
+#define	POWER_IDLE_WAKEUP_DMA			BIT6
+#define	POWER_IDLE_WAKEUP_SPI			BIT5
+#define	POWER_IDLE_WAKEUP_SLEEPTIMER	BIT4
+#define	POWER_IDLE_WAKEUP_PHY			BIT0
+
+// u8WakeEIE2
+#define	POWER_IDLE_WAKEUP_PWM			BIT3
+#define	POWER_IDLE_WAKEUP_I2C			BIT1
+#define	POWER_IDLE_WAKEUP_IRTX			BIT0
+
+#define	POWER_RF_SLEEP_ADC_ON			1
+#define	POWER_RF_SLEEP_ADC_OFF			0
+
+#define	POWER_CODE	0x0800
+
+#define	RETURN_POWER_SUCCESS				0x00
+#define	RETURN_POWER_INVALID_PARAMETER		0x11
+#define	RETURN_POWER_WRONG_GPIO_VALUE		0x12
+#define	RETURN_POWER_ALREADY_SLEEP_STATE	0x13
+#define	RETURN_POWER_NOT_SLEEP_STATE		0x14
+#define	RETURN_POWER_DISABLED_PORT_READ	0x15
+#define	RETURN_POWER_INVALID_GPIO_PORT		0x16
+#define	RETURN_POWER_TOO_MANY_INPUT		0x17
+
+extern	UINT8	gu8SleepTimerIntFlag;
+extern	UINT8	gu8WakeupIntFlag;
+
+#ifdef __MG2470_POWER_RTC_INCLUDE_
+	UINT8 HAL_RtcIntSet(UINT8 u8IntEna, UINT8 u8Priority, UINT16 u16Tick_1s, UINT8 u8Tick_3906us);
+#endif	// #ifdef __MG2470_POWER_RTC_INCLUDE_
+
+#ifdef __MG2470_POWER_SLEEP_INCLUDE_
+	UINT8 HAL_RFAnalogSleep(UINT8 u8Option);
+	UINT8 HAL_RFAnalogWakeup(void);
+#endif	// #ifdef __MG2470_POWER_SLEEP_INCLUDE_
+
+#ifdef __MG2470_POWER_IDLE_INCLUDE_
+	UINT8 HAL_McuIdleMode(UINT8 u8WakeIE, UINT8 u8WakeEIE1, UINT8 u8WakeEIE2);
+#endif	// #ifdef __MG2470_POWER_IDLE_INCLUDE_
+
+#ifdef __MG2470_POWER_PM1_INCLUDE_
+	UINT8 HAL_PowerdownMode1(UINT16 u16Tick_1s, UINT8 u8Tick_3906us, UINT8 u8Tick_65536s, UINT8 u8Opt);
+#endif	// #ifdef __MG2470_POWER_PM1_INCLUDE_
+
+#ifdef __MG2470_POWER_PM2_INCLUDE_
+	UINT8 HAL_PowerdownMode2(UINT16 u16Tick_1s, UINT8 u8Tick_3906us, UINT8 u8Tick_65536s, UINT8 u8Opt);
+#endif	// #ifdef __MG2470_POWER_PM2_INCLUDE_
+
+#ifdef __MG2470_POWER_PM3_INCLUDE_
+	UINT8 HAL_PowerdownMode3(UINT8 u8Opt);
+#endif	// #ifdef __MG2470_POWER_PM3_INCLUDE_
+
+#ifdef __MG2470_POWER_GPIO_INCLUDE_
+	UINT8 HAL_PowerdownGpio0WakeupSourceSet(UINT8 u8Port, UINT8 u8WakeupEna, UINT8 u8RisingEdge);
+	UINT8 HAL_PowerdownGpio1WakeupSourceSet(UINT8 u8Port, UINT8 u8WakeupEna, UINT8 u8RisingEdge);
+	UINT8 HAL_PowerdownGpio3WakeupSourceSet(UINT8 u8Port, UINT8 u8WakeupEna, UINT8 u8RisingEdge);
+#endif	// #ifdef __MG2470_POWER_GPIO_INCLUDE_
+
+#endif	// #ifndef __MG2470_POWER_H__
