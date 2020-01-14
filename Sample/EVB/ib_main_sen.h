@@ -76,8 +76,8 @@
 #define _POWERDOWN_USE							1			// POWERDOWN MODE 사용 유무 ( 0:NOT USE , 1:USE )
 #define _POWERDOWN_MODE							1			// POWERDOWN MODE SELECT ( 1-POWERDOWN1 / 2-POWERDOWN2 )
 
-#define POWER_DOWN_TIME_INIT					5			//  sec : 초기  Power on후 wiat time Org 30  --> 0으로 셋팅시 POWER DOWN 동작 안됨 (Remark!!)
-#define POWER_DOWN_TIME							10			//  sec : 동작중 sleep mode  송신 주기 Kong Org 60
+#define POWER_DOWN_TIME_INIT					1			//  sec : 초기  Power on후 wiat time Org 30  --> 0으로 셋팅시 POWER DOWN 동작 안됨 (Remark!!)
+#define POWER_DOWN_TIME							60		//  sec : 동작중 sleep mode  송신 주기 Kong Org 60
 
 #define	_UARTDEBUG_MODE							0			// UART1 DEBUG MODE ( 0:NOT USE , 1:USE )
 #define	_SENSOR_PACKET_TXMODE					0			// RF Transmit : 0			UART Transmit : 1
@@ -85,15 +85,15 @@
 #define AccelSensor_Powerdownmode				0
 #define AccelSensor_Activemode					1
 
-/// 	Sets the transmitting power.
+/// Sets the transmitting power.
 ///	@param	u8PowerLevel	: level of transmitting power
 ///	\n	0 = 9.0 dBm.   1 = 8.0 dBm.		2 = 8.0 dBm.		3 = 8.0 dBm....		9 = 0.0 dBm.
 ///	\n	10 = -1 dBm....				18 = -10 dBm.
 ///	\n	19 = -23 dBm.	 20 = -27 dBm.	21 = -33 dBm.		22 = -64 dBm.
-#define	RF_TX_POWERLEVEL						11					//--- epas 칩 안테나의 경우 기존 모듈 안테나를 임시로 사용한결과 0dBm으로 세팅해야지만 최적의 감도값이 나옴
+#define	RF_TX_POWERLEVEL						11
 
 //--- NTC Thermister ADC Offset Value
-#define TEMP_OFFSET								0				//--- Org -302
+#define TEMP_OFFSET								0			//--- Org -302
 /*******************************************************************************/
 
 
@@ -165,7 +165,6 @@
 
 
 //--------------------------------------------------------------------------------
-
 #ifdef __OLD_BOARD					
 #define	NEW_BOARD_DIP_SW					0
 #else                               		
@@ -246,11 +245,11 @@
 
 // wait timer 
 //timer &tick : max 4개  - 더 필요시 util_app 에서 수정
-#define SQ_WAIT_TIMER						0		// tx process timer
-#define COMON_TIMER							1		// pairing timer 
-#define WAIT_TIMER_SHORT					2		// sensor read timer  
-#define LED_CONT_TIMER						3		// led timer
-#define ADC_WAIT_TIMER						4		// not used  
+#define SQ_WAIT_TIMER						0			// tx process timer
+#define COMON_TIMER							1			// pairing timer 
+#define WAIT_TIMER_SHORT					2			// sensor read timer  
+#define LED_CONT_TIMER						3			// led timer
+#define ADC_WAIT_TIMER						4			// not used  
 
 
 #define TIME_100MS							100			// ms
@@ -287,14 +286,14 @@
 // sleep mode 동작시는 항상  TX_TIME_PERIOD = 1
 //----------------------------------------------------------------------------------------------
 // Flash address 
-#define CODE_ADDRESS_USER0             				0x1200	// PairTable 
-#define CODE_ADDRESS_USER1             				0x1400	// AccelerationSensor_ScalBuff
-#define CODE_ADDRESS_USER2             				0x1600	// CurCal_DataBuff
+#define CODE_ADDRESS_USER0             			0x1200	// PairTable 
+#define CODE_ADDRESS_USER1             			0x1400	// AccelerationSensor_ScalBuff
+#define CODE_ADDRESS_USER2             			0x1600	// CurCal_DataBuff
 
 #if EXTENDED_SENSOR_COUNT
-#define MAX_END_DEVICE						125
+#define MAX_END_DEVICE							125
 #else                               		
-#define MAX_END_DEVICE						60
+#define MAX_END_DEVICE							60
 #endif
 
 typedef enum { LED_IDLE_STS, LED_NO_PAIRED_STS, LED_NO_PAIRED_STS1, LED_PAIRED_STS, LED_PAIRING_STS, 

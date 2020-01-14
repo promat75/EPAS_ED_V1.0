@@ -475,9 +475,9 @@ void CheckSensorReadCount(void)
 	else
 		SenReadState = SEN_READ_WAIT;
 
-	//#if !_EPAS_MODE
+	#if !_EPAS_MODE
 	AppLib_VirtualTimerSet(WAIT_TIMER_SHORT, ACCEL_CURR_SEN_READ_TIME);		
-	//#endif
+	#endif
 }	
 
 // sleep mode 동작 : sleep wakeup 후  sen read 동작 수행    
@@ -521,23 +521,14 @@ void SensorReadingProcess(void)
 				}	
 			#endif
 
-			#if _EPAS_MODE
-			zPrintf(1,"SEN_INIT_TEMP\n");
-			#endif
 			SenReadState = SEN_IDLE_WAIT;
 			break;
 		
 		case SEN_IDLE_WAIT :
-			#if _EPAS_MODE
-			zPrintf(1,"SEN_IDLE_WAIT\n");
-			#endif
 			// sleep wakeup, tx finish 동작에서  next state로 이동 
 			break;
 			
 		case SEN_READ_WAIT :
-			#if _EPAS_MODE
-			zPrintf(1,"SEN_READ_WAIT\n");
-			#endif
 			#if _EPAS_MODE
 				SenReadState = SEN_READ_DATA;
 			#else
@@ -551,16 +542,13 @@ void SensorReadingProcess(void)
 			// 전류센서  adc : ADC 채널 변경 시간을 위해 사이에 진동 센서를 읽음   
 			#if _EPAS_MODE
 			SYS_AdcSet(ENABLE, 0, ADC_CHAN_3);			// adc channel 을 온도센서 reading 으로 변경   
-			#if _EPAS_MODE
-			zPrintf(1,"SEN_READ_DATA\n");
-			#endif
 			#else
 			GetSensor_CurrentData();
 			#endif
 			
 			// 진동센서  
 			#if _ACCEL_USE
-			AccelSensor_pd_control(AccelSensor_Activemode);			// AccelSensor Active mode.. By Kong
+			AccelSensor_pd_control(AccelSensor_Activemode);		// AccelSensor Active mode.. By Kong
 			GetSensor_AccelData();															// 1회 550us  - 진동 센서는 수행 주기 동안 max 값을 계속 갱신하여 보유 
 			AccelSensor_pd_control(AccelSensor_Powerdownmode);	// AccelSensor Powerdown mode.. By Kong
 			#endif
@@ -571,14 +559,14 @@ void SensorReadingProcess(void)
 					
 			// 온도센서 adc  : 써미스터
 			#if (TEMP_SEN_MODE == THERM_SEN)
-			GetSensor_TempData();					//  전류 센서와 같은 속도(같은 코드), 써미스터를 adc 를 통해 read 할 경우 여러번 읽어 평균 사용 
+			GetSensor_TempData();								//  전류 센서와 같은 속도(같은 코드), 써미스터를 adc 를 통해 read 할 경우 여러번 읽어 평균 사용 
 			#endif
 			
-			CheckSensorReadCount();				// 5ms 주기로  100ms 동안 읽을수 있는 횠수 지정 되어 있음, 10회후  SEN_CALC_DATA(평균을 구함)    수행 
+			CheckSensorReadCount();								// 5ms 주기로  100ms 동안 읽을수 있는 횠수 지정 되어 있음, 10회후  SEN_CALC_DATA(평균을 구함)    수행 
 
 			break;
 			
-		case SEN_CALC_DATA :						// sleep mode = 26ms 남음(120ms중), ACCEL_CURR_SEN_READ_TIME = 5, 현재는 변경 
+		case SEN_CALC_DATA :									// sleep mode = 26ms 남음(120ms중), ACCEL_CURR_SEN_READ_TIME = 5, 현재는 변경 
 			#if _EPAS_MODE
 			//CalcCurrent_ADCVolt();
 			#else
@@ -591,7 +579,7 @@ void SensorReadingProcess(void)
 			#endif 
 			
 			#if _EPAS_MODE
-			//SET_BOARD_VCC_STS(i16ADC_VccValue);	
+			SET_BOARD_VCC_STS(i16ADC_VccValue);	
 			#else
 			SET_BOARD_VCC_STS(i16ADC_VccValue);	
 			#endif

@@ -88,7 +88,9 @@ extern PairTable 	gtPIB;
 void Pairing_Init(void);
 void Pair_PIB_SAVE();
 void Pair_Display_table(void);
+#if 0	// _EPAS_MODE == 0 is Compile.
 void ZAPP_PairingProcess(void);
+#endif
 
 void RF_Init_Wait(void);
 

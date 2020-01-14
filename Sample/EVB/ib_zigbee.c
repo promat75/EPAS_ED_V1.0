@@ -283,6 +283,7 @@ void Pairing_Check(void)
 //==============================================================================
 //	Function : Pairing Countinuate
 //==============================================================================
+#if ( _EPAS_MODE == 0 )
 void ZAPP_PairingProcess(void)
 {
 	// extern UINT8 	TX_WaitState;
@@ -333,8 +334,7 @@ void ZAPP_PairingProcess(void)
 	}	
 	
 }
-
-
+#endif
 
 void PER_RespProcess(void)
 {

@@ -6,14 +6,13 @@
 #include "ib_main_sen.h"       
 
 
-#define THERM_TABLE_COUNT					17		//  0 ~ 80 도 구간, 5도 단위 처리
 #if 1	// Kong.sh 0 --> EVKIT 보드 테스트용 
-#define START_TEMP_LEVEL					0		// 테이블 시작 온도 : 0   
+#define START_TEMP_LEVEL					-40		// 테이블 시작 온도 : 0   
 #else
 #define START_TEMP_LEVEL					-30		// 테이블 시작 온도 : 0   
 #endif
 
-#define TEMP_LEVEL				    		5		// 테이블 온도 간격  
+#define TEMP_LEVEL				    		10		// 테이블 온도 간격  
 
 
 #define TEMP_ERROR_COUNT					2		// 연속 카운터 

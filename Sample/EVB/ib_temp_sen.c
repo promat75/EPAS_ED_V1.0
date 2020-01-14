@@ -15,10 +15,35 @@
 #include <stdio.h>
 
 
+// 배열수 17개 맞출것... Flash Memory Address를 맞추기 위해..
+#define THERM_TABLE_COUNT	17
+
 #if (TEMP_SEN_MODE == THERM_SEN)
 // 0 ~ 80도, 5도 간격 : 17개, NT Thermister Temperator Table .. Kong.sh
 // ADC, adc / slope, 1 / slope
-#if 0	// 3.3V REF VOLTAGE
+#if 1
+// 1.8V REF VOLTAGE
+const tTempTable gtTempTable[THERM_TABLE_COUNT] = {	
+	{ 14270, 1285.6, 0.0901 }, 	// -40
+	{ 14159, 1264.2, 0.0893 }, 	// -30
+	{ 14047, 705.9 , 0.0503 }, 	// -20 
+	{ 13848, 491.1 , 0.0355 }, 	// -10
+	{ 13566, 303.5 , 0.0224 }, 	// 0
+	{ 13119, 208.6 , 0.0159 }, 	// 10
+	{ 12490, 150.7 , 0.0121 }, 	// 20 
+	{ 11661, 111.8 , 0.0096 }, 	// 30
+	{ 10618, 89.0  , 0.0084 }, 	// 40
+	{ 9425 , 72.0  , 0.0076 }, 	// 50
+	{ 8116 , 62.8  , 0.0077 }, 	// 60
+	{ 6824 , 54.9  , 0.0081 }, 	// 70
+	{ 5582 , 50.7  , 0.0091 }, 	// 80
+	{ 4480 , 47.1  , 0.0105 }, 	// 90
+	{ 3528 , 45.3  , 0.0128 }, 	// 100
+	{ 2749 , 42.8  , 0.0156 }, 	// 110
+	{ 2107 , 10.0  , 0.0047 }, 	// 120
+};
+#else
+// 3.3V REF VOLTAGE
 const tTempTable gtTempTable[THERM_TABLE_COUNT] = {	
 	{ 11552,	73.0,	0.0063 }, 	// 0
 	{ 10761,	62.7,	0.0058 }, 	// 5
@@ -37,34 +62,8 @@ const tTempTable gtTempTable[THERM_TABLE_COUNT] = {
 	{ 1319, 	20.1,	0.0152 }, 	// 70
 	{ 990, 		17.5,	0.0177 }, 	// 75
 	{ 708, 		14.7,	0.0207 }, 	// 80  
-	{ 467, 		11.3,	0.0242 }, 	// 85  	
-	{ 260, 		7.4,	0.0284 }, 	// 90  	
-	{ 84, 		2.8,	0.0332 }, 	// 95  	
 };
 #endif
-
-#if 1	// 1.8V REF VOLTAGE
-const tTempTable gtTempTable[THERM_TABLE_COUNT] = {	
-	{ 15454, 308.9, 0.0200 }, 	// 0
-	{ 15204, 252.7, 0.0166 }, 	// 5
-	{ 14903, 209.0, 0.0140 }, 	// 10 
-	{ 14547, 174.9, 0.0120 }, 	// 15
-	{ 14131, 148.0, 0.0105 }, 	// 20
-	{ 13653, 126.8, 0.0093 }, 	// 25
-	{ 13115, 110.0, 0.0084 }, 	// 30
-	{ 12519, 96.5, 0.0077 }, 	// 35
-	{ 11870, 85.8, 0.0072 }, 	// 40
-	{ 11179, 76.8, 0.0069 }, 	// 45
-	{ 10451, 70.6, 0.0068 }, 	// 50
-	{ 9710, 64.7, 0.0067 }, 	// 55
-	{ 8960, 60.2, 0.0067 }, 	// 60
-	{ 8215, 56.6, 0.0069 }, 	// 65
-	{ 7490, 53.7, 0.0072 }, 	// 70
-	{ 6793, 51.4, 0.0076 }, 	// 75
-	{ 6132, 49.6, 0.0081 }, 	// 80  
-};
-#endif
-
 #endif
 
 float 		Real_TempValue=0; 		
@@ -310,9 +309,7 @@ void TempConvert(void)
 	UINT8 	u8i;
 	float 	ftemp;
 	
-	//#if !_EPAS_MODE
 	i16ReadTemp += u16TempOffset;					// 오차 보정 위한 offset  : ADC 값을 그대로 적용 (현재 온도에 맞는 adc 값을 0.1도 1도 단위로 수정 )
-	//#endif
 	
 	for( u8i = 0; u8i < THERM_TABLE_COUNT;  u8i++) {
 		if (gtTempTable[u8i].u8TempAdc < i16ReadTemp)	break;
@@ -324,11 +321,6 @@ void TempConvert(void)
 	ftemp += (u8i * TEMP_LEVEL + START_TEMP_LEVEL);
 	i16ReadTemp = (INT16)(ftemp*2);					// scaled x 10을 -> scaled  x 2  로 변경 전송 (0.5도 단위 온도 데이타)
 
-	#if _UARTDEBUG_MODE
-	zPrintf(1,"Real Temp : %3.1f\n",(float)ftemp);
-	#endif
-
-
 }	
 
 
@@ -337,14 +329,19 @@ void CalcTemperature(void)
 {
 
 	i16ReadTemp = (UINT32)u32TempSum / u8TempAvgCount;	
+	#if _UARTDEBUG_MODE
+	zPrintf(1,"Temp ADC AVG : %u\n",(short)i16ReadTemp);
+	#endif
 
 	TempConvert();								// adc 데이타를 실제 온도 값으로 계산 
 
 	#if _EPAS_MODE
-	//Real_TempValue=(float)i16ReadTemp / 2 ;				
-	MovingAverage(i16ReadTemp, &gtTempAvg );		// 한번더 평균을 구함 => 송신 주기 에 한번씩 평균,  4회 평균시 4번의 송신이 이루어져야 정상 평균값
-	TempData = (INT16)gtTempAvg.fAverage;	
-	Real_TempValue=(float)TempData / 2 ;				
+	TempData = i16ReadTemp;
+	#if _UARTDEBUG_MODE
+	Real_TempValue=(float)TempData/ 2 ;				
+	zPrintf(1,"real Temp : %3.1f\n",(float)Real_TempValue);
+	#endif
+
 	#else
 	MovingAverage(i16ReadTemp, &gtTempAvg );		// 한번더 평균을 구함 => 송신 주기 에 한번씩 평균,  4회 평균시 4번의 송신이 이루어져야 정상 평균값
 	TempData = (INT16)gtTempAvg.fAverage;	

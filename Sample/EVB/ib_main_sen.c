@@ -88,8 +88,9 @@ UINT8	code gcau8BufferFlash1[512]	_at_ CODE_ADDRESS_USER1;
 UINT8	code gcau8BufferFlash2[512]	_at_ CODE_ADDRESS_USER2;
 
 // mem 할당에 여유가 없으면 data 가 정상 적으로 저장 되지 못함, 이상동작함 ( 현재는 +6 만큼 여유를가져감)
+#if ( _EPAS_MODE == 0 )
 xdata UINT16 malloc_mem[AVG_CURR_BUFF_SIZE + AVG_TEMP_BUFF_SIZE + 6];	
-
+#endif
 	
 void 	Init_ExtAmp(void)
 {
@@ -432,44 +433,48 @@ void Init_HIB(void)
 	//--- Destinaton MAC SET
 	#if (TEST_NO_PAIR_MODE)
 
-	gtPIB.uPairCount = 1;
-	gtPIB.PairInfo.SrcID = gtMIB.au8IEEEAddr[0];
-	gtPIB.u16PanID = gtMIB.u16PanID;
-	
-	// dest addre를 자기주소의 상위 7 자리는 같게 하고, 마지막 자리는 0x00으로 강제 설정
-	rpmemcpy(gtMIB.au8DstIEEEAddr, gtMIB.au8IEEEAddr, 8);
-	gtMIB.au8DstIEEEAddr[0] = 0x00;
+		gtPIB.uPairCount = 1;
+		gtPIB.PairInfo.SrcID = gtMIB.au8IEEEAddr[0];
+		gtPIB.u16PanID = gtMIB.u16PanID;
+		
+		// dest addre를 자기주소의 상위 7 자리는 같게 하고, 마지막 자리는 0x00으로 강제 설정
+		rpmemcpy(gtMIB.au8DstIEEEAddr, gtMIB.au8IEEEAddr, 8);
+		gtMIB.au8DstIEEEAddr[0] = 0x00;
 
-	// copy short address
-	gtMIB.u16DstShortAddr = gtMIB.au8DstIEEEAddr[1];
-	gtMIB.u16DstShortAddr = gtMIB.u16DstShortAddr << 8 | gtMIB.au8DstIEEEAddr[0];
-	
-	u8AppRFSq = SQ_RF_TX_INIT; 	
+		// copy short address
+		gtMIB.u16DstShortAddr = gtMIB.au8DstIEEEAddr[1];
+		gtMIB.u16DstShortAddr = gtMIB.u16DstShortAddr << 8 | gtMIB.au8DstIEEEAddr[0];
+		
+		u8AppRFSq = SQ_RF_TX_INIT; 	
+
+		#if _UARTDEBUG_MODE
+		zPrintf(1,"gtMIB.au8DstIEEEAddr : 0x%02x%02x%02x%02x%02x%02x%02x%02x\n", (short)gtMIB.au8DstIEEEAddr[7],(short)gtMIB.au8DstIEEEAddr[6],(short)gtMIB.au8DstIEEEAddr[5],(short)gtMIB.au8DstIEEEAddr[4],(short)gtMIB.au8DstIEEEAddr[3],(short)gtMIB.au8DstIEEEAddr[2],(short)gtMIB.au8DstIEEEAddr[1],(short)gtMIB.au8DstIEEEAddr[0]);
+		#endif
 		
 	#else
 
-	// flash에 save 된 페어링 데이타를 가져옴	
-	if (Pair_PIB_COPY((UINT8*)&gtPIB) == 0) {
-		gtPIB.uPairCount = 0;								// flash read(gtPIB.uPairCount)하면서 faile 시 0xff 값을 가져오게됨 	
-		u8AppRFSq = SQ_WAIT; 								// pairing이 되어 있지 않으면 UART를 통해  수동  pairing 를 수행 
-		u8LedState = LED_NO_PAIRED_STS;
+		// flash에 save 된 페어링 데이타를 가져옴	
+		if (Pair_PIB_COPY((UINT8*)&gtPIB) == 0) {
+			gtPIB.uPairCount = 0;								// flash read(gtPIB.uPairCount)하면서 faile 시 0xff 값을 가져오게됨 	
+			u8AppRFSq = SQ_WAIT; 								// pairing이 되어 있지 않으면 UART를 통해  수동  pairing 를 수행 
+			u8LedState = LED_NO_PAIRED_STS;
 
-		//zPrintf(1, "\n >> uPairCount = %d", (short)gtPIB.uPairCount );
-		zPrintf(1, "\n  No Pair data : Do Pairing !!!");
-		AppLib_VirtualTimerSet(SQ_WAIT_TIMER, TIME_500MS);
-	}	
-	else {
-		Pair_Display_table();
-		SetDestIEEEAddress(gtPIB.PairInfo.au8IEEEaddr);
+			//zPrintf(1, "\n >> uPairCount = %d", (short)gtPIB.uPairCount );
+			zPrintf(1, "\n  No Pair data : Do Pairing !!!");
+			AppLib_VirtualTimerSet(SQ_WAIT_TIMER, TIME_500MS);
+		} 
+		else {
+			Pair_Display_table();
+			SetDestIEEEAddress(gtPIB.PairInfo.au8IEEEaddr);
 
-		#if (ZENER_BOARD)
-		u8AppRFSq = SQ_INIT_OVER_CHK;						// 다른 테스트 모드 #define 에는 적용 되지 않음, 정상 동작 모드 
-		AppLib_VirtualTimerSet(SQ_WAIT_TIMER,  1000);			// 1000ms 동안 over current pin check 
-														// 2000 : 150A에서 over current 동작 , 1000 : 160A에서 over current 동작
-		#else
-		u8AppRFSq = SQ_RF_TX_INIT; 			
-		#endif
-	}	
+			#if (ZENER_BOARD)
+			u8AppRFSq = SQ_INIT_OVER_CHK;						// 다른 테스트 모드 #define 에는 적용 되지 않음, 정상 동작 모드 
+			AppLib_VirtualTimerSet(SQ_WAIT_TIMER,  1000);			// 1000ms 동안 over current pin check 
+															// 2000 : 150A에서 over current 동작 , 1000 : 160A에서 over current 동작
+			#else
+			u8AppRFSq = SQ_RF_TX_INIT; 			
+			#endif
+		}	
 	#endif
 }
 //--------------------------------------------------------------------------------------------
@@ -807,6 +812,7 @@ void Init_FlashDefault(void)
 		
 	//--------------------------------------------------------------------------
 	// option 값이 일을 경우 옵션 값을 상수로 사용 
+
 	if (_USE_OPTION_VALUE) {
 		#if _UARTDEBUG_MODE
 		zPrintf(1,"_USE OPTION VALUE is True\n");
@@ -828,6 +834,13 @@ void Init_FlashDefault(void)
 		// dip seitch 설정을 수동으로 할수 있도록 
 		gtPIB.u16PanID = (gtMIB.u16PanID & 0xFF00) | ((gtPIB.Option.u8Pid_Chan >> 4) & 0x0F); // pan id 
 		gtPIB.u8Channel = (gtPIB.Option.u8Pid_Chan  & 0x0F) + 11;						   // channel 
+
+		#if _EPAS_MODE		
+		gtMIB.u16PanID = gtPIB.u16PanID;
+		gtMIB.u16DstPanID=gtMIB.u16PanID;	
+		gtMIB.u8Channel = gtPIB.u8Channel; 
+		#endif
+		
 		Set_ChannelPanID();		// 저장된 pan id, channel 사용 
 		
 	}	
@@ -1184,7 +1197,9 @@ void main(void)
 	SYS_WdtSet(0);
 	
 	Init_SysConfig();
+	#if ( _EPAS_MODE == 0 )
 	init_mempool(&malloc_mem, sizeof(malloc_mem));
+	#endif
 
 	#if !_EPAS_MODE
 	SYS_WdtSet(2000);

@@ -84,6 +84,9 @@ extern UINT8 	AccelerationSensor_ScalData[6];
 extern UINT8 	AccelerationSensor_ScalBuff[512];
 extern UINT8 	u8I2CSenStatus;
 
+
+
+
 extern float 	Current_Val;
 extern INT32 	Test_int32;
 extern UINT32 Test_uint32;
@@ -128,7 +131,11 @@ UINT8 DataOut(UINT8* data_buf);
 
 void MovingAverage(UINT16 in_data, tAVERGAE_DATA* pt_current_avg);
 
+
+
 //void TestMinMax(void);
 //void TestMinMax2(void);
+
+
 
 #endif	// #ifndef __MG2470_IB_SENSOR_H__

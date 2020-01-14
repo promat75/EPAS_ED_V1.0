@@ -8,10 +8,6 @@
 //-----------------------------------------------
 // IR Sensor TMP007
 //-----------------------------------------------
-
-
-
-#define TMP007_VOBJ       			0x00
 #define TMP007_TDIE       			0x01
 #define TMP007_CONFIG     			0x02
 #define TMP007_TOBJ       			0x03
@@ -27,12 +23,12 @@
 #define TMP007_CFG_16SAMPLE 		0x0800
 #define TMP007_CFG_ALERTEN  		0x0100
 #define TMP007_CFG_ALERTF   		0x0080
-#define TMP007_CFG_TRANSC  		0x0040
+#define TMP007_CFG_TRANSC  			0x0040
 
 #define TMP007_STAT_ALERTEN 		0x8000
 #define TMP007_STAT_CRTEN   		0x4000
 
-#define TMP007_I2CADDR 			0x40			// ADR0, ADR1 = 0
+#define TMP007_I2CADDR 				0x40			// ADR0, ADR1 = 0
 #define TMP007_DEVID 				0x1F
 
 
