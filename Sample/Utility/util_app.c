@@ -728,7 +728,11 @@ UINT16 AppLib_VirtualTimerGet(UINT8 u8VirtualTimerNum)
 		u16TimerValue = 0;
 	}
 
-	return u16TimerValue;
+	#if _TIMER0_USE
+		return u16TimerValue;
+	#else
+		return 0;
+	#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////

@@ -389,6 +389,8 @@ void SleepStart(void)
 		HAL_PowerdownMode1(u8_SLEEP_TIME, 0, 0, 0); 		// sec timer 
 		#elif (_POWERDOWN_MODE==2)
 		HAL_PowerdownMode2(u8_SLEEP_TIME, 0, 0, 0); 		// sec timer 
+		#elif (_POWERDOWN_MODE==3)
+		HAL_PowerdownMode3(0); 								// Wakeup --> Only EXT Int
 		#endif
 	#endif
 
@@ -449,6 +451,8 @@ void InitSleepWait(void)
 		//HAL_PowerdownMode1(POWER_DOWN_TIME_INIT, 0, 0, 0);					//  5 sec  : wiat for normal power 
 		//#elif (_POWERDOWN_MODE==2)
 		//HAL_PowerdownMode2(POWER_DOWN_TIME_INIT, 0, 0, 0);					//  5 sec  : wiat for normal power 
+		//#elif (_POWERDOWN_MODE==3)
+		//HAL_PowerdownMode3(0);					//  5 sec  : wiat for normal power 
 		//#endif
 	#endif
 		
@@ -493,9 +497,19 @@ void RF_Init_Wait(void)
 void SetTxWaitStatus(void)
 {
 	if (Porduct_Mode &  PM_SLEEP_MODE )  
+	{
 		TX_WaitState = TX_SLEEP_SEN_READ_STS;		// sleep mode tx   
+		#if _UARTDEBUG_MODE
+		zPrintf(1, "TX_SLEEP_SEN_READ_STS\n" );	
+		#endif
+	}
 	else
+	{
 		TX_WaitState = TX_WAIT_SEN_END_READ_STS;	// NO sleep moe tx   
+		#if _UARTDEBUG_MODE
+		zPrintf(1, "TX_WAIT_SEN_END_READ_STS\n" );	
+		#endif
+	}
 }
 
 

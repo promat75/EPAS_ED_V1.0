@@ -76,11 +76,14 @@
 #define _POWERDOWN_USE							1			// POWERDOWN MODE 사용 유무 ( 0:NOT USE , 1:USE )
 #define _POWERDOWN_MODE							1			// POWERDOWN MODE SELECT ( 1-POWERDOWN1 / 2-POWERDOWN2 )
 
-#define POWER_DOWN_TIME_INIT					1			//  sec : 초기  Power on후 wiat time Org 30  --> 0으로 셋팅시 POWER DOWN 동작 안됨 (Remark!!)
-#define POWER_DOWN_TIME							60		//  sec : 동작중 sleep mode  송신 주기 Kong Org 60
+#define POWER_DOWN_TIME_INIT					30			//  sec : 초기  Power on후 wiat time Org 30  --> 0으로 셋팅시 POWER DOWN 동작 안됨 (Remark!!)
+#define POWER_DOWN_TIME							60			//  sec : 동작중 sleep mode  송신 주기 Kong Org 60
+
+#define _TIMER0_USE								0			// TIMER0 사용 유무  ( 0:NOT USE , 1:USE )
 
 #define	_UARTDEBUG_MODE							0			// UART1 DEBUG MODE ( 0:NOT USE , 1:USE )
 #define	_SENSOR_PACKET_TXMODE					0			// RF Transmit : 0			UART Transmit : 1
+
 
 #define AccelSensor_Powerdownmode				0
 #define AccelSensor_Activemode					1
@@ -90,7 +93,7 @@
 ///	\n	0 = 9.0 dBm.   1 = 8.0 dBm.		2 = 8.0 dBm.		3 = 8.0 dBm....		9 = 0.0 dBm.
 ///	\n	10 = -1 dBm....				18 = -10 dBm.
 ///	\n	19 = -23 dBm.	 20 = -27 dBm.	21 = -33 dBm.		22 = -64 dBm.
-#define	RF_TX_POWERLEVEL						11
+#define	RF_TX_POWERLEVEL						18
 
 //--- NTC Thermister ADC Offset Value
 #define TEMP_OFFSET								0			//--- Org -302
@@ -315,7 +318,7 @@ extern UINT16 gTestCount;
 
 void Init_FlashDefault(void);
 void Init_SetHAL(void);
-void 	Init_ExtAmp(void);
+void Init_ExtAmp(void);
 
 void LED_Process(void);
 void TX_Wait_Process(void);

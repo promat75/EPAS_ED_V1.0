@@ -6,7 +6,7 @@
 #include "ib_main_sen.h"       
 
 
-#define AVG_CURR_BUFF_SIZE 				4		// average count :  송신 주기(1초 ?)로  4회  평균  
+#define AVG_CURR_BUFF_SIZE 				2		// average count :  송신 주기(1초 ?)로  4회  평균  
 
 // ACCEL sensor I2C
 #define GS_COMMAND_WRITE               	0x80		// Write command

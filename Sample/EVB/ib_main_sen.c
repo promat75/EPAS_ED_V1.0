@@ -125,27 +125,35 @@ void 	Init_ExtAmp(void)
 
 void Init_SysConfig(void)
 {
-	//	TIMER0 : Turn on the clock and Set
-	HAL_Timer0ClockOn(ON);
-	HAL_Timer0IntSet(ENABLE, PRIORITY_LOW, RUN, 2);			// Enable TIMER0 Interrupt
-
 	//  UART1 : Turn on the clock and Set
 	#if _UARTDEBUG_MODE
 	HAL_Uart1ClockOn(ON);
 	HAL_Uart1IntSet(ENABLE, PRIORITY_LOW, 115200, UART_MODE_8N1);
 	#endif
 
-	// Kong - 진동센서용 I2C Init --> Turn on the clock and Set
-	#if _ACCEL_USE
-	HAL_I2CClockOn(1);
-	HAL_I2CIntSet(1,1,1,28);//20	
-	#endif
-	
 	//	Interrupt Enable
 	HAL_SystemIntSet(ENABLE);			// EA=1
 
 	#if _UARTDEBUG_MODE
 	zPrintf(1, "\n\r>> Reset Init..\n");
+	#endif
+
+	// Kong - 진동센서용 I2C Init --> Turn on the clock and Set
+	#if _ACCEL_USE
+		#if _UARTDEBUG_MODE
+		zPrintf(1, "I2C Init..\n");
+		#endif
+		HAL_I2CClockOn(1);
+		HAL_I2CIntSet(1,1,1,28);//20	
+	#endif
+
+	//	TIMER0 : Turn on the clock and Set
+	#if _TIMER0_USE
+		#if _UARTDEBUG_MODE
+		zPrintf(1, "TIMER0 Init..\n");
+		#endif
+		HAL_Timer0ClockOn(ON);
+		HAL_Timer0IntSet(ENABLE, PRIORITY_LOW, RUN, 2);			// Enable TIMER0 Interrupt
 	#endif
 	
 	// 	GPIO : Turn on the clock and Set
@@ -750,7 +758,14 @@ void Init_GetMode(void)
 				zPrintf(1,"getMode->PWDown2\n");
 				AppLib_DelayFor1ms();
 				#endif
-				HAL_PowerdownMode1(POWER_DOWN_TIME_INIT, 0, 0, 0);		//  MODE2일 경우 SW Reset 됨..
+				HAL_PowerdownMode2(POWER_DOWN_TIME_INIT, 0, 0, 0);		//  MODE2일 경우 SW Reset 됨..
+			#elif (_POWERDOWN_MODE==3)
+				#if _UARTDEBUG_MODE
+				zPrintf(1,"getMode->PWDown3\n");
+				AppLib_DelayFor1ms();
+				#endif
+				HAL_PowerdownMode3(0);									//  MODE3 --> Wakeup Only External Int
+
 			#endif
 			
 			//HAL_PowerdownGpio3WakeupSourceSet(2, 0, 0);				// 제너 보드에 만 적용 overcurrent wakeup interrupt pin : p3.2    

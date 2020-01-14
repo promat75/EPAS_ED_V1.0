@@ -336,16 +336,15 @@ void CalcTemperature(void)
 	TempConvert();								// adc 데이타를 실제 온도 값으로 계산 
 
 	#if _EPAS_MODE
-	TempData = i16ReadTemp;
-	#if _UARTDEBUG_MODE
-	Real_TempValue=(float)TempData/ 2 ;				
-	zPrintf(1,"real Temp : %3.1f\n",(float)Real_TempValue);
-	#endif
-
+		TempData = i16ReadTemp;
+		#if _UARTDEBUG_MODE
+		Real_TempValue=(float)TempData/ 2 ;				
+		zPrintf(1,"real Temp : %3.1f\n",(float)Real_TempValue);
+		#endif
 	#else
-	MovingAverage(i16ReadTemp, &gtTempAvg );		// 한번더 평균을 구함 => 송신 주기 에 한번씩 평균,  4회 평균시 4번의 송신이 이루어져야 정상 평균값
-	TempData = (INT16)gtTempAvg.fAverage;	
-	Real_TempValue=(float)TempData / 2 ;				
+		MovingAverage(i16ReadTemp, &gtTempAvg );		// 한번더 평균을 구함 => 송신 주기 에 한번씩 평균,  4회 평균시 4번의 송신이 이루어져야 정상 평균값
+		TempData = (INT16)gtTempAvg.fAverage;	
+		Real_TempValue=(float)TempData / 2 ;				
 	#endif
 
 	u8TempAvgCount = 0;	
