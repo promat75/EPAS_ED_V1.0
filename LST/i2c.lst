@@ -1,0 +1,956 @@
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE I2C
+OBJECT MODULE PLACED IN .\HEX\i2c.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\i2c.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inclu
+                    -de\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\i2c.ls
+                    -t) TABS(2) OBJECT(.\HEX\i2c.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2013-12-20
+   6            - Version   : V2.2
+   7          
+   8            [2013-12-20] V2.2
+   9            - HAL_I2CMaster_RandomWrite() : corrected.
+  10            - HAL_I2CMaster_RandomRead() : corrected.
+  11            - HAL_I2CMaster_SequentialWrite() : corrected.
+  12            - HAL_I2CMaster_SequentialRead() : corrected.
+  13          
+  14            [2013-05-27] V2.1
+  15            - HAL_I2CMaster_SequentialRead() : corrected.
+  16          
+  17            [2012-04-25] V2.0
+  18            - Initial Version for MG2470B(ChipID=0x71)
+  19          *******************************************************************************/
+  20          
+  21          #include "INCLUDE_MG2470.h"
+  22          #include "i2c.h"
+  23          #include "gpio.h"
+  24          #include "wdt.h"
+  25          
+  26          ///////////////////////////////////////////////////////////////////////////////////////////////
+  27          /// 
+  28          ///   Global variable which indicates the number of occurred Byte-Transfer interrupts. This is incremented 
+             -in I2C_ISR()
+  29          /// 
+  30          ///////////////////////////////////////////////////////////////////////////////////////////////
+  31          UINT8 gu8I2CByteTransferIntCount = 0;
+  32          
+  33          ///////////////////////////////////////////////////////////////////////////////////////////////
+  34          /// 
+  35          ///   Global variable which indicates whether NACK interrupt is occurred. This is set in I2C_ISR()
+  36          /// 
+  37          ///////////////////////////////////////////////////////////////////////////////////////////////
+  38          UINT8 gu8I2CNackedFlag = 0;
+  39          
+  40          ///////////////////////////////////////////////////////////////////////////////////////////////
+  41          /// 
+  42          ///   Global variable which indicates the number of data to be read in I2C_ISR() before NACK interrupt
+  43          /// 
+  44          ///////////////////////////////////////////////////////////////////////////////////////////////
+  45          UINT8 gu8I2CMasterPreReadLength = 0;
+  46          
+  47          ///////////////////////////////////////////////////////////////////////////////////////////////
+  48          /// 
+  49          ///   Global variable which indicates the pointer to the buffer in which the read data is contained when se
+             -quential read operation.
+  50          /// 
+  51          ///////////////////////////////////////////////////////////////////////////////////////////////
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 2   
+
+  52          UINT8*  gpu8I2CMasterReadData;
+  53          
+  54          ///////////////////////////////////////////////////////////////////////////////////////////////
+  55          /// 
+  56          ///   Sets clocks for I2C.
+  57          ///
+  58          /// @param  u8On  : 0=Off, 1=On
+  59          /// @return void
+  60          /// 
+  61          ///////////////////////////////////////////////////////////////////////////////////////////////
+  62          void HAL_I2CClockOn(UINT8 u8On)
+  63          {
+  64   1        if(u8On)
+  65   1        {
+  66   2          I2C_CLK_ON;
+  67   2        }
+  68   1        else
+  69   1        {
+  70   2          I2C_CLK_OFF;
+  71   2        }
+  72   1      }
+  73          
+  74          ///////////////////////////////////////////////////////////////////////////////////////////////
+  75          /// 
+  76          ///   Sets I2C interrupt.
+  77          ///
+  78          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+  79          /// @param  u8Priority    : Priority of interrupt. 0=Low, 1=High.
+  80          /// @param  u8Mode    : Mode Select.
+  81          ///           \n  bit[0] : 0=Slave, 1=Master.
+  82          /// @param  u8Speed   : I2C speed.(Refer to [note]). Speed= 8MHz / (u8Speed*2 + 4)
+  83          /// @return UINT8. Status.
+  84          /// @note The above I2C speed is valid only when MCU frequency is 8MHz. It is dependent on the MCU frequen
+             -cy.
+  85          ///     The speed for another frequency is,
+  86          ///       \n I2C speed = (Above speed) * (8MHz / MCU frequency)
+  87          /// 
+  88          ///////////////////////////////////////////////////////////////////////////////////////////////
+  89          UINT8 HAL_I2CIntSet(UINT8 u8IntEna, UINT8 u8Priority, UINT8 u8Mode, UINT8 u8Speed)
+  90          {
+  91   1        UINT8 u8EA;
+  92   1        UINT8 u8ReadReg;
+  93   1      
+  94   1        if(I2C_CLK_STATE == 0)
+  95   1        {
+  96   2          assert_error(I2C_CODE | RETURN_I2C_CLOCK_OFF);
+  97   2          return RETURN_I2C_CLOCK_OFF;
+  98   2        }
+  99   1      
+ 100   1        if(u8Speed < 18)
+ 101   1        {
+ 102   2          assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+ 103   2          return RETURN_I2C_INVALID_PARAMETER;
+ 104   2        }
+ 105   1      
+ 106   1        if(u8IntEna)
+ 107   1        {
+ 108   2          u8EA = EA;
+ 109   2          EA = 0;
+ 110   2      
+ 111   2          xI2C_PRER = u8Speed;
+ 112   2          xI2C_TO = 0xFF;
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 3   
+
+ 113   2          xI2C_HOLD = 0x00;
+ 114   2          u8ReadReg = xI2C_STR;
+ 115   2          u8ReadReg = xI2C_FINTVAL;
+ 116   2          if(u8Mode & BIT0) // Master
+ 117   2          {
+ 118   3            xI2C_CTR = (I2C_CORE_OFF | I2C_MASTER | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+ 119   3          }
+ 120   2          else          // Slave
+ 121   2          {
+ 122   3            xI2C_CTR = (I2C_CORE_OFF | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+ 123   3          }
+ 124   2      
+ 125   2          EIP2 &= ~BIT1;
+ 126   2          if(u8Priority)
+ 127   2          {
+ 128   3            EIP2 |= BIT1;
+ 129   3          }
+ 130   2          EIE2 |= BIT1;
+ 131   2          EA = u8EA;
+ 132   2        }
+ 133   1        else
+ 134   1        {
+ 135   2          EIE2 &= ~BIT1;
+ 136   2          xI2C_CTR = I2C_CORE_OFF;    // core disable
+ 137   2        }
+ 138   1      
+ 139   1        return RETURN_I2C_SUCCESS;
+ 140   1      }
+ 141          
+ 142          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 143          /// 
+ 144          ///   Makes a time-delay for one I2C clock time
+ 145          ///
+ 146          /// @param  void
+ 147          /// @return void
+ 148          /// 
+ 149          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 150          void HAL_I2COneClockDelay(void)
+ 151          {
+ 152   1        static  UINT16  u16ClockDelay;
+ 153   1      
+ 154   1        for(u16ClockDelay=0 ; u16ClockDelay<10 ; u16ClockDelay++);
+ 155   1      }
+ 156          
+ 157          
+ 158          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 159          /// 
+ 160          ///   Writes I2C data with the random address
+ 161          ///
+ 162          /// @param  u8DeviceAddr  : Device address of the I2C slave device. 0x00 ~ 0x7F.
+ 163          /// @param  u8WordAddr  : Word address of the I2C slave device. 
+ 164          ///             \n The first data is written to the memory space addressed by "u8WordAddr"
+ 165          /// @param  pu8DataBuff : Pointer to the buffer of the data to be written.
+ 166          /// @param  u8DataLen : Number of data to be written
+ 167          /// @return UINT8. Status.
+ 168          /// 
+ 169          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 170          UINT8 HAL_I2CMaster_RandomWrite(UINT8 u8DeviceAddr, UINT8 u8WordAddr, UINT8* pu8DataBuff, UINT8 u8DataLen)
+ 171          {
+ 172   1        UINT8 u8ExpectedByteTransfer;
+ 173   1        UINT8 u8Status;
+ 174   1        UINT8 u8ReadReg;
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 4   
+
+ 175   1        UINT8 u8Addr_Cmd;
+ 176   1        UINT8 ib;
+ 177   1        UINT8 u8EIE1;
+ 178   1        UINT8 u8EIE2;
+ 179   1        UINT8 u8IE;
+ 180   1        UINT8 loop_count = 0;
+ 181   1      
+ 182   1        if(I2C_CLK_STATE == 0)
+ 183   1        {
+ 184   2          assert_error(I2C_CODE | RETURN_I2C_CLOCK_OFF);
+ 185   2          return RETURN_I2C_CLOCK_OFF;
+ 186   2        }
+ 187   1      
+ 188   1        if(u8DataLen == 0)
+ 189   1        {
+ 190   2          assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+ 191   2          return RETURN_I2C_INVALID_PARAMETER;
+ 192   2        }
+ 193   1      
+ 194   1        if(u8DataLen > 15)
+ 195   1        {
+ 196   2          assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+ 197   2          return RETURN_I2C_INVALID_PARAMETER;
+ 198   2        }
+ 199   1      
+ 200   1        SYS_WdtSet(0);
+ 201   1      
+ 202   1        u8EIE1 = EIE1;
+ 203   1        u8EIE2 = EIE2;
+ 204   1        u8IE = IE;
+ 205   1      
+ 206   1        EIE2 = BIT1;
+ 207   1        EIE1 = 0;
+ 208   1        IE = BIT7;
+ 209   1      
+ 210   1        xI2C_CTR = (I2C_CORE_OFF | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+ 211   1        u8ReadReg = xI2C_FINTVAL;
+ 212   1        EA = 0;
+ 213   1        u8ReadReg = xI2C_STR;
+ 214   1        DPH = 0;
+ 215   1        EA = 1;
+ 216   1      
+ 217   1        u8Addr_Cmd = (u8DeviceAddr & 0x7F) << 1;
+ 218   1        u8Addr_Cmd |= I2C_WRITE_BIT;
+ 219   1      
+ 220   1        xI2C_ADDR = u8Addr_Cmd;
+ 221   1        EA = 0;
+ 222   1        xI2C_DATA = u8WordAddr;
+ 223   1        DPH = 0;
+ 224   1        EA = 1;
+ 225   1        for(ib=0 ; ib<u8DataLen ; ib++)
+ 226   1        {
+ 227   2          EA = 0;
+ 228   2          xI2C_DATA = pu8DataBuff[ib];
+ 229   2          DPH = 0;
+ 230   2          EA = 1;
+ 231   2        }
+ 232   1        xI2C_IMSK = BIT6 | BIT2;
+ 233   1      
+ 234   1        xI2C_CTR &= ~I2C_CORE_OFF;
+ 235   1      
+ 236   1        gu8I2CNackedFlag = 0;
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 5   
+
+ 237   1        u8ExpectedByteTransfer = 2 + u8DataLen;
+ 238   1        gu8I2CByteTransferIntCount = 0;
+ 239   1      
+ 240   1        xI2C_CTR |= (I2C_INT_ON | I2C_MASTER | I2C_START);
+ 241   1      
+ 242   1        u8Status = RETURN_I2C_SUCCESS;
+ 243   1        while(1)
+ 244   1        {
+ 245   2          loop_count++;
+ 246   2          if(gu8I2CNackedFlag) {
+ 247   3            u8Status = RETURN_I2C_NACK_FROM_SLAVE;
+ 248   3            break;
+ 249   3          }
+ 250   2      
+ 251   2          if(u8ExpectedByteTransfer == gu8I2CByteTransferIntCount)  break;
+ 252   2          if (loop_count >= 0x40) { u8Status = 0x80; break; }
+ 253   2          
+ 254   2        }
+ 255   1      
+ 256   1        if(u8Status == RETURN_I2C_SUCCESS)
+ 257   1        {
+ 258   2          HAL_I2COneClockDelay();
+ 259   2          xI2C_CTR &= ~I2C_START;     // 1-->0 : STOP
+ 260   2        }
+ 261   1      
+ 262   1        loop_count = 0;
+ 263   1        while(!(I2C_SCL && I2C_SDA)) {
+ 264   2          loop_count++;
+ 265   2            
+ 266   2          if (loop_count >= 0x20)   {u8Status = 0x80;  break;}
+ 267   2        };    // wait until SCL=1 and SDA=1
+ 268   1      
+ 269   1        xI2C_CTR = I2C_CORE_OFF;
+ 270   1      
+ 271   1        EIE2 = u8EIE2;
+ 272   1        EIE1 = u8EIE1;
+ 273   1        IE = u8IE;
+ 274   1      
+ 275   1        return u8Status;  
+ 276   1      }
+ 277          
+ 278          #if 0
+              // Radiopulse org code
+              
+              ///////////////////////////////////////////////////////////////////////////////////////////////
+              /// 
+              ///   Reads I2C data with the random address
+              ///
+              /// @param  u8DeviceAddr  : Device address of the I2C slave device. 0x00 ~ 0x7F.
+              /// @param  u8WordAddr  : Word address of the I2C slave device. 
+              ///             \n The first data is read from the memory space addressed by "u8WordAddr"
+              /// @param  pu8DataBuff : Pointer to the buffer of the data to be read.
+              /// @param  u8DataLen : Number of data to be read
+              /// @return UINT8. Status.
+              /// 
+              ///////////////////////////////////////////////////////////////////////////////////////////////
+              UINT8 HAL_I2CMaster_RandomRead(UINT8 u8DeviceAddr, UINT8 u8WordAddr, UINT8* pu8DataBuff, UINT8 u8DataLen)
+              {
+                UINT8 u8ExpectedByteTransfer;
+                UINT8 u8Status;
+                UINT8 u8ReadReg;
+                UINT8 u8Addr_Cmd;
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 6   
+
+                UINT8 ib;
+                UINT8 u8EIE1;
+                UINT8 u8EIE2;
+                UINT8 u8IE;
+              
+                if(I2C_CLK_STATE == 0)
+                {
+                  assert_error(I2C_CODE | RETURN_I2C_CLOCK_OFF);
+                  return RETURN_I2C_CLOCK_OFF;
+                }
+              
+                if(u8DataLen == 0)
+                {
+                  assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+                  return RETURN_I2C_INVALID_PARAMETER;
+                }
+              
+                if(u8DataLen > 16)
+                {
+                  assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+                  return RETURN_I2C_INVALID_PARAMETER;
+                }
+              
+                SYS_WdtSet(0);
+              
+                u8EIE1 = EIE1;
+                u8EIE2 = EIE2;
+                u8IE = IE;
+              
+                EIE2 = BIT1;
+                EIE1 = 0;
+                IE = BIT7;
+              
+                xI2C_CTR = (I2C_CORE_OFF | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+                u8ReadReg = xI2C_FINTVAL;
+                EA = 0;
+                u8ReadReg = xI2C_STR;
+                DPH = 0;
+                EA = 1;
+              
+                u8Addr_Cmd = (u8DeviceAddr & 0x7F) << 1;
+                u8Addr_Cmd |= I2C_WRITE_BIT;
+              
+                xI2C_ADDR = u8Addr_Cmd;
+                EA = 0;
+                xI2C_DATA = u8WordAddr;
+                DPH = 0;
+                EA = 1;
+                xI2C_RXLVL = u8DataLen;
+                xI2C_IMSK = BIT6 | BIT2;      // Master-NACK, Byte-Transfer
+              
+                xI2C_CTR &= ~I2C_CORE_OFF;    // core enable
+              
+                gu8I2CNackedFlag = 0;
+                u8ExpectedByteTransfer = 2;
+                gu8I2CByteTransferIntCount = 0;
+              
+                xI2C_CTR |= (I2C_INT_ON | I2C_MASTER | I2C_START | I2C_NACK | I2C_REP_START);
+              
+                u8Status = RETURN_I2C_SUCCESS;
+                while(1)
+                {
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 7   
+
+                  if(gu8I2CNackedFlag)
+                  {
+                    u8Status = RETURN_I2C_NACK_FROM_SLAVE;
+                    break;
+                  }
+              
+                  if(u8ExpectedByteTransfer == gu8I2CByteTransferIntCount)
+                  {
+                    break;
+                  }
+                }
+              
+                // If failed,
+                if(u8Status)
+                {
+                  while(!(I2C_SCL && I2C_SDA));   // wait until SCL=1 and SDA=1
+              
+                  xI2C_CTR = I2C_CORE_OFF;
+              
+                  EIE2 = u8EIE2;
+                  EIE1 = u8EIE1;
+                  IE = u8IE;
+              
+                  return  u8Status;
+                }
+              
+                HAL_I2COneClockDelay();
+              
+                xI2C_CTR &= ~I2C_REP_START;   // clear repeated START 
+                xI2C_ADDR |= BIT0;        // Read Operations
+              
+                while(!gu8I2CNackedFlag);
+              
+                for(ib=0 ; ib<u8DataLen ; ib++)
+                {
+                  EA = 0;
+                  pu8DataBuff[ib] = xI2C_DATA;
+                  DPH = 0;
+                  EA = 1;
+                }
+              
+                while(!(I2C_SCL && I2C_SDA));   // wait until SCL=1 and SDA=1
+              
+                xI2C_CTR = I2C_CORE_OFF;
+              
+                EIE2 = u8EIE2;
+                EIE1 = u8EIE1;
+                IE = u8IE;
+              
+                return u8Status;  
+              }
+              
+              #else
+ 414          
+ 415          // 측정된 loop count 이상 응답이 없으면 status 를 set 하고 강제 exit
+ 416          UINT8 HAL_I2CMaster_RandomRead(UINT8 u8DeviceAddr, UINT8 u8WordAddr, UINT8* pu8DataBuff, UINT8 u8DataLen)
+ 417          {
+ 418   1        UINT8 u8ExpectedByteTransfer;
+ 419   1        UINT8 u8Status;
+ 420   1        UINT8 u8ReadReg;
+ 421   1        UINT8 u8Addr_Cmd;
+ 422   1        UINT8 ib;
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 8   
+
+ 423   1        UINT8 u8EIE1;
+ 424   1        UINT8 u8EIE2;
+ 425   1        UINT8 u8IE;
+ 426   1      
+ 427   1        UINT8 loop_count = 0;
+ 428   1      
+ 429   1      
+ 430   1      
+ 431   1        if(I2C_CLK_STATE == 0)
+ 432   1        {
+ 433   2          assert_error(I2C_CODE | RETURN_I2C_CLOCK_OFF);
+ 434   2          return RETURN_I2C_CLOCK_OFF;
+ 435   2        }
+ 436   1      
+ 437   1        if(u8DataLen == 0)
+ 438   1        {
+ 439   2          assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+ 440   2          return RETURN_I2C_INVALID_PARAMETER;
+ 441   2        }
+ 442   1      
+ 443   1        if(u8DataLen > 16)
+ 444   1        {
+ 445   2          assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+ 446   2          return RETURN_I2C_INVALID_PARAMETER;
+ 447   2        }
+ 448   1      
+ 449   1        SYS_WdtSet(0);
+ 450   1      
+ 451   1        u8EIE1 = EIE1;
+ 452   1        u8EIE2 = EIE2;
+ 453   1        u8IE = IE;
+ 454   1      
+ 455   1        EIE2 = BIT1;
+ 456   1        EIE1 = 0;
+ 457   1        IE = BIT7;
+ 458   1      
+ 459   1        xI2C_CTR = (I2C_CORE_OFF | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+ 460   1        u8ReadReg = xI2C_FINTVAL;
+ 461   1        EA = 0;
+ 462   1        u8ReadReg = xI2C_STR;
+ 463   1        DPH = 0;
+ 464   1        EA = 1;
+ 465   1      
+ 466   1        u8Addr_Cmd = (u8DeviceAddr & 0x7F) << 1;
+ 467   1        u8Addr_Cmd |= I2C_WRITE_BIT;
+ 468   1      
+ 469   1        xI2C_ADDR = u8Addr_Cmd;
+ 470   1        EA = 0;
+ 471   1        xI2C_DATA = u8WordAddr;
+ 472   1        DPH = 0;
+ 473   1        EA = 1;
+ 474   1        xI2C_RXLVL = u8DataLen;
+ 475   1        xI2C_IMSK = BIT6 | BIT2;      // Master-NACK, Byte-Transfer
+ 476   1      
+ 477   1        xI2C_CTR &= ~I2C_CORE_OFF;    // core enable
+ 478   1      
+ 479   1        gu8I2CNackedFlag = 0;
+ 480   1        u8ExpectedByteTransfer = 2;
+ 481   1        gu8I2CByteTransferIntCount = 0;
+ 482   1      
+ 483   1        xI2C_CTR |= (I2C_INT_ON | I2C_MASTER | I2C_START | I2C_NACK | I2C_REP_START);
+ 484   1      
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 9   
+
+ 485   1      
+ 486   1        u8Status = RETURN_I2C_SUCCESS;
+ 487   1        while(1)        // 0x0A : 여기서 i2c가 멈춤
+ 488   1        {
+ 489   2          loop_count++;       // 0x0b : normal loop count
+ 490   2          if(gu8I2CNackedFlag) {
+ 491   3            u8Status = RETURN_I2C_NACK_FROM_SLAVE;
+ 492   3            break;
+ 493   3          }
+ 494   2      
+ 495   2          if(u8ExpectedByteTransfer == gu8I2CByteTransferIntCount)  break;
+ 496   2          if (loop_count >= 0x50) { u8Status = 0x80; break; }
+ 497   2        }
+ 498   1      
+ 499   1        // If failed,
+ 500   1        if(u8Status)
+ 501   1        {
+ 502   2        
+ 503   2          //while(!(I2C_SCL && I2C_SDA));   // wait until SCL=1 and SDA=1
+ 504   2          loop_count = 0;
+ 505   2          while(!(I2C_SCL && I2C_SDA)) {
+ 506   3            loop_count++;
+ 507   3            if (loop_count >= 0x20)   {u8Status = 0x80;  break;}
+ 508   3          };    // wait until SCL=1 and SDA=1
+ 509   2      
+ 510   2          xI2C_CTR = I2C_CORE_OFF;
+ 511   2      
+ 512   2          EIE2 = u8EIE2;
+ 513   2          EIE1 = u8EIE1;
+ 514   2          IE = u8IE;
+ 515   2      
+ 516   2          return  u8Status;
+ 517   2        }
+ 518   1      
+ 519   1        HAL_I2COneClockDelay();
+ 520   1      
+ 521   1        xI2C_CTR &= ~I2C_REP_START;   // clear repeated START 
+ 522   1        xI2C_ADDR |= BIT0;        // Read Operations
+ 523   1      
+ 524   1        //----------------------------------------------------
+ 525   1        // original code
+ 526   1        //while(!gu8I2CNackedFlag);       // 0x43
+ 527   1      
+ 528   1        loop_count = 0;
+ 529   1        while(!gu8I2CNackedFlag) {        // 0x43 : normal loop count
+ 530   2          loop_count++;
+ 531   2          
+ 532   2          if (loop_count >= 0xE0) { u8Status = 0x80; break; }
+ 533   2        };    // wait until SCL=1 and SDA=1
+ 534   1      
+ 535   1        //----------------------------------------------------
+ 536   1      
+ 537   1        for(ib=0 ; ib<u8DataLen ; ib++)
+ 538   1        {
+ 539   2          EA = 0;
+ 540   2          pu8DataBuff[ib] = xI2C_DATA;
+ 541   2          DPH = 0;
+ 542   2          EA = 1;
+ 543   2        }
+ 544   1      
+ 545   1        //----------------------------------------------------
+ 546   1        // original code
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 10  
+
+ 547   1        //while(!(I2C_SCL && I2C_SDA));   // wait until SCL=1 and SDA=1
+ 548   1      
+ 549   1        loop_count = 0;
+ 550   1      
+ 551   1        while(!(I2C_SCL && I2C_SDA)) {    // loop_count 0x02 or 0x00
+ 552   2          loop_count++;
+ 553   2          if (loop_count >= 0x20) { u8Status = 0x80; break; }
+ 554   2          
+ 555   2        };    // wait until SCL=1 and SDA=1
+ 556   1        //----------------------------------------------------
+ 557   1      
+ 558   1        xI2C_CTR = I2C_CORE_OFF;
+ 559   1      
+ 560   1        EIE2 = u8EIE2;
+ 561   1        EIE1 = u8EIE1;
+ 562   1        IE = u8IE;
+ 563   1      
+ 564   1        return u8Status;  
+ 565   1      }
+ 566          
+ 567          
+ 568          #endif
+ 569          
+ 570          #if 0
+              // org code
+              
+              ///////////////////////////////////////////////////////////////////////////////////////////////
+              /// 
+              ///   Writes I2C data sequentially
+              ///
+              /// @param  u8DeviceAddr  : Device address of the I2C slave device. 0x00 ~ 0x7F.
+              /// @param  pu8DataBuff : Pointer to the buffer of the data to be written.
+              /// @param  u8DataLen : Number of data to be written
+              /// @return UINT8. Status.
+              /// 
+              ///////////////////////////////////////////////////////////////////////////////////////////////
+              UINT8 HAL_I2CMaster_SequentialWrite(UINT8 u8DeviceAddr, UINT8* pu8DataBuff, UINT8 u8DataLen)
+              {
+                UINT8 u8ExpectedByteTransfer;
+                UINT8 u8Status;
+                UINT8 u8ReadReg;
+                UINT8 u8Addr_Cmd;
+                UINT8 ib;
+                UINT8 u8EIE1;
+                UINT8 u8EIE2;
+                UINT8 u8IE;
+              
+                if(I2C_CLK_STATE == 0)
+                {
+                  assert_error(I2C_CODE | RETURN_I2C_CLOCK_OFF);
+                  return RETURN_I2C_CLOCK_OFF;
+                }
+              
+                if(u8DataLen == 0)
+                {
+                  assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+                  return RETURN_I2C_INVALID_PARAMETER;
+                }
+              
+                if(u8DataLen > 16)
+                {
+                  assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 11  
+
+                  return RETURN_I2C_INVALID_PARAMETER;
+                }
+              
+                SYS_WdtSet(0);
+              
+                u8EIE1 = EIE1;
+                u8EIE2 = EIE2;
+                u8IE = IE;
+              
+                EIE2 = BIT1;
+                EIE1 = 0;
+                IE = BIT7;
+              
+                xI2C_CTR = (I2C_CORE_OFF | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+                u8ReadReg = xI2C_FINTVAL;
+                EA = 0;
+                u8ReadReg = xI2C_STR;
+                DPH = 0;
+                EA = 1;
+              
+                u8Addr_Cmd = (u8DeviceAddr & 0x7F) << 1;
+                u8Addr_Cmd |= I2C_WRITE_BIT;
+              
+                xI2C_ADDR = u8Addr_Cmd; 
+                for(ib=0 ; ib<u8DataLen ; ib++)
+                {
+                  EA = 0;
+                  xI2C_DATA = pu8DataBuff[ib];
+                  DPH = 0;
+                  EA = 1;
+                }
+                xI2C_IMSK = BIT6 | BIT2;
+              
+                xI2C_CTR &= ~I2C_CORE_OFF;
+              
+                gu8I2CNackedFlag = 0;
+                u8ExpectedByteTransfer = 1 + u8DataLen;
+                gu8I2CByteTransferIntCount = 0;
+              
+                xI2C_CTR |= (I2C_INT_ON | I2C_MASTER | I2C_START);
+              
+                u8Status = RETURN_I2C_SUCCESS;
+                while(1)
+                {
+                  if(gu8I2CNackedFlag)
+                  {
+                    u8Status = RETURN_I2C_NACK_FROM_SLAVE;
+                    break;
+                  }
+              
+                  if(u8ExpectedByteTransfer == gu8I2CByteTransferIntCount)
+                  {
+                    break;
+                  }
+                }
+              
+                if(u8Status == RETURN_I2C_SUCCESS)
+                {
+                  HAL_I2COneClockDelay();
+              
+                  xI2C_CTR &= ~I2C_START;     // 1-->0 : STOP
+                }
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 12  
+
+              
+                while(!(I2C_SCL && I2C_SDA));   // wait until SCL=1 and SDA=1
+              
+                xI2C_CTR = I2C_CORE_OFF;
+              
+                EIE2 = u8EIE2;
+                EIE1 = u8EIE1;
+                IE = u8IE;
+              
+                return u8Status;  
+              }
+              
+              #else
+ 684          
+ 685          
+ 686          // 측정된 loop count 이상 응답이 없으면 status 를 set 하고 강제 exit
+ 687          UINT8 HAL_I2CMaster_SequentialWrite(UINT8 u8DeviceAddr, UINT8* pu8DataBuff, UINT8 u8DataLen)
+ 688          {
+ 689   1        UINT8 u8ExpectedByteTransfer;
+ 690   1        UINT8 u8Status;
+ 691   1        UINT8 u8ReadReg;
+ 692   1        UINT8 u8Addr_Cmd;
+ 693   1        UINT8 ib;
+ 694   1        UINT8 u8EIE1;
+ 695   1        UINT8 u8EIE2;
+ 696   1        UINT8 u8IE;
+ 697   1      
+ 698   1        UINT8   loop_count = 0;
+ 699   1      
+ 700   1      
+ 701   1        if(I2C_CLK_STATE == 0)
+ 702   1        {
+ 703   2          assert_error(I2C_CODE | RETURN_I2C_CLOCK_OFF);
+ 704   2          return RETURN_I2C_CLOCK_OFF;
+ 705   2        }
+ 706   1      
+ 707   1        if(u8DataLen == 0)
+ 708   1        {
+ 709   2          assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+ 710   2          return RETURN_I2C_INVALID_PARAMETER;
+ 711   2        }
+ 712   1      
+ 713   1        if(u8DataLen > 16)
+ 714   1        {
+ 715   2          assert_error(I2C_CODE | RETURN_I2C_INVALID_PARAMETER);
+ 716   2          return RETURN_I2C_INVALID_PARAMETER;
+ 717   2        }
+ 718   1      
+ 719   1        SYS_WdtSet(0);
+ 720   1      
+ 721   1        u8EIE1 = EIE1;
+ 722   1        u8EIE2 = EIE2;
+ 723   1        u8IE = IE;
+ 724   1      
+ 725   1        EIE2 = BIT1;
+ 726   1        EIE1 = 0;
+ 727   1        IE = BIT7;
+ 728   1      
+ 729   1        xI2C_CTR = (I2C_CORE_OFF | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+ 730   1        u8ReadReg = xI2C_FINTVAL;
+ 731   1        EA = 0;
+ 732   1        u8ReadReg = xI2C_STR;
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 13  
+
+ 733   1        DPH = 0;
+ 734   1        EA = 1;
+ 735   1      
+ 736   1        u8Addr_Cmd = (u8DeviceAddr & 0x7F) << 1;
+ 737   1        u8Addr_Cmd |= I2C_WRITE_BIT;
+ 738   1      
+ 739   1        xI2C_ADDR = u8Addr_Cmd; 
+ 740   1        for(ib=0 ; ib<u8DataLen ; ib++)
+ 741   1        {
+ 742   2          EA = 0;
+ 743   2          xI2C_DATA = pu8DataBuff[ib];
+ 744   2          DPH = 0;
+ 745   2          EA = 1;
+ 746   2        }
+ 747   1        xI2C_IMSK = BIT6 | BIT2;
+ 748   1      
+ 749   1        xI2C_CTR &= ~I2C_CORE_OFF;
+ 750   1      
+ 751   1        gu8I2CNackedFlag = 0;
+ 752   1        u8ExpectedByteTransfer = 1 + u8DataLen;
+ 753   1        gu8I2CByteTransferIntCount = 0;
+ 754   1      
+ 755   1        xI2C_CTR |= (I2C_INT_ON | I2C_MASTER | I2C_START);
+ 756   1      
+ 757   1        u8Status = RETURN_I2C_SUCCESS;
+ 758   1        
+ 759   1        while(1)
+ 760   1        {
+ 761   2          loop_count++;
+ 762   2          if(gu8I2CNackedFlag) {
+ 763   3            u8Status = RETURN_I2C_NACK_FROM_SLAVE;
+ 764   3            break;
+ 765   3          }
+ 766   2      
+ 767   2          if(u8ExpectedByteTransfer == gu8I2CByteTransferIntCount)  break;
+ 768   2          if (loop_count >= 0x40) { u8Status = 0x80; break; }
+ 769   2        }
+ 770   1      
+ 771   1        if(u8Status == RETURN_I2C_SUCCESS)
+ 772   1        {
+ 773   2          HAL_I2COneClockDelay();
+ 774   2          xI2C_CTR &= ~I2C_START;     // 1-->0 : STOP
+ 775   2        }
+ 776   1      
+ 777   1      
+ 778   1        //----------------------------------------------------
+ 779   1        // original code
+ 780   1        //while(!(I2C_SCL && I2C_SDA));   // wait until SCL=1 and SDA=1
+ 781   1      
+ 782   1        loop_count = 0;
+ 783   1      
+ 784   1        while(!(I2C_SCL && I2C_SDA)) {    // loop_count 0x02 or 0x00
+ 785   2          if (loop_count++ >= 0x10) { u8Status = 0x80;  break; }
+ 786   2        };    // wait until SCL=1 and SDA=1
+ 787   1      
+ 788   1        //----------------------------------------------------
+ 789   1      
+ 790   1        xI2C_CTR = I2C_CORE_OFF;
+ 791   1      
+ 792   1        EIE2 = u8EIE2;
+ 793   1        EIE1 = u8EIE1;
+ 794   1        IE = u8IE;
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 14  
+
+ 795   1      
+ 796   1        return u8Status;  
+ 797   1      }
+ 798          
+ 799          #endif
+ 800          
+ 801          
+ 802          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 803          /// 
+ 804          ///   Reads I2C data sequentially
+ 805          ///
+ 806          /// @param  u8DeviceAddr  : Device address of the I2C slave device. 0x00 ~ 0x7F.
+ 807          /// @param  pu8DataBuff : Pointer to the buffer of the data to be read.
+ 808          /// @param  u8DataLen : Number of data to be read
+ 809          /// @return UINT8. Status.
+ 810          /// 
+ 811          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 812          UINT8 HAL_I2CMaster_SequentialRead(UINT8 u8DeviceAddr, UINT8* pu8DataBuff, UINT8 u8DataLen)
+ 813          {
+ 814   1        UINT8 u8Status;
+ 815   1        UINT8 u8ReadReg;
+ 816   1        UINT8 u8Addr_Cmd;
+ 817   1        UINT8 ib;
+ 818   1        UINT8 u8EIE1;
+ 819   1        UINT8 u8EIE2;
+ 820   1        UINT8 u8IE;
+ 821   1        UINT8 u8PostReadIdx;
+ 822   1      
+ 823   1        if(I2C_CLK_STATE == 0)
+ 824   1        {
+ 825   2          assert_error(I2C_CODE | RETURN_I2C_CLOCK_OFF);
+ 826   2          return RETURN_I2C_CLOCK_OFF;
+ 827   2        }
+ 828   1      
+ 829   1        SYS_WdtSet(0);
+ 830   1      
+ 831   1        u8EIE1 = EIE1;
+ 832   1        u8EIE2 = EIE2;
+ 833   1        u8IE = IE;
+ 834   1      
+ 835   1        EIE2 = BIT1;
+ 836   1        EIE1 = 0;
+ 837   1        IE = BIT7;
+ 838   1      
+ 839   1        xI2C_CTR = (I2C_CORE_OFF | I2C_RXFIFO_RST | I2C_TXFIFO_RST);
+ 840   1        u8ReadReg = xI2C_FINTVAL;
+ 841   1        EA = 0;
+ 842   1        u8ReadReg = xI2C_STR;
+ 843   1        DPH = 0;
+ 844   1        EA = 1;
+ 845   1      
+ 846   1        u8Addr_Cmd = (u8DeviceAddr & 0x7F) << 1;
+ 847   1        u8Addr_Cmd |= I2C_READ_BIT;
+ 848   1      
+ 849   1        xI2C_ADDR = u8Addr_Cmd;
+ 850   1        if(u8DataLen > 16)
+ 851   1        {
+ 852   2          xI2C_RXLVL = 16;
+ 853   2          gu8I2CMasterPreReadLength = u8DataLen - 16;
+ 854   2        }
+ 855   1        else
+ 856   1        {
+C51 COMPILER V9.53.0.0   I2C                                                               01/28/2020 11:28:53 PAGE 15  
+
+ 857   2          xI2C_RXLVL = u8DataLen;
+ 858   2          gu8I2CMasterPreReadLength = 0;
+ 859   2        }
+ 860   1        xI2C_IMSK = BIT6 | BIT2;      // Master-NACK, Byte-Transfer
+ 861   1      
+ 862   1        xI2C_CTR &= ~I2C_CORE_OFF;    // core enable
+ 863   1      
+ 864   1        gu8I2CNackedFlag = 0;
+ 865   1        u8PostReadIdx = gu8I2CMasterPreReadLength;
+ 866   1        gu8I2CByteTransferIntCount = 0;
+ 867   1        gpu8I2CMasterReadData = pu8DataBuff;
+ 868   1      
+ 869   1        xI2C_CTR |= (I2C_INT_ON | I2C_MASTER | I2C_START | I2C_NACK);
+ 870   1      
+ 871   1        u8Status = RETURN_I2C_SUCCESS;
+ 872   1        while(1)
+ 873   1        {
+ 874   2          if(gu8I2CNackedFlag)
+ 875   2          {
+ 876   3            break;
+ 877   3          }
+ 878   2        }
+ 879   1      
+ 880   1        for(ib=0 ; ib<xI2C_RXLVL ; ib++)
+ 881   1        {
+ 882   2          EA = 0;
+ 883   2          pu8DataBuff[u8PostReadIdx+ib] = xI2C_DATA;
+ 884   2          DPH = 0;
+ 885   2          EA = 1;
+ 886   2        }
+ 887   1      
+ 888   1        while(!(I2C_SCL && I2C_SDA));   // wait until SCL=1 and SDA=1
+ 889   1      
+ 890   1        xI2C_CTR = I2C_CORE_OFF;
+ 891   1      
+ 892   1        EIE2 = u8EIE2;
+ 893   1        EIE1 = u8EIE1;
+ 894   1        IE = u8IE;
+ 895   1      
+ 896   1        return u8Status;  
+ 897   1      }
+ 898          
+ 899          
+ 900          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1137    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      8      41
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

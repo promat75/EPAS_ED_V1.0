@@ -1,0 +1,758 @@
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE SECURITY
+OBJECT MODULE PLACED IN .\HEX\SECURITY.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\SECURITY.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\
+                    -Include\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\S
+                    -ECURITY.lst) TABS(2) OBJECT(.\HEX\SECURITY.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2013-05-27
+   6            - Version   : V2.2
+   7          
+   8            [2013-05-27] V2.2
+   9            - HAL_SecEncryptionCCM32() : bug fix.
+  10          
+  11            [2012-08-20] V2.1
+  12            - HAL_SecDecryptionCCM32() : corrected.
+  13            - Comment : corrected.
+  14          
+  15            [2012-04-25] V2.0
+  16            - Initial Version for MG2470B(ChipID=0x71)
+  17          *******************************************************************************/
+  18          
+  19          #include "INCLUDE_MG2470.h"
+  20          #include "security.h"
+  21          
+  22          ///////////////////////////////////////////////////////////////////////////////////////////////
+  23          /// 
+  24          ///   Global variable which indicates whether AES interrupt is generated.
+  25          /// When AES interrupt is generated, it is set to 1.
+  26          /// And after processing the interrupt, it should be cleared.
+  27          /// 
+  28          ///////////////////////////////////////////////////////////////////////////////////////////////
+  29          UINT8 gu8AesIntFlag = 0;
+  30          
+  31          ///////////////////////////////////////////////////////////////////////////////////////////////
+  32          /// 
+  33          ///   Sets registers for KEY0.
+  34          ///
+  35          /// @param  pu8Key0Buff   : Pointer to the buffer of KEY0 to be written.
+  36          /// @return void
+  37          /// 
+  38          ///////////////////////////////////////////////////////////////////////////////////////////////
+  39          void HAL_SecKey0Set(UINT8* pu8Key0Buff)
+  40          {
+  41   1        UINT8 u8ClockOff;
+  42   1      
+  43   1        u8ClockOff = 0;
+  44   1        if(SEC_CLK_STATE == 0)
+  45   1        {
+  46   2          SEC_CLK_ON;
+  47   2          u8ClockOff = 1;
+  48   2        }
+  49   1      
+  50   1        rpmemcpy(&xKEY0(0), pu8Key0Buff, 16);
+  51   1      
+  52   1        if(u8ClockOff)
+  53   1        {
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 2   
+
+  54   2          SEC_CLK_OFF;
+  55   2        }
+  56   1      }
+  57          
+  58          ///////////////////////////////////////////////////////////////////////////////////////////////
+  59          /// 
+  60          ///   Sets registers for KEY1.
+  61          ///
+  62          /// @param  pu8Key1Buff   : Pointer to the buffer of KEY1 to be written.
+  63          /// @return void
+  64          /// 
+  65          ///////////////////////////////////////////////////////////////////////////////////////////////
+  66          void HAL_SecKey1Set(UINT8* pu8Key1Buff)
+  67          {
+  68   1        UINT8 u8ClockOff;
+  69   1      
+  70   1        u8ClockOff = 0;
+  71   1        if(SEC_CLK_STATE == 0)
+  72   1        {
+  73   2          SEC_CLK_ON;
+  74   2          u8ClockOff = 1;
+  75   2        }
+  76   1      
+  77   1        rpmemcpy(&xKEY1(0), pu8Key1Buff, 16);
+  78   1      
+  79   1        if(u8ClockOff)
+  80   1        {
+  81   2          SEC_CLK_OFF;
+  82   2        }
+  83   1      }
+  84          
+  85          ///////////////////////////////////////////////////////////////////////////////////////////////
+  86          /// 
+  87          ///   Sets the key sequence number for TX-NONCE.
+  88          ///
+  89          /// @param  u8KeySeq    : Key sequence number to be written.
+  90          /// @return void
+  91          /// 
+  92          ///////////////////////////////////////////////////////////////////////////////////////////////
+  93          void HAL_SecTxNonceKeySeqSet(UINT8 u8KeySeq)
+  94          {
+  95   1        UINT8 u8ClockOff;
+  96   1      
+  97   1        u8ClockOff = 0;
+  98   1        if(SEC_CLK_STATE == 0)
+  99   1        {
+ 100   2          SEC_CLK_ON;
+ 101   2          u8ClockOff = 1;
+ 102   2        }
+ 103   1      
+ 104   1        xTXNONCE(0) = u8KeySeq;
+ 105   1      
+ 106   1        if(u8ClockOff)
+ 107   1        {
+ 108   2          SEC_CLK_OFF;
+ 109   2        }
+ 110   1      }
+ 111          
+ 112          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 113          /// 
+ 114          ///   Sets the frame counter for TX-NONCE.
+ 115          ///
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 3   
+
+ 116          /// @param  u32FrameCnt   : 32-bits frame counter to be written.
+ 117          /// @return void
+ 118          /// 
+ 119          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 120          void HAL_SecTxNonceFrameCntSet(UINT32 u32FrameCnt)
+ 121          {
+ 122   1        UINT8 u8ClockOff;
+ 123   1      
+ 124   1        u8ClockOff = 0;
+ 125   1        if(SEC_CLK_STATE == 0)
+ 126   1        {
+ 127   2          SEC_CLK_ON;
+ 128   2          u8ClockOff = 1;
+ 129   2        }
+ 130   1      
+ 131   1        xTXNONCE(1) = (UINT8)u32FrameCnt; u32FrameCnt >>= 8;
+ 132   1        xTXNONCE(2) = (UINT8)u32FrameCnt; u32FrameCnt >>= 8;
+ 133   1        xTXNONCE(3) = (UINT8)u32FrameCnt; u32FrameCnt >>= 8;
+ 134   1        xTXNONCE(4) = (UINT8)u32FrameCnt;
+ 135   1      
+ 136   1        if(u8ClockOff)
+ 137   1        {
+ 138   2          SEC_CLK_OFF;
+ 139   2        } 
+ 140   1      }
+ 141          
+ 142          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 143          /// 
+ 144          ///   Sets the extended address for TX-NONCE.
+ 145          ///
+ 146          /// @param  pu8ExtAddrBuff    : Pointer to the buffer of 64-bits extended address to be written.
+ 147          /// @return void
+ 148          /// 
+ 149          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 150          void HAL_SecTxNonceExtAddrSet(UINT8* pu8ExtAddrBuff)
+ 151          {
+ 152   1        UINT8 u8ClockOff;
+ 153   1      
+ 154   1        u8ClockOff = 0;
+ 155   1        if(SEC_CLK_STATE == 0)
+ 156   1        {
+ 157   2          SEC_CLK_ON;
+ 158   2          u8ClockOff = 1;
+ 159   2        }
+ 160   1      
+ 161   1        rpmemcpy(&xTXNONCE(5), pu8ExtAddrBuff, 8);
+ 162   1      
+ 163   1        if(u8ClockOff)
+ 164   1        {
+ 165   2          SEC_CLK_OFF;
+ 166   2        }
+ 167   1      }
+ 168          
+ 169          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 170          /// 
+ 171          ///   Sets the key sequence number for RX-NONCE.
+ 172          ///
+ 173          /// @param  u8KeySeq    : Key sequence number to be written.
+ 174          /// @return void
+ 175          /// 
+ 176          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 177          void HAL_SecRxNonceKeySeqSet(UINT8 u8KeySeq)
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 4   
+
+ 178          {
+ 179   1        UINT8 u8ClockOff;
+ 180   1      
+ 181   1        u8ClockOff = 0;
+ 182   1        if(SEC_CLK_STATE == 0)
+ 183   1        {
+ 184   2          SEC_CLK_ON;
+ 185   2          u8ClockOff = 1;
+ 186   2        }
+ 187   1      
+ 188   1        xRXNONCE(0) = u8KeySeq;
+ 189   1      
+ 190   1        if(u8ClockOff)
+ 191   1        {
+ 192   2          SEC_CLK_OFF;
+ 193   2        } 
+ 194   1      }
+ 195          
+ 196          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 197          /// 
+ 198          ///   Sets the frame counter for RX-NONCE.
+ 199          ///
+ 200          /// @param  u32FrameCnt   : 32-bits frame counter to be written.
+ 201          /// @return void
+ 202          /// 
+ 203          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 204          void HAL_SecRxNonceFrameCntSet(UINT32 u32FrameCnt)
+ 205          {
+ 206   1        UINT8 u8ClockOff;
+ 207   1      
+ 208   1        u8ClockOff = 0;
+ 209   1        if(SEC_CLK_STATE == 0)
+ 210   1        {
+ 211   2          SEC_CLK_ON;
+ 212   2          u8ClockOff = 1;
+ 213   2        }
+ 214   1      
+ 215   1        xRXNONCE(1) = (UINT8)u32FrameCnt; u32FrameCnt >>= 8;
+ 216   1        xRXNONCE(2) = (UINT8)u32FrameCnt; u32FrameCnt >>= 8;
+ 217   1        xRXNONCE(3) = (UINT8)u32FrameCnt; u32FrameCnt >>= 8;
+ 218   1        xRXNONCE(4) = (UINT8)u32FrameCnt;
+ 219   1      
+ 220   1        if(u8ClockOff)
+ 221   1        {
+ 222   2          SEC_CLK_OFF;
+ 223   2        }
+ 224   1      }
+ 225          
+ 226          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 227          ///
+ 228          ///   Sets the extended address for RX-NONCE.
+ 229          ///
+ 230          /// @param  pu8ExtAddrBuff    : Pointer to the buffer of 64-bits extended address to be written.
+ 231          /// @return void
+ 232          ///
+ 233          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 234          void HAL_SecRxNonceExtAddrSet(UINT8* pu8ExtAddrBuff)
+ 235          {
+ 236   1        UINT8 u8ClockOff;
+ 237   1      
+ 238   1        u8ClockOff = 0;
+ 239   1        if(SEC_CLK_STATE == 0)
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 5   
+
+ 240   1        {
+ 241   2          SEC_CLK_ON;
+ 242   2          u8ClockOff = 1;
+ 243   2        }
+ 244   1      
+ 245   1        rpmemcpy(&xRXNONCE(5), pu8ExtAddrBuff, 8);
+ 246   1      
+ 247   1        if(u8ClockOff)
+ 248   1        {
+ 249   2          SEC_CLK_OFF;
+ 250   2        } 
+ 251   1      }
+ 252          
+ 253          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 254          /// 
+ 255          ///   Gets the key sequence number for TX-NONCE.
+ 256          ///
+ 257          /// @param  void
+ 258          /// @return UINT8. The sequence number.
+ 259          /// 
+ 260          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 261          UINT8 HAL_SecTxNonceKeySeqGet(void)
+ 262          {
+ 263   1        return  xTXNONCE(0);
+ 264   1      }
+ 265          
+ 266          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 267          /// 
+ 268          ///   Gets the frame counter for TX-NONCE.
+ 269          ///
+ 270          /// @param  void
+ 271          /// @return UINT32. The frame counter.
+ 272          /// 
+ 273          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 274          UINT32 HAL_SecTxNonceFrameCntGet(void)
+ 275          {
+ 276   1        UINT32  u32FrameCnt;
+ 277   1      
+ 278   1        u32FrameCnt = xTXNONCE(4);  u32FrameCnt <<= 8;
+ 279   1        u32FrameCnt |= xTXNONCE(3); u32FrameCnt <<= 8;
+ 280   1        u32FrameCnt |= xTXNONCE(2); u32FrameCnt <<= 8;
+ 281   1        u32FrameCnt |= xTXNONCE(1);
+ 282   1      
+ 283   1        return  u32FrameCnt;
+ 284   1      }
+ 285          
+ 286          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 287          /// 
+ 288          ///   Gets the extended address for TX-NONCE.
+ 289          ///
+ 290          /// @param  pu8ExtAddrBuff  : Pointer to the buffer of 64-bits extended address to be read.
+ 291          /// @return void
+ 292          /// 
+ 293          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 294          void HAL_SecTxNonceExtAddrGet(UINT8* pu8ExtAddrBuff)
+ 295          {
+ 296   1        rpmemcpy(pu8ExtAddrBuff, &xTXNONCE(5), 8);
+ 297   1      }
+ 298          
+ 299          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 300          /// 
+ 301          ///   Gets the key sequence number for RX-NONCE.
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 6   
+
+ 302          ///
+ 303          /// @param  void
+ 304          /// @return UINT8. The sequence number.
+ 305          /// 
+ 306          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 307          UINT8 HAL_SecRxNonceKeySeqGet(void)
+ 308          {
+ 309   1        return  xRXNONCE(0);
+ 310   1      }
+ 311          
+ 312          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 313          /// 
+ 314          ///   Gets the frame counter for RX-NONCE.
+ 315          ///
+ 316          /// @param  void
+ 317          /// @return UINT32. The frame counter.
+ 318          /// 
+ 319          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 320          UINT32 HAL_SecRxNonceFrameCntGet(void)
+ 321          {
+ 322   1        UINT32  u32FrameCnt;
+ 323   1      
+ 324   1        u32FrameCnt = xRXNONCE(4);  u32FrameCnt <<= 8;
+ 325   1        u32FrameCnt |= xRXNONCE(3); u32FrameCnt <<= 8;
+ 326   1        u32FrameCnt |= xRXNONCE(2); u32FrameCnt <<= 8;
+ 327   1        u32FrameCnt |= xRXNONCE(1);
+ 328   1      
+ 329   1        return  u32FrameCnt;
+ 330   1      }
+ 331          
+ 332          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 333          /// 
+ 334          ///   Gets the extended address for RX-NONCE.
+ 335          ///
+ 336          /// @param  pu8ExtAddrBuff  : Pointer to the buffer of 64-bits extended address to be read.
+ 337          /// @return void
+ 338          /// 
+ 339          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 340          void HAL_SecRxNonceExtAddrGet(UINT8* pu8ExtAddrBuff)
+ 341          {
+ 342   1        rpmemcpy(pu8ExtAddrBuff, &xRXNONCE(5), 8);
+ 343   1      }
+ 344          
+ 345          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 346          /// 
+ 347          ///   Sets the TXL register. It has different meanings depending on the security mode.
+ 348          ///   \n  CTR mode    : The number of bytes between length byte and the data to be encrypted.
+ 349          ///   \n  CBC-MAC mode  : The number of bytes between length byte and the data to be authenticated.
+ 350          ///   \n  CCM mode    : The number of bytes authenticated but not encrypted.
+ 351          /// @param  u8TXL : The value of TXL to be written.
+ 352          /// @return void
+ 353          /// 
+ 354          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 355          void HAL_SecTXLSet(UINT8 u8TXL)
+ 356          {
+ 357   1        xTXL = u8TXL & 0x7F;
+ 358   1      }
+ 359          
+ 360          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 361          /// 
+ 362          ///   Sets the RXL register. It has different meanings depending on the security mode.
+ 363          ///   \n  CTR mode    : The number of bytes between length byte and the data to be decrypted.
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 7   
+
+ 364          ///   \n  CBC-MAC mode  : The number of bytes between length byte and the data to be authenticated.
+ 365          ///   \n  CCM mode    : The number of bytes authenticated but not decrypted.
+ 366          /// @param  u8TXL : The value of RXL to be written.
+ 367          /// @return void
+ 368          /// 
+ 369          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 370          void HAL_SecRXLSet(UINT8 u8RXL)
+ 371          {
+ 372   1        xRXL = u8RXL & 0x7F;
+ 373   1      }
+ 374          
+ 375          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 376          /// 
+ 377          ///   Selects the key to be used for outgoing packets.
+ 378          ///
+ 379          /// @param  u8KeyNum  : The number of key. 0=KEY0, 1=KEY1.
+ 380          /// @return void
+ 381          /// 
+ 382          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 383          void HAL_SecTxKeyChoice(UINT8 u8KeyNum)
+ 384          {
+ 385   1        if(u8KeyNum)
+ 386   1        {
+ 387   2          xMACSEC |= BIT6;
+ 388   2        }
+ 389   1        else
+ 390   1        {
+ 391   2          xMACSEC &= ~BIT6;
+ 392   2        }
+ 393   1      }
+ 394          
+ 395          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 396          /// 
+ 397          ///   Selects the key to be used for incoming packets.
+ 398          ///
+ 399          /// @param  u8KeyNum  : The number of key. 0=KEY0, 1=KEY1.
+ 400          /// @return void
+ 401          /// 
+ 402          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 403          void HAL_SecRxKeyChoice(UINT8 u8KeyNum)
+ 404          {
+ 405   1        if(u8KeyNum)
+ 406   1        {
+ 407   2          xMACSEC |= BIT5;
+ 408   2        }
+ 409   1        else
+ 410   1        {
+ 411   2          xMACSEC &= ~BIT5;
+ 412   2        }
+ 413   1      }
+ 414          
+ 415          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 416          /// 
+ 417          ///   Sets the length of MIC(Message Integration Code). 
+ 418          /// MIC is generated after being secured by CBC-MAC or CCM mode.
+ 419          ///
+ 420          /// @param  u8MicLength : The length of MIC. Valid number is 2/4/6/8/10/12/14/16.
+ 421          /// @return UINT8. Status.
+ 422          /// 
+ 423          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 424          UINT8 HAL_SecMicLengthSet(UINT8 u8MicLength)
+ 425          {
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 8   
+
+ 426   1        UINT8 u8M;    // M value
+ 427   1      
+ 428   1        if(u8MicLength == 0)
+ 429   1        {
+ 430   2          assert_error(SEC_CODE | RETURN_SEC_WRONG_MIC_LENGTH);
+ 431   2          return  RETURN_SEC_WRONG_MIC_LENGTH;
+ 432   2        }
+ 433   1        if(u8MicLength > 16)
+ 434   1        {
+ 435   2          assert_error(SEC_CODE | RETURN_SEC_WRONG_MIC_LENGTH);
+ 436   2          return  RETURN_SEC_WRONG_MIC_LENGTH;
+ 437   2        }
+ 438   1        if(u8MicLength & 0x01)  // if odd number, error
+ 439   1        {
+ 440   2          assert_error(SEC_CODE | RETURN_SEC_WRONG_MIC_LENGTH);
+ 441   2          return  RETURN_SEC_WRONG_MIC_LENGTH;
+ 442   2        }
+ 443   1      
+ 444   1        u8M = u8MicLength/2 - 1;  // 0 ~ 7
+ 445   1        xMACSEC &= ~0x1C;   // bit[4:2]=0
+ 446   1        xMACSEC |= (u8M << 2);
+ 447   1        
+ 448   1        return  RETURN_SEC_SUCCESS;
+ 449   1      }
+ 450          
+ 451          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 452          /// 
+ 453          ///   Sets the security mode to be used.
+ 454          ///
+ 455          /// @param  u8Mode  : The security mode. 0=None, 1=CBC-MAC, 2=CTR, 3=CCM.
+ 456          /// @return UINT8. Status.
+ 457          /// 
+ 458          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 459          UINT8 HAL_SecModeSet(UINT8 u8Mode)
+ 460          {
+ 461   1        if(u8Mode > SEC_MODE_CCM)
+ 462   1        {
+ 463   2          assert_error(SEC_CODE | RETURN_SEC_INVALID_PARAMETER);
+ 464   2          return RETURN_SEC_INVALID_PARAMETER;
+ 465   2        } 
+ 466   1      
+ 467   1        xMACSEC &= ~0x03; // bit[1:0]=0
+ 468   1        xMACSEC |= (u8Mode & 0x03);
+ 469   1      
+ 470   1        return RETURN_SEC_SUCCESS;
+ 471   1      }
+ 472          
+ 473          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 474          ///
+ 475          ///   Encrypts data with CCM mode whose MIC is 4-Bytes.
+ 476          ///
+ 477          /// @param  pu8TextBuff : Pointer to the buffer for plain-text and cipher-text.
+ 478          /// @param  u8InLen   : The length of plain-text to be encrypted.
+ 479          /// @param  u32FCnt   : 32-bits frame counter for TX-NONCE.
+ 480          /// @param  u8KSeq    : Key sequence number for TX-NONCE.
+ 481          /// @param  pu8EncLen : Pointer to the length of encrypted cipher-text.
+ 482          /// @return UINT8. Status.
+ 483          /// @note The example of this function is as followings.
+ 484          ///
+ 485          ///   \n  < Prerequisite >
+ 486          ///   \n  KEY[0~15]   : A0 A1 A2 A3 A4 A5 A6 A7 A8 A9 AA AB AC AD AE AF
+ 487          ///   \n  TX-NONCE's extended address[0~7] : B0 B1 B2 B3 B4 B5 B6 B7
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 9   
+
+ 488          ///
+ 489          ///   \n  < Input >
+ 490          ///   \n  u8InLen     : 64
+ 491          ///   \n  u32FCnt     : 0x11223344
+ 492          ///   \n  u8KSeq      : 0x55
+ 493          ///   \n  pu8TextBuff[0~63] : 
+ 494          ///   \n            10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 
+ 495          ///   \n              20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F 
+ 496          ///   \n              30 31 32 33 34 35 36 37 38 39 3A 3B 3C 3D 3E 3F 
+ 497          ///   \n              40 41 42 43 44 45 46 47 48 49 4A 4B 4C 4D 4E 4F
+ 498          ///
+ 499          ///   \n  < Output >
+ 500          ///   \n  *pu8EncLen  : 68
+ 501          ///   \n  pu8TextBuff[0~67] : 
+ 502          ///   \n            D9 07 7E 18 B7 9F 22 49 4C 42 08 B1 59 BB 06 88
+ 503          ///   \n            15 72 49 C0 95 F4 6B 10 10 F4 36 43 98 13 CC 5A
+ 504          ///   \n            5D 3B 2D AB A1 40 0D 00 DC B7 4F 85 11 3C E1 1B
+ 505          ///   \n            85 46 19 81 E4 5C C8 0E 4A E3 16 3E 16 72 12 CB
+ 506          ///   \n            EC 15 05 95 --> 4-bytes MIC
+ 507          ///
+ 508          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 509          UINT8 HAL_SecEncryptionCCM32(UINT8* pu8TextBuff, UINT8 u8InLen, UINT32 u32FCnt, UINT8 u8KSeq, UINT8* pu8En
+             -cLen)
+ 510          {
+ 511   1        static  UINT16  su16Loop;
+ 512   1        UINT8 u8Status;
+ 513   1        UINT16  u16MemAddr;
+ 514   1      
+ 515   1        u16MemAddr = (UINT16)pu8TextBuff;
+ 516   1        if( (u16MemAddr >= 0x2300) && (u16MemAddr <= 0x24FF) )
+ 517   1        {
+ 518   2          assert_error(SEC_CODE | RETURN_SEC_WRONG_MEM_ADDR);
+ 519   2          return RETURN_SEC_WRONG_MEM_ADDR;
+ 520   2        }
+ 521   1      
+ 522   1        *pu8EncLen = 0; 
+ 523   1        if(u8InLen > 121)
+ 524   1        {
+ 525   2          assert_error(SEC_CODE | RETURN_SEC_TOO_LONG_TEXT);
+ 526   2          return RETURN_SEC_TOO_LONG_TEXT;
+ 527   2        }
+ 528   1      
+ 529   1        if(u8InLen == 1)
+ 530   1        {
+ 531   2          assert_error(SEC_CODE | RETURN_SEC_TOO_SHORT_TEXT);
+ 532   2          return RETURN_SEC_TOO_SHORT_TEXT;
+ 533   2        }
+ 534   1      
+ 535   1        SEC_CLK_ON;
+ 536   1      
+ 537   1        // Enable Mode
+ 538   1        HAL_SecModeSet(SEC_MODE_CCM);
+ 539   1        HAL_SecTxNonceFrameCntSet(u32FCnt);
+ 540   1        HAL_SecTxNonceKeySeqSet(u8KSeq);
+ 541   1        HAL_SecTXLSet(0);
+ 542   1        HAL_SecMicLengthSet(4);
+ 543   1      
+ 544   1        // Packet Length and PlainText
+ 545   1        xSECMAP = BIT0;
+ 546   1        xSTxFIFO(0) = u8InLen + 2;
+ 547   1        rpmemcpy(&xSTxFIFO(1), pu8TextBuff, u8InLen);
+ 548   1      
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 10  
+
+ 549   1        //########################################################
+ 550   1        // Encryption
+ 551   1        //########################################################
+ 552   1        #define EncDone_WaitLoopCnt   600
+ 553   1      
+ 554   1        xSTFCSECBASE = 0;
+ 555   1        xSTFCSECLEN = u8InLen + 2;
+ 556   1      
+ 557   1        u8Status = RETURN_SEC_ENCRYPT_TIMEOUT;
+ 558   1        xMACSTS &= ~BIT2;
+ 559   1        xSTFCCTL |= BIT2; // bit[2]=1, Start encryption
+ 560   1        xSECMAP = 0;
+ 561   1      
+ 562   1        for(su16Loop=0 ; su16Loop<EncDone_WaitLoopCnt ; su16Loop++)
+ 563   1        {
+ 564   2          if(xMACSTS & BIT2)
+ 565   2          {
+ 566   3            u8Status = RETURN_SEC_SUCCESS;
+ 567   3            break;
+ 568   3          }
+ 569   2        }
+ 570   1      
+ 571   1        if(u8Status == RETURN_SEC_SUCCESS)
+ 572   1        {
+ 573   2          *pu8EncLen = u8InLen + 4;
+ 574   2          xSECMAP = BIT0;
+ 575   2          rpmemcpy(pu8TextBuff, &xSTxFIFO(1), *pu8EncLen);
+ 576   2          xSECMAP = 0;
+ 577   2        }
+ 578   1      
+ 579   1        SEC_CLK_OFF;
+ 580   1      
+ 581   1        if(u8Status)
+ 582   1        {
+ 583   2          assert_error(SEC_CODE | u8Status);
+ 584   2        }
+ 585   1        
+ 586   1        return u8Status;
+ 587   1      }
+ 588          
+ 589          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 590          /// 
+ 591          ///   Decrypts data with CCM mode whose MIC is 4-Bytes.
+ 592          ///
+ 593          /// @param  pu8TextBuff : Pointer to the buffer for plain-text and cipher-text.
+ 594          /// @param  u8InLen   : The length of cipher-text to be decrypted.
+ 595          /// @param  u32FCnt   : 32-bits frame counter for RX-NONCE.
+ 596          /// @param  u8KSeq    : Key sequence number for RX-NONCE.
+ 597          /// @param  pu8DecLen : Pointer to the length of decrypted plain-text.
+ 598          /// @return UINT8. Status.
+ 599          /// @note The example of this function is as followings.
+ 600          ///
+ 601          ///   \n  < Prerequisite >
+ 602          ///   \n  KEY[0~15]   : A0 A1 A2 A3 A4 A5 A6 A7 A8 A9 AA AB AC AD AE AF
+ 603          ///   \n  RX-NONCE's extended address[0~7] : B0 B1 B2 B3 B4 B5 B6 B7
+ 604          ///
+ 605          ///   \n  < Input >
+ 606          ///   \n  u8InLen     : 68
+ 607          ///   \n  u32FCnt     : 0x11223344
+ 608          ///   \n  u8KSeq      : 0x55
+ 609          ///   \n  pu8TextBuff[0~67] : 
+ 610          ///   \n            D9 07 7E 18 B7 9F 22 49 4C 42 08 B1 59 BB 06 88
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 11  
+
+ 611          ///   \n            15 72 49 C0 95 F4 6B 10 10 F4 36 43 98 13 CC 5A
+ 612          ///   \n            5D 3B 2D AB A1 40 0D 00 DC B7 4F 85 11 3C E1 1B
+ 613          ///   \n            85 46 19 81 E4 5C C8 0E 4A E3 16 3E 16 72 12 CB
+ 614          ///   \n            EC 15 05 95 --> 4-bytes MIC
+ 615          ///
+ 616          ///   \n  < Output >
+ 617          ///   \n  *pu8DecLen  : 64
+ 618          ///   \n  pu8TextBuff[0~63] : 
+ 619          ///   \n            10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 
+ 620          ///   \n              20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F 
+ 621          ///   \n              30 31 32 33 34 35 36 37 38 39 3A 3B 3C 3D 3E 3F 
+ 622          ///   \n              40 41 42 43 44 45 46 47 48 49 4A 4B 4C 4D 4E 4F
+ 623          /// 
+ 624          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 625          UINT8 HAL_SecDecryptionCCM32(UINT8* pu8TextBuff, UINT8 u8InLen, UINT32 u32FCnt, UINT8 u8KSeq, UINT8* pu8De
+             -cLen)
+ 626          {
+ 627   1        static  UINT16  su16Loop;
+ 628   1        UINT8 u8Status;
+ 629   1        UINT16  u16MemAddr;
+ 630   1      
+ 631   1        u16MemAddr = (UINT16)pu8TextBuff;
+ 632   1        if( (u16MemAddr >= 0x2300) && (u16MemAddr <= 0x24FF) )
+ 633   1        {
+ 634   2          assert_error(SEC_CODE | RETURN_SEC_WRONG_MEM_ADDR);
+ 635   2          return RETURN_SEC_WRONG_MEM_ADDR;
+ 636   2        }
+ 637   1      
+ 638   1        *pu8DecLen = 0;
+ 639   1        if( (u8InLen > 125) || (u8InLen < 4) )
+ 640   1        {
+ 641   2          assert_error(SEC_CODE | RETURN_SEC_TOO_LONG_TEXT);
+ 642   2          return  RETURN_SEC_TOO_LONG_TEXT;
+ 643   2        }
+ 644   1      
+ 645   1        SEC_CLK_ON;
+ 646   1      
+ 647   1        // Enable Mode
+ 648   1        HAL_SecModeSet(SEC_MODE_CCM);
+ 649   1        HAL_SecRxNonceFrameCntSet(u32FCnt);
+ 650   1        HAL_SecRxNonceKeySeqSet(u8KSeq);
+ 651   1        HAL_SecRXLSet(0);
+ 652   1        HAL_SecMicLengthSet(4);
+ 653   1      
+ 654   1        // Packet Length
+ 655   1        xSECMAP = BIT0;
+ 656   1        xSRxFIFO(0) = u8InLen + 2;
+ 657   1        // Ciphertext Packet
+ 658   1        rpmemcpy(&xSRxFIFO(1), pu8TextBuff, u8InLen);
+ 659   1        //########################################################
+ 660   1        // Decryption
+ 661   1        //########################################################
+ 662   1        
+ 663   1        #define DecDone_WaitLoopCnt   600
+ 664   1      
+ 665   1        // Decryption
+ 666   1        xSRFCSECBASE = 0x00;
+ 667   1        xSRFCSECLEN = u8InLen + 2;
+ 668   1      
+ 669   1        u8Status = RETURN_SEC_DECRYPT_TIMEOUT;
+ 670   1        xMACSTS &= ~BIT1;
+ 671   1        xSRFCCTL |= BIT2;
+C51 COMPILER V9.53.0.0   SECURITY                                                          01/28/2020 11:28:54 PAGE 12  
+
+ 672   1        xSECMAP = 0;
+ 673   1      
+ 674   1        for(su16Loop=0 ; su16Loop<DecDone_WaitLoopCnt ; su16Loop++)
+ 675   1        {
+ 676   2          if(xMACSTS & BIT1)
+ 677   2          {
+ 678   3            u8Status = RETURN_SEC_SUCCESS;
+ 679   3            break;
+ 680   3          }
+ 681   2        }
+ 682   1      
+ 683   1        if(u8Status == RETURN_SEC_SUCCESS)
+ 684   1        {   
+ 685   2          // Copy Decrypted text (Plaintext)
+ 686   2          xSECMAP = BIT0;
+ 687   2          rpmemcpy(pu8TextBuff, &xSRxFIFO(1), u8InLen);   
+ 688   2          if(xSRxFIFO(1+u8InLen-1) == 0x00)
+ 689   2          {
+ 690   3            *pu8DecLen = u8InLen - 4;
+ 691   3          }
+ 692   2          else
+ 693   2          {
+ 694   3            u8Status = RETURN_SEC_MIC_FAILURE;
+ 695   3          }
+ 696   2          xSECMAP = 0;
+ 697   2        }
+ 698   1      
+ 699   1        SEC_CLK_OFF;
+ 700   1      
+ 701   1        if(u8Status)
+ 702   1        {
+ 703   2          assert_error(SEC_CODE | u8Status);
+ 704   2        }
+ 705   1      
+ 706   1        return u8Status;
+ 707   1      }
+ 708          
+ 709          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1325    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      5      46
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

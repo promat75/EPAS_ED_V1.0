@@ -1,0 +1,256 @@
+C51 COMPILER V9.53.0.0   HMAC                                                              01/28/2020 11:28:53 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE HMAC
+OBJECT MODULE PLACED IN .\HEX\HMAC.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\HMAC.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Incl
+                    -ude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\HMAC.
+                    -lst) TABS(2) OBJECT(.\HEX\HMAC.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "INCLUDE_MG2470.h"
+  13          #include "hmac.h"
+  14          
+  15          ///////////////////////////////////////////////////////////////////////////////////////////////
+  16          /// 
+  17          ///   Sets MACCTRL register.
+  18          ///
+  19          /// @param  u8MacCtrl : MACCTRL register's value to write.
+  20          ///   \n  bit[7:5] : reserved
+  21          ///   \n  bit[4] : prevent_ack_packet.  1=Enabled. Default value is 0.
+  22          ///   \n  bit[3] : pan_coordinator. 1=Enabled. Default value is 0.
+  23          ///   \n  bit[2] : addr_decode.   1=Enabled. Default value is 1.
+  24          ///   \n  bit[1] : auto_crc.      1=Enabled. Default value is 1.
+  25          ///   \n  bit[0] : reserved(should be 0).
+  26          /// @return void
+  27          /// 
+  28          ///////////////////////////////////////////////////////////////////////////////////////////////
+  29          void HAL_MacCtrlSet(UINT8 u8MacCtrl)
+  30          {
+  31   1        xMACCTRL = u8MacCtrl;
+  32   1      }
+  33          
+  34          ///////////////////////////////////////////////////////////////////////////////////////////////
+  35          /// 
+  36          ///   Sets auto_crc bit in MACCTRL register. If enabled, a packet which has a wrong CRC field is not accept
+             -ed.
+  37          ///
+  38          /// @param  u8Ena : 0=Disable, 1=Enable.
+  39          /// @return void
+  40          /// 
+  41          ///////////////////////////////////////////////////////////////////////////////////////////////
+  42          void HAL_AutoCrcSet(UINT8 u8Ena)
+  43          {
+  44   1        if(u8Ena)
+  45   1        {
+  46   2          xMACCTRL |= BIT1;   // bit[1]=1
+  47   2        }
+  48   1        else
+  49   1        {
+  50   2          xMACCTRL &= ~BIT1;    // bit[1]=0
+  51   2        }
+  52   1      }
+C51 COMPILER V9.53.0.0   HMAC                                                              01/28/2020 11:28:53 PAGE 2   
+
+  53          
+  54          ///////////////////////////////////////////////////////////////////////////////////////////////
+  55          /// 
+  56          ///   Sets addr_decode bit in MACCTRL register. If enabled, a packet which has a wrong addressing field is 
+             -not 
+  57          /// accepted.
+  58          ///
+  59          /// @param  u8Ena : 0=Disable, 1=Enable.
+  60          /// @return void
+  61          /// 
+  62          ///////////////////////////////////////////////////////////////////////////////////////////////
+  63          void HAL_AddrDecodeSet(UINT8 u8Ena)
+  64          {
+  65   1        if(u8Ena)
+  66   1        {
+  67   2          xMACCTRL |= BIT2;   // bit[2]=1
+  68   2        }
+  69   1        else
+  70   1        {
+  71   2          xMACCTRL &= ~BIT2;    // bit[2]=0
+  72   2        }
+  73   1      }
+  74          
+  75          ///////////////////////////////////////////////////////////////////////////////////////////////
+  76          /// 
+  77          ///   Sets pan_coordinator bit in MACCTRL register. If enabled, a packet which is accepted only for PAN coo
+             -rdinator
+  78          /// is received.
+  79          ///
+  80          /// @param  u8Ena : 0=Disable, 1=Enable.
+  81          /// @return void
+  82          /// 
+  83          ///////////////////////////////////////////////////////////////////////////////////////////////
+  84          void HAL_CoordinatorSet(UINT8 u8Ena)
+  85          { 
+  86   1        if(u8Ena)
+  87   1        {
+  88   2          xMACCTRL |= BIT3;   // bit[3]=1
+  89   2        }
+  90   1        else
+  91   1        {
+  92   2          xMACCTRL &= ~BIT3;    // bit[3]=0
+  93   2        }
+  94   1      }
+  95          
+  96          ///////////////////////////////////////////////////////////////////////////////////////////////
+  97          /// 
+  98          ///   Sets prevent_ack_packet bit in MACCTRL register. If enabled, an unexpected ACK packet is not accepted
+             -.
+  99          ///
+ 100          /// @param  u8Ena : 0=Disable, 1=Enable.
+ 101          /// @return void
+ 102          /// 
+ 103          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 104          void HAL_PreventAckSet(UINT8 u8Ena)
+ 105          { 
+ 106   1        if(u8Ena)
+ 107   1        {
+ 108   2          xMACCTRL |= BIT4;   // bit[4]=1
+ 109   2        }
+ 110   1        else
+ 111   1        {
+C51 COMPILER V9.53.0.0   HMAC                                                              01/28/2020 11:28:53 PAGE 3   
+
+ 112   2          xMACCTRL &= ~BIT4;    // bit[4]=0
+ 113   2        }
+ 114   1      }
+ 115          
+ 116          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 117          /// 
+ 118          ///   Sets PAN identifier.
+ 119          ///
+ 120          /// @param  u16PanID  : PAN identifier to set.
+ 121          /// @return void
+ 122          /// 
+ 123          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 124          void HAL_PanIDSet(UINT16 u16PanID)
+ 125          {
+ 126   1        xPANID(0) = (UINT8) (u16PanID) ;
+ 127   1        xPANID(1) = (UINT8) (u16PanID >> 8) ;
+ 128   1      }
+ 129          
+ 130          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 131          /// 
+ 132          ///   Sets 16-bit short address.
+ 133          ///
+ 134          /// @param  u16ShortAddr  : short address to set.
+ 135          /// @return void
+ 136          /// 
+ 137          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 138          void HAL_ShortAddrSet(UINT16 u16ShortAddr)
+ 139          {
+ 140   1        xSHORTADDR(0) = (UINT8) (u16ShortAddr) ;
+ 141   1        xSHORTADDR(1) = (UINT8) (u16ShortAddr >> 8) ;
+ 142   1      }
+ 143          
+ 144          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 145          /// 
+ 146          ///   Sets 64-bit extended address(IEEE address).
+ 147          ///
+ 148          /// @param  pu8IEEEAddrBuf  : Pointer to the buffer of extended address to set.
+ 149          /// @return void
+ 150          /// 
+ 151          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 152          void HAL_IEEEAddrSet(UINT8* pu8IEEEAddrBuf)
+ 153          {
+ 154   1        rpmemcpy(&xEXTADDR(0), pu8IEEEAddrBuf, 8);
+ 155   1      }
+ 156          
+ 157          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 158          /// 
+ 159          ///   Resets TXFIFO. The read/write pointer is cleared to 0.
+ 160          ///
+ 161          /// @param  void
+ 162          /// @return void
+ 163          /// 
+ 164          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 165          void HAL_TxFifoReset(void)
+ 166          {
+ 167   1        UINT8 u8EA;
+ 168   1        
+ 169   1        //  Reset Pointer
+ 170   1        u8EA = EA;
+ 171   1        EA = 0;
+ 172   1        xMTFCSTA = 0x00;
+ 173   1        xMTFCWP = 0x00;
+C51 COMPILER V9.53.0.0   HMAC                                                              01/28/2020 11:28:53 PAGE 4   
+
+ 174   1        xMTFCRP = 0x00;
+ 175   1        EA = u8EA;
+ 176   1        
+ 177   1        //  Reset State Machine
+ 178   1        REGCMD_TSM_RESET_ON;    // xMACRST |= 0x40
+ 179   1        REGCMD_TSM_RESET_OFF;   // xMACRST &= ~0x40
+ 180   1      }
+ 181          
+ 182          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 183          /// 
+ 184          ///   Resets RXFIFO. The read/write pointer is cleared to 0.
+ 185          ///
+ 186          /// @param  void
+ 187          /// @return void
+ 188          /// 
+ 189          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 190          void HAL_RxFifoReset(void)
+ 191          {
+ 192   1        UINT8 u8EA;
+ 193   1      
+ 194   1        //  Reset Pointer
+ 195   1        u8EA = EA;
+ 196   1        EA = 0;
+ 197   1        xMRFCSTA = 0x00;
+ 198   1        xMRFCWP = 0x00;
+ 199   1        xMRFCRP = 0x00;
+ 200   1        EA = u8EA;
+ 201   1        
+ 202   1        //  Reset State Machine
+ 203   1        REGCMD_RSM_RESET_ON;    // xMACRST |= 0x20
+ 204   1        REGCMD_RSM_RESET_OFF;   // xMACRST &= ~0x20
+ 205   1      }
+ 206          
+ 207          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 208          /// 
+ 209          ///   Initializes H/W MAC blocks.
+ 210          ///
+ 211          /// @param  void
+ 212          /// @return void
+ 213          /// 
+ 214          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 215          void HAL_MacInit(void)
+ 216          {
+ 217   1        HAL_MacCtrlSet(0x16);
+ 218   1        HAL_TxFifoReset();
+ 219   1        HAL_RxFifoReset();
+ 220   1      }
+ 221          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    179    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

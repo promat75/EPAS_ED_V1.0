@@ -1,0 +1,224 @@
+C51 COMPILER V9.53.0.0   WDT                                                               01/28/2020 11:28:55 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE WDT
+OBJECT MODULE PLACED IN .\HEX\WDT.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\WDT.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inclu
+                    -de\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\WDT.ls
+                    -t) TABS(2) OBJECT(.\HEX\WDT.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "INCLUDE_MG2470.h"
+  13          #include "wdt.h"
+  14          
+  15          ///////////////////////////////////////////////////////////////////////////////////////////////
+  16          /// 
+  17          ///   Global variable which indicates the number of TIMER0's ticks before watchdog reset.
+  18          /// 
+  19          ///////////////////////////////////////////////////////////////////////////////////////////////
+  20          UINT16  gu16WdtResetTick;
+  21          
+  22          ///////////////////////////////////////////////////////////////////////////////////////////////
+  23          /// 
+  24          ///   Sets clock for Watchdog Timer.
+  25          ///
+  26          /// @param  u8On  : 0=Off, 1=On
+  27          /// @return void
+  28          /// 
+  29          ///////////////////////////////////////////////////////////////////////////////////////////////
+  30          void HAL_WdtClockOn(UINT8 u8On)   // Default On
+  31          {
+  32   1        if(u8On)
+  33   1        {
+  34   2          WDT_CLK_ON;
+  35   2        }
+  36   1        else
+  37   1        {
+  38   2          WDT_CLK_OFF;
+  39   2        }
+  40   1      }
+  41          
+  42          ///////////////////////////////////////////////////////////////////////////////////////////////
+  43          /// 
+  44          /// Sets watchdog timer.
+  45          ///
+  46          /// @param  u8Ena   : 0=Disable, 1=Enable.
+  47          /// @param  u8ResetDur  : Timeout duration. 0 ~ 15.
+  48          ///           \n  0 = 30 us
+  49          ///           \n  1 = 61 us
+  50          ///           \n  2 = 122 us
+  51          ///           \n  3 = 244 us
+  52          ///           \n  4 = 488 us
+  53          ///           \n  5 = 976 us
+C51 COMPILER V9.53.0.0   WDT                                                               01/28/2020 11:28:55 PAGE 2   
+
+  54          ///           \n  6 = 1.953 ms
+  55          ///           \n  7 = 3.906 ms
+  56          ///           \n  8 = 7.812 ms
+  57          ///           \n  9 = 15.625 ms
+  58          ///           \n  10 = 31.25 ms
+  59          ///           \n  11 = 62.5 ms
+  60          ///           \n  12 = 125 ms
+  61          ///           \n  13 = 250 ms
+  62          ///           \n  14 = 500 ms
+  63          ///           \n  15 = 1 sec
+  64          /// @return UINT8. Status.
+  65          /// 
+  66          ///////////////////////////////////////////////////////////////////////////////////////////////
+  67          UINT8 HAL_WdtSet(UINT8 u8Ena, UINT8 u8ResetDur)
+  68          {
+  69   1        UINT8 u8EA;
+  70   1      
+  71   1        if(WDT_CLK_STATE == 0)
+  72   1        {
+  73   2          assert_error(WDT_CODE | RETURN_WDT_CLOCK_OFF);
+  74   2          return RETURN_WDT_CLOCK_OFF;
+  75   2        }
+  76   1      
+  77   1        if(u8ResetDur > 15)
+  78   1        {
+  79   2          assert_error(WDT_CODE | RETURN_WDT_INVALID_PARAMETER);
+  80   2          return RETURN_WDT_INVALID_PARAMETER;
+  81   2        }
+  82   1      
+  83   1        u8EA = EA;
+  84   1        EA = 0;
+  85   1      
+  86   1        if(u8Ena)
+  87   1        { 
+  88   2          WDT = 0x55;
+  89   2          WDT = 0xAA; 
+  90   2          WDT = 0x40 | (u8ResetDur & 0x0F);
+  91   2        }
+  92   1        else
+  93   1        {
+  94   2          WDT = 0x55;
+  95   2          WDT = 0xAA; 
+  96   2          WDT = 0x80;
+  97   2        }
+  98   1      
+  99   1        EA = u8EA;
+ 100   1      
+ 101   1        return RETURN_WDT_SUCCESS;
+ 102   1      }
+ 103          
+ 104          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 105          /// 
+ 106          /// Restarts watchdog timer to prevent watchdog timeout.
+ 107          ///
+ 108          /// @param  void
+ 109          /// @return void
+ 110          /// 
+ 111          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 112          void HAL_WdtRestart(void) large reentrant
+ 113          {
+ 114   1        UINT8 u8EA;
+ 115   1      
+C51 COMPILER V9.53.0.0   WDT                                                               01/28/2020 11:28:55 PAGE 3   
+
+ 116   1        u8EA = EA;
+ 117   1        EA = 0;
+ 118   1      
+ 119   1        WDT = 0x55;
+ 120   1        WDT = 0xAA;
+ 121   1        WDT |= 0x40;  
+ 122   1      
+ 123   1        EA = u8EA;
+ 124   1      }
+ 125          
+ 126          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 127          /// 
+ 128          /// Sets watchdog period. This function should be called periodically before watchdog reset.
+ 129          ///
+ 130          /// @param  u16Timer0Tick : Number of TIMER0's ticks before watchdog reset.
+ 131          /// @return void
+ 132          /// 
+ 133          /////////////////////////////////////////////////////////////////////////////////////////////// 
+ 134          void SYS_WdtSet(UINT16 u16Timer0Tick)
+ 135          {
+ 136   1        UINT8 u8EA;
+ 137   1      
+ 138   1        u8EA = EA;
+ 139   1        EA = 0;
+ 140   1      
+ 141   1        if(u16Timer0Tick) // WDT enable
+ 142   1        {
+ 143   2          gu16WdtResetTick = u16Timer0Tick;
+ 144   2          HAL_WdtSet(1, 0x0F);
+ 145   2        } 
+ 146   1        else          // WDT disable
+ 147   1        {
+ 148   2          gu16WdtResetTick = 0;
+ 149   2          HAL_WdtSet(0, 0);
+ 150   2        }
+ 151   1      
+ 152   1        EA = u8EA;
+ 153   1      }
+ 154          
+ 155          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 156          /// 
+ 157          /// Resets by disabling watchdog restart.
+ 158          ///
+ 159          /// @param  u8ResetDur  : Duration before reset. 0 ~ 15.
+ 160          ///           \n  0 = 30 us
+ 161          ///           \n  1 = 61 us
+ 162          ///           \n  2 = 122 us
+ 163          ///           \n  3 = 244 us
+ 164          ///           \n  4 = 488 us
+ 165          ///           \n  5 = 976 us
+ 166          ///           \n  6 = 1.953 ms
+ 167          ///           \n  7 = 3.906 ms
+ 168          ///           \n  8 = 7.812 ms
+ 169          ///           \n  9 = 15.625 ms
+ 170          ///           \n  10 = 31.25 ms
+ 171          ///           \n  11 = 62.5 ms
+ 172          ///           \n  12 = 125 ms
+ 173          ///           \n  13 = 250 ms
+ 174          ///           \n  14 = 500 ms
+ 175          ///           \n  15 = 1 sec
+ 176          /// @return UINT8. Status when failed.
+ 177          /// 
+C51 COMPILER V9.53.0.0   WDT                                                               01/28/2020 11:28:55 PAGE 4   
+
+ 178          /////////////////////////////////////////////////////////////////////////////////////////////// 
+ 179          UINT8 SYS_WdtReset(UINT8 u8ResetDur)
+ 180          {
+ 181   1        if(u8ResetDur > 15)
+ 182   1        {
+ 183   2          assert_error(WDT_CODE | RETURN_WDT_INVALID_PARAMETER);
+ 184   2          return RETURN_WDT_INVALID_PARAMETER;
+ 185   2        }
+ 186   1      
+ 187   1        EA = 0;
+ 188   1        WDT = 0x55;
+ 189   1        WDT = 0xAA;
+ 190   1        WDT = u8ResetDur & 0x0F;
+ 191   1        WDT_CLK_ON;
+ 192   1        while(1);   // Watchdog Reset
+ 193   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    185    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      2    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

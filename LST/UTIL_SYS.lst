@@ -1,0 +1,355 @@
+C51 COMPILER V9.53.0.0   UTIL_SYS                                                          01/28/2020 11:28:56 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE UTIL_SYS
+OBJECT MODULE PLACED IN .\HEX\UTIL_SYS.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Sample\Utility\UTIL_SYS.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platfor
+                    -m\Include\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST
+                    -\UTIL_SYS.lst) TABS(2) OBJECT(.\HEX\UTIL_SYS.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "include_top.h"
+  13          #include "util_sys.h"
+  14          
+  15          ///////////////////////////////////////////////////////////////////////////////////////////////
+  16          /// 
+  17          ///   Converts a measured ED(Energy Detection) or RSSI value in LQI to the value in dBm.
+  18          /// The relation between both units is linear.
+  19          ///   \n  LQI = 0   -->   dBm = -128
+  20          ///   \n  LQI = 255 -->   dBm = 0
+  21          ///
+  22          /// @param  u8LQI : Value to be converted in LQI.
+  23          /// @return INT8. Converted value in dBm.
+  24          /// 
+  25          ///////////////////////////////////////////////////////////////////////////////////////////////
+  26          INT8 SYS_LQITodBm(UINT8 u8LQI)
+  27          {
+  28   1        UINT16  u16Ratio;
+  29   1        INT8    i8dBm;
+  30   1      
+  31   1        u16Ratio = 100 * (255 - u8LQI);
+  32   1        u16Ratio = u16Ratio / 255;
+  33   1      
+  34   1        i8dBm = 0 - u16Ratio;
+  35   1        
+  36   1        return i8dBm;
+  37   1      }
+  38          
+  39          ///////////////////////////////////////////////////////////////////////////////////////////////
+  40          /// 
+  41          ///   Converts a measured ED(Energy Detection) or RSSI value in dBm to the value in LQI.
+  42          /// The relation between both units is linear.
+  43          ///   \n  dBm = -128  --> LQI = 0
+  44          ///   \n  dBm = 0   --> LQI = 255
+  45          ///
+  46          /// @param  i8dBm : Value to be converted in dBm.
+  47          /// @return UINT8. Converted value in LQI.
+  48          /// 
+  49          ///////////////////////////////////////////////////////////////////////////////////////////////
+  50          UINT8 SYS_dBmToLQI(INT8 i8dBm)
+  51          {
+  52   1        UINT16  u16Ratio;
+  53   1        UINT8 u8LQI;
+C51 COMPILER V9.53.0.0   UTIL_SYS                                                          01/28/2020 11:28:56 PAGE 2   
+
+  54   1      
+  55   1        // RSSI : LQI type, 0~255, 255=high power
+  56   1        if(i8dBm > 0)
+  57   1        {
+  58   2          u8LQI = 255;
+  59   2        }
+  60   1        else if(i8dBm > -100)
+  61   1        {
+  62   2          u16Ratio = 100 + i8dBm;
+  63   2          u16Ratio *= 255;
+  64   2          u16Ratio /= 100;
+  65   2          u8LQI = u16Ratio;
+  66   2        }
+  67   1        else
+  68   1        {
+  69   2          u8LQI = 0;
+  70   2        }
+  71   1        
+  72   1        return u8LQI;
+  73   1      }
+  74          
+  75          ///////////////////////////////////////////////////////////////////////////////////////////////
+  76          /// 
+  77          ///   Global array of structure variable which contains information of received packets.
+  78          /// 
+  79          ///////////////////////////////////////////////////////////////////////////////////////////////
+  80          tPACKET_INFO  gatRxQPacket[RF_RXBUF_SIZE];
+  81          
+  82          ///////////////////////////////////////////////////////////////////////////////////////////////
+  83          /// 
+  84          ///   Global variable which indicates the number of structure variable being occupied by packets.
+  85          /// When this is not 0, the received packet is present.
+  86          /// 
+  87          ///////////////////////////////////////////////////////////////////////////////////////////////
+  88          UINT8   gu8RxQUsed = 0;
+  89          
+  90          ///////////////////////////////////////////////////////////////////////////////////////////////
+  91          /// 
+  92          ///   Global variable which indicates the index of "gatRxQMacPkt" to be written.
+  93          /// When a packet is received, it is written to "gatRxQMacPkt[gu8RxQWr]".
+  94          /// After writing, this is increased by 1. 
+  95          /// Note that if the increased value is equal to "RF_RXBUF_SIZE", it is cleared to 0.
+  96          /// 
+  97          ///////////////////////////////////////////////////////////////////////////////////////////////
+  98          UINT8   gu8RxQWr = 0;
+  99          
+ 100          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 101          /// 
+ 102          ///   Global variable which indicates the index of "gatRxQMacPkt" to be read.
+ 103          /// When "gu8RxQUsed" is not 0, the oldest received packet is contained in "gatRxQMacPkt[gu8RxQRd]".
+ 104          /// After processing the packet, this is increased by 1. 
+ 105          /// Note that if the increased value is equal to "RF_RXBUF_SIZE", it is cleared to 0.
+ 106          /// 
+ 107          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 108          UINT8   gu8RxQRd = 0; 
+ 109          
+ 110          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 111          /// 
+ 112          ///   Checks that a new received packet is present.
+ 113          ///
+ 114          /// @param  void
+ 115          /// @return Pointer to the structure variable for the packet.
+C51 COMPILER V9.53.0.0   UTIL_SYS                                                          01/28/2020 11:28:56 PAGE 3   
+
+ 116          /// 
+ 117          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 118          tPACKET_INFO* SYS_RxQueueCheck(void)
+ 119          {
+ 120   1        tPACKET_INFO* ptRxPkt;
+ 121   1        
+ 122   1        ptRxPkt = 0;
+ 123   1        if(gu8RxQUsed)
+ 124   1        {
+ 125   2          ptRxPkt = &gatRxQPacket[gu8RxQRd];
+ 126   2        }
+ 127   1        
+ 128   1        return  ptRxPkt;
+ 129   1      }
+ 130          
+ 131          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 132          /// 
+ 133          ///   Updates variables for checking packets after processing the received packet.
+ 134          /// "gu8RxQRd" is updated and "gu8RxQUsed" is decreased by 1.
+ 135          ///
+ 136          /// @param  void
+ 137          /// @return void
+ 138          /// 
+ 139          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 140          void SYS_RxQueueClear(void)
+ 141          {
+ 142   1        UINT8 u8PHYIE;
+ 143   1      
+ 144   1        u8PHYIE = PHYIE;
+ 145   1        PHYIE = 0;
+ 146   1      
+ 147   1        gu8RxQRd++;
+ 148   1        if(gu8RxQRd == RF_RXBUF_SIZE) gu8RxQRd = 0;
+ 149   1        gu8RxQUsed--;
+ 150   1      
+ 151   1        PHYIE = u8PHYIE;
+ 152   1      }
+ 153          
+ 154          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 155          /// 
+ 156          ///   Global variable which specifies whether MAC filtering is enabled, in other words, whether the informa
+             -tion 
+ 157          /// of the last received packet is contained. If this is 0, filtering is not worked. And, when a packet is
+             - received
+ 158          /// filtering starts working.
+ 159          /// 
+ 160          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 161          UINT8 gu8MacFilterEna = 0;
+ 162          
+ 163          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 164          /// 
+ 165          ///   Global variable which contains DSN field of the last received packet.
+ 166          /// This is used for checking whether a new received packet is duplicated.
+ 167          /// 
+ 168          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 169          UINT8 gu8MacFilterDSN;
+ 170          
+ 171          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 172          /// 
+ 173          ///   Global variable which contains Source Address Mode field of the last received packet.
+ 174          /// This is used for checking whether a new received packet is duplicated.
+ 175          /// 
+C51 COMPILER V9.53.0.0   UTIL_SYS                                                          01/28/2020 11:28:56 PAGE 4   
+
+ 176          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 177          UINT8 gu8MacFilterSrcMode;
+ 178          
+ 179          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 180          /// 
+ 181          ///   Global variable which contains Source Address field of the last received packet.
+ 182          /// This is used for checking whether a new received packet is duplicated.
+ 183          /// 
+ 184          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 185          uMAC_ADDR guMacFilterSrcAddr;
+ 186          
+ 187          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 188          /// 
+ 189          ///   Writes information of the received packet to the structure variable after parsing.
+ 190          /// Furthermore, specifies whether the packet is duplicated.
+ 191          ///
+ 192          /// @param  ptInPkt : Input. Pointer to the structure of a packet.
+ 193          /// @param  ptOutMac  : Output. Pointer to the structure of a MAC frame.
+ 194          /// @return UINT8. Status. 0=Success, 1=Packet is broken, 2=Packet is duplicated.
+ 195          /// 
+ 196          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 197          UINT8 SYS_RxQueueParse(tPACKET_INFO* ptInPkt, tMAC_INFO *ptOutMac)
+ 198          {
+ 199   1        UINT8 BuffIndex;
+ 200   1      
+ 201   1        ptOutMac->i8RSSI = ptInPkt->i8RSSI;
+ 202   1        ptOutMac->u8Correlation = ptInPkt->u8Correlation;
+ 203   1        
+ 204   1        ptOutMac->u8PhyPayLen = ptInPkt->au8Packet[0];
+ 205   1        ptOutMac->uFC_L.u8All = ptInPkt->au8Packet[1];
+ 206   1        ptOutMac->uFC_H.u8All = ptInPkt->au8Packet[2];
+ 207   1        ptOutMac->u8OobCode = (ptOutMac->uFC_H.bBit.u8RsvH << 2) | ptOutMac->uFC_H.bBit.u8RsvL; 
+ 208   1        ptOutMac->u8SeqNum = ptInPkt->au8Packet[3];
+ 209   1      
+ 210   1        if(ptOutMac->uFC_H.bBit.u8DstMode == maccAddrMode_Rsv)  return 1;
+ 211   1        if(ptOutMac->uFC_H.bBit.u8SrcMode == maccAddrMode_Rsv)  return 1;
+ 212   1      
+ 213   1        BuffIndex = 4;
+ 214   1        // Destination Address Field
+ 215   1        if(ptOutMac->uFC_H.bBit.u8DstMode == maccAddrMode_16bit)
+ 216   1        { 
+ 217   2          ptOutMac->u16DstPanID = (ptInPkt->au8Packet[5] << 8) | ptInPkt->au8Packet[4];
+ 218   2          ptOutMac->uDstAddr.u16Short = (ptInPkt->au8Packet[7] << 8) | ptInPkt->au8Packet[6];
+ 219   2          BuffIndex += 4;
+ 220   2        }
+ 221   1        else if(ptOutMac->uFC_H.bBit.u8DstMode == maccAddrMode_64bit)
+ 222   1        { 
+ 223   2          ptOutMac->u16DstPanID = (ptInPkt->au8Packet[5] << 8) | ptInPkt->au8Packet[4];
+ 224   2          rpmemcpy(ptOutMac->uDstAddr.au8Ext, &ptInPkt->au8Packet[6], 8);
+ 225   2          BuffIndex += 10;
+ 226   2        } 
+ 227   1      
+ 228   1        // Source Address Field
+ 229   1        if(ptOutMac->uFC_H.bBit.u8SrcMode == maccAddrMode_16bit)
+ 230   1        {
+ 231   2          if(ptOutMac->uFC_H.bBit.u8DstMode && ptOutMac->uFC_L.bBit.u8IP)
+ 232   2          {
+ 233   3            ptOutMac->u16SrcPanID = ptOutMac->u16DstPanID;
+ 234   3            ptOutMac->uSrcAddr.u16Short = (ptInPkt->au8Packet[BuffIndex+1] << 8) | ptInPkt->au8Packet[BuffIndex+0];
+ 235   3            BuffIndex += 2;
+ 236   3          }
+ 237   2          else
+C51 COMPILER V9.53.0.0   UTIL_SYS                                                          01/28/2020 11:28:56 PAGE 5   
+
+ 238   2          {
+ 239   3            ptOutMac->u16SrcPanID = (ptInPkt->au8Packet[BuffIndex+1] << 8) | ptInPkt->au8Packet[BuffIndex+0];
+ 240   3            ptOutMac->uSrcAddr.u16Short = (ptInPkt->au8Packet[BuffIndex+3] << 8) | ptInPkt->au8Packet[BuffIndex+2];
+ 241   3            BuffIndex += 4;
+ 242   3          } 
+ 243   2        }
+ 244   1        else if(ptOutMac->uFC_H.bBit.u8SrcMode == maccAddrMode_64bit)
+ 245   1        {
+ 246   2          if(ptOutMac->uFC_H.bBit.u8DstMode && ptOutMac->uFC_L.bBit.u8IP)
+ 247   2          {
+ 248   3            ptOutMac->u16SrcPanID = ptOutMac->u16DstPanID;
+ 249   3            rpmemcpy(ptOutMac->uSrcAddr.au8Ext, &ptInPkt->au8Packet[BuffIndex+0], 8);
+ 250   3            BuffIndex += 8;
+ 251   3          }
+ 252   2          else
+ 253   2          {
+ 254   3            ptOutMac->u16SrcPanID = (ptInPkt->au8Packet[BuffIndex+1] << 8) | ptInPkt->au8Packet[BuffIndex+0];
+ 255   3            rpmemcpy(ptOutMac->uSrcAddr.au8Ext, &ptInPkt->au8Packet[BuffIndex+2], 8);
+ 256   3            BuffIndex += 10;
+ 257   3          }     
+ 258   2        }
+ 259   1        ptOutMac->u8MacHeadLen = BuffIndex - 1;
+ 260   1      
+ 261   1        // If (MAC Header's length + 2) is more than PHY payload length, this packet is not correct.
+ 262   1        // Here, 2 means the legnth of FCS field.
+ 263   1        if( (ptOutMac->u8MacHeadLen + 2) > ptOutMac->u8PhyPayLen)
+ 264   1        { 
+ 265   2          return  1;
+ 266   2        }
+ 267   1        else
+ 268   1        {
+ 269   2          // Discard duplicated packets. 
+ 270   2          // For more powerful filtering, the information of the received packets should be 
+ 271   2          // maintained for some time using timers.
+ 272   2          if(gu8MacFilterEna)
+ 273   2          {
+ 274   3            if( (ptOutMac->uFC_H.bBit.u8SrcMode == gu8MacFilterSrcMode)
+ 275   3            && (ptOutMac->u8SeqNum == gu8MacFilterDSN) )
+ 276   3            {   
+ 277   4              if(ptOutMac->uFC_H.bBit.u8SrcMode == maccAddrMode_16bit)
+ 278   4              {
+ 279   5                if(ptOutMac->uSrcAddr.u16Short == guMacFilterSrcAddr.u16Short)
+ 280   5                {
+ 281   6                  return 2;
+ 282   6                }
+ 283   5              }
+ 284   4              else if(ptOutMac->uFC_H.bBit.u8SrcMode == maccAddrMode_64bit)
+ 285   4              {
+ 286   5                if( memcmp(ptOutMac->uSrcAddr.au8Ext, guMacFilterSrcAddr.au8Ext, 8) == 0)
+ 287   5                {
+ 288   6                  return 2;
+ 289   6                }
+ 290   5              }
+ 291   4            }
+ 292   3          }
+ 293   2      
+ 294   2          // Maintain information of the last received packet.
+ 295   2          gu8MacFilterEna = 1;
+ 296   2          gu8MacFilterSrcMode = ptOutMac->uFC_H.bBit.u8SrcMode;
+ 297   2          gu8MacFilterDSN = ptOutMac->u8SeqNum;
+ 298   2          if(ptOutMac->uFC_H.bBit.u8SrcMode == maccAddrMode_16bit)
+ 299   2          {
+C51 COMPILER V9.53.0.0   UTIL_SYS                                                          01/28/2020 11:28:56 PAGE 6   
+
+ 300   3            guMacFilterSrcAddr.u16Short = ptOutMac->uSrcAddr.u16Short;
+ 301   3          }
+ 302   2          else if(ptOutMac->uFC_H.bBit.u8SrcMode == maccAddrMode_64bit)
+ 303   2          {
+ 304   3            rpmemcpy(guMacFilterSrcAddr.au8Ext, ptOutMac->uSrcAddr.au8Ext, 8);
+ 305   3          }
+ 306   2      
+ 307   2          // MAC payload length
+ 308   2          ptOutMac->u8MacPayLen = ptOutMac->u8PhyPayLen - ptOutMac->u8MacHeadLen - 2;
+ 309   2          // MAC payload(MSDU)
+ 310   2          ptOutMac->pu8MacPayload = &ptInPkt->au8Packet[BuffIndex];
+ 311   2      
+ 312   2          // MAC Footer(FCS)
+ 313   2          ptOutMac->u8FcsLow = ptInPkt->au8Packet[ptOutMac->u8PhyPayLen - 1];
+ 314   2          ptOutMac->u8FcsHigh = ptInPkt->au8Packet[ptOutMac->u8PhyPayLen];
+ 315   2          
+ 316   2          return  0;
+ 317   2        } 
+ 318   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1071    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   1314       7
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

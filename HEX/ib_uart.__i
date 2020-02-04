@@ -1,0 +1,1 @@
+"Sample\EVB\ib_uart.c" LARGE OPTIMIZE (9,SIZE) BROWSE INCDIR(.\Platform\Include\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE (__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ib_uart.lst) TABS (2) OBJECT(.\HEX\ib_uart.obj)

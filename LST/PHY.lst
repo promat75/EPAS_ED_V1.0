@@ -1,0 +1,1034 @@
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE PHY
+OBJECT MODULE PLACED IN .\HEX\PHY.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\PHY.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inclu
+                    -de\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\PHY.ls
+                    -t) TABS(2) OBJECT(.\HEX\PHY.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2013-12-20
+   6            - Version   : V2.1
+   7          
+   8            [2013-12-20] V2.1
+   9            - HAL_TxState() : removed.
+  10            - HAL_TxReady() : added.
+  11            - HAL_TxFifoTransmit() : enhanced.
+  12            - HAL_AckTransmit() : HAL_TxState() function removed.
+  13            - HAL_RFTestMode() : HAL_TxState() function removed.
+  14          
+  15            [2012-04-25] V2.0
+  16            - Initial Version for MG2470B(ChipID=0x71)
+  17          *******************************************************************************/
+  18          
+  19          #include "INCLUDE_MG2470.h"
+  20          #include "phy.h"
+  21          #include "wdt.h"
+  22          #include "clock.h"
+  23          
+  24          ///////////////////////////////////////////////////////////////////////////////////////////////
+  25          /// 
+  26          ///   Global variable which indicates whether PHY interrupt is generated. Each bit has following meanings.
+  27          ///   \n  bit[7]  : RX-ACK. If an expected ACK packet is received, this bit is set to 1.
+  28          ///   \n  bit[6:5]  : reserved
+  29          ///   \n  bit[4]  : Modem-Fail. If modem is not turned on, this bit is set to 1.
+  30          ///   \n  bit[3]  : reserved
+  31          ///   \n  bit[2]  : RX-Start. If a packet is detected to be received, this bit is set to 1.
+  32          ///   \n  bit[1]  : TX-End. If transmitting a packet is completed, this bit is set to 1.
+  33          ///   \n  bit[0]  : Modem-On. If Modem is turned on, this bit is set to 1.
+  34          /// 
+  35          ///////////////////////////////////////////////////////////////////////////////////////////////
+  36          UINT8 gu8PhyIntFlag = 0;
+  37          
+  38          ///////////////////////////////////////////////////////////////////////////////////////////////
+  39          ///
+  40          /// Global variable which indicates the current RF's data rate
+  41          ///   \n  0 = 31.25 Kbps
+  42          ///   \n  1 = 62.50 Kbps
+  43          ///   \n  2 = 125 Kbps
+  44          ///   \n  3 = 250 Kbps
+  45          ///   \n  4 = reserved
+  46          ///   \n  5 = 1.0 Mbps
+  47          ///
+  48          ///////////////////////////////////////////////////////////////////////////////////////////////
+  49          UINT8 gu8DataRate = PHY_DATA_RATE_250K;
+  50          
+  51          ///////////////////////////////////////////////////////////////////////////////////////////////
+  52          ///
+  53          /// Optional global variable which indicates whether the received packet is contained in lower area of RX-
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 2   
+
+             -FIFO.
+  54          ///
+  55          ///////////////////////////////////////////////////////////////////////////////////////////////
+  56          UINT8   gu8RxInLowQ = 0;
+  57          
+  58          ///////////////////////////////////////////////////////////////////////////////////////////////
+  59          ///
+  60          /// Constants which indicates the for() loop counter for waiting to complete transmitting a max-sized DATA
+             - packet.
+  61          /// \n  The loop counter is dependent on the RF data rate and MCU clock. Therefore, this is two-dimensional
+             - arrays.
+  62          /// \n  The column of the array indicates the RF data rate.
+  63          ///     \n  0 = 31.25 Kbps
+  64          ///     \n  1 = 62.50 Kbps
+  65          ///     \n  2 = 125 Kbps
+  66          ///     \n  3 = 250 Kbps
+  67          ///     \n  4 = reserved
+  68          ///     \n  5 = 1.0 Mbps
+  69          /// \n  The row of the array indicates the MCU clock mode.
+  70          ///     \n  0 = 16 MHz
+  71          ///     \n  1 = 8 MHz
+  72          ///
+  73          ///////////////////////////////////////////////////////////////////////////////////////////////
+  74          UINT16  code gcau16MaxWait_DataTxDone[6][2] =     // [RF Data Rate][MCU Clock Mode]
+  75            {
+  76              5478,   2739, // 31.25 Kbps
+  77              2738, 1369, // 62.5 Kbps
+  78              1716, 858,    // 125 Kbps
+  79              860,    430,    // 250 Kbps
+  80              450,    225,    // reserved
+  81              260,    130   // 1 Mbps
+  82            };
+  83          
+  84          ///////////////////////////////////////////////////////////////////////////////////////////////
+  85          ///
+  86          /// Constants which indicates the for() loop counter for waiting to receive a ACK packet.
+  87          /// \n  The loop counter is dependent on the RF data rate and MCU clock. Therefore, this is two-dimensional
+             - arrays.
+  88          /// \n  The column of the array indicates the RF data rate.
+  89          ///     \n  0 = 31.25 Kbps
+  90          ///     \n  1 = 62.50 Kbps
+  91          ///     \n  2 = 125 Kbps
+  92          ///     \n  3 = 250 Kbps
+  93          ///     \n  4 = reserved
+  94          ///     \n  5 = 1.0 Mbps
+  95          /// \n  The row of the array indicates the MCU clock mode.
+  96          ///     \n  0 = 16 MHz
+  97          ///     \n  1 = 8 MHz
+  98          ///
+  99          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 100          UINT16  code gcau16MaxWait_AckRxDone[6][2] =    // [RF Data Rate][MCU Clock Mode]
+ 101            {
+ 102              466,    233,    // 31.25 Kbps
+ 103              274,    137,    // 62.5 Kbps
+ 104              178,    89,   // 125 Kbps
+ 105              138,    69,   // 250 Kbps
+ 106              138,    69,   // reserved
+ 107              138,    69    // 1 Mbps
+ 108            };
+ 109          
+ 110          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 111          ///
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 3   
+
+ 112          /// Constants which indicates the for() loop counter for waiting to complete transmitting a ACK packet.
+ 113          /// \n  The loop counter is dependent on the RF data rate and MCU clock. Therefore, this is two-dimensional
+             - arrays.
+ 114          /// \n  The column of the array indicates the RF data rate.
+ 115          ///     \n  0 = 31.25 Kbps
+ 116          ///     \n  1 = 62.50 Kbps
+ 117          ///     \n  2 = 125 Kbps
+ 118          ///     \n  3 = 250 Kbps
+ 119          ///     \n  4 = reserved
+ 120          ///     \n  5 = 1.0 Mbps
+ 121          /// \n  The row of the array indicates the MCU clock mode.
+ 122          ///     \n  0 = 16 MHz
+ 123          ///     \n  1 = 8 MHz
+ 124          ///
+ 125          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 126          UINT16  code gcau16MaxWait_AckTxDone[6][2] =    // [RF Data Rate][MCU Clock Mode]
+ 127            {
+ 128              560,    280,    // 31.25 Kbps
+ 129              280,    140,    // 62.5 Kbps
+ 130              150,    75,   // 125 Kbps
+ 131              70 ,    35,   // 250 Kbps
+ 132              60 ,    30,   // reserved
+ 133              60 ,    30    // 1 Mbps
+ 134            };
+ 135          
+ 136          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 137          /// 
+ 138          ///   Initializes registers on Modem, Analog and RF blocks.
+ 139          ///
+ 140          /// @param  u8InitOption  : Option for initialization
+ 141          ///       \n bit[7:1] : reserved
+ 142          ///       \n bit[0]     : 1=Minimize interference, 0=Normal.
+ 143          /// @return void
+ 144          /// 
+ 145          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 146          void HAL_ModemInit(UINT8 u8InitOption)
+ 147          {
+ 148   1        if(u8InitOption & BIT0)
+ 149   1        {
+ 150   2          LIB_ModemInit(BIT0);
+ 151   2        }
+ 152   1        else
+ 153   1        {
+ 154   2          LIB_ModemInit(0x00);
+ 155   2        }
+ 156   1      }
+ 157          
+ 158          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 159          /// 
+ 160          ///   Turns off Modem.
+ 161          ///
+ 162          /// @param  void
+ 163          /// @return void
+ 164          /// 
+ 165          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 166          void HAL_ModemOff(void)
+ 167          {
+ 168   1        REGCMD_MODEM_OFF;
+ 169   1      }
+ 170          
+ 171          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 172          /// 
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 4   
+
+ 173          ///   Turns on Modem.
+ 174          ///
+ 175          /// @param  u16WaitModemOnCnt : time delay parameter till Modem is turned on.
+ 176          /// @param  u8DccCalibOn      : DCC calibration. 0=Not performed, 1=Performed.
+ 177          ///                 Calibration is performed 1 time in booting sequence.
+ 178          /// @return UINT8. Status.
+ 179          /// 
+ 180          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 181          UINT8 HAL_ModemOn(UINT16 u16WaitModemOnCnt, UINT8 u8DccCalibOn)
+ 182          {
+ 183   1        UINT8 u8EA;
+ 184   1        UINT8 u8xINTCON;
+ 185   1      //  UINT8 u8xPCMD0;
+ 186   1      
+ 187   1        static  UINT16  su16Loop;
+ 188   1        UINT8 u8IntNum;
+ 189   1        UINT8 u8Status;
+ 190   1      
+ 191   1        if(u8DccCalibOn)
+ 192   1        {
+ 193   2          xPHY_CLK_FR_EN1 = 0x00;
+ 194   2          xDCCCON = 0x88;
+ 195   2        }
+ 196   1      
+ 197   1        u8EA = EA;
+ 198   1        EA = 0;
+ 199   1      
+ 200   1        u8xINTCON = xINTCON;
+ 201   1      //  u8xPCMD0 = xPCMD0;
+ 202   1      
+ 203   1        HAL_PhyIntSourceSet(PHY_INT_MASK_MODEM_ON | PHY_INT_MASK_MODEM_FAIL);
+ 204   1      
+ 205   1        REGCMD_MODEM_ON;    // bit[4]=0, Modem-On, active low.
+ 206   1      
+ 207   1        u8Status = RETURN_PHY_MODEM_ON_TIMEOUT;
+ 208   1        for(su16Loop=0 ; su16Loop<u16WaitModemOnCnt ; su16Loop++)
+ 209   1        {
+ 210   2          if( (xINTCON & BIT6) == 0)    // If interrupt is occured,
+ 211   2          {
+ 212   3            u8IntNum = xINTIDX & PHY_INT_IDX_MASK;
+ 213   3            if(u8IntNum == PHY_INT_IDX_MODEM_ON)
+ 214   3            {
+ 215   4              u8Status = RETURN_PHY_SUCCESS;
+ 216   4              break;
+ 217   4            }
+ 218   3            else if(u8IntNum == PHY_INT_IDX_MODEM_FAIL)
+ 219   3            {
+ 220   4              u8Status = RETURN_PHY_MODEM_ON_FAILURE;
+ 221   4              break;
+ 222   4            }
+ 223   3          }
+ 224   2        }
+ 225   1      
+ 226   1        xINTSTS = 0xFF;
+ 227   1        xINTCON = u8xINTCON;
+ 228   1      
+ 229   1        EA = u8EA;
+ 230   1      
+ 231   1        if(u8DccCalibOn)
+ 232   1        { 
+ 233   2          if(u8Status == RETURN_PHY_SUCCESS)
+ 234   2          {
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 5   
+
+ 235   3            xDCCCON = 0x84;
+ 236   3          }
+ 237   2        }
+ 238   1      
+ 239   1        if(u8Status)
+ 240   1        {
+ 241   2          assert_error(PHY_CODE | u8Status);
+ 242   2        }
+ 243   1        return u8Status;
+ 244   1      }
+ 245          
+ 246          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 247          /// 
+ 248          ///   Sets several registers after turning on Modem.
+ 249          ///
+ 250          /// @param  void
+ 251          /// @return void
+ 252          /// 
+ 253          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 254          void HAL_ModemPost(void)
+ 255          {
+ 256   1        HAL_PhyIntSourceSet(PHY_INT_MASK_RX_END | PHY_INT_MASK_TX_END);
+ 257   1        HAL_CCAModeSet(1, 0); // CCA : Enable, Window Size=16us, Mode=0(ED)
+ 258   1        HAL_CorrelationSet(1);
+ 259   1      }
+ 260          
+ 261          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 262          /// 
+ 263          ///   Sets RF's data rate.
+ 264          ///
+ 265          /// @param  u8DataRate  : Data rate to set.
+ 266          ///             \n  0 = 31.25 Kbps
+ 267          ///             \n  1 = 62.50 Kbps
+ 268          ///             \n  2 = 125 Kbps
+ 269          ///             \n  3 = 250 Kbps
+ 270          ///             \n  4 = reserved
+ 271          ///             \n  5 = 1.0 Mbps
+ 272          /// @return UINT8. Status.
+ 273          /// 
+ 274          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 275          UINT8 HAL_DataRateSet(UINT8 u8DataRate)
+ 276          {
+ 277   1        if(u8DataRate == 4)
+ 278   1        {
+ 279   2          assert_error(PHY_CODE | RETURN_PHY_INVALID_DATA_RATE);
+ 280   2          return RETURN_PHY_INVALID_DATA_RATE;
+ 281   2        }
+ 282   1      
+ 283   1        if(u8DataRate > PHY_DATA_RATE_1000K)
+ 284   1        {
+ 285   2          assert_error(PHY_CODE | RETURN_PHY_INVALID_DATA_RATE);
+ 286   2          return RETURN_PHY_INVALID_DATA_RATE;
+ 287   2        }
+ 288   1      
+ 289   1        REGCMD_TX_CANCEL;
+ 290   1        HAL_RxEnable(0);
+ 291   1      
+ 292   1        LIB_DataRateSet(u8DataRate);
+ 293   1      
+ 294   1        switch(u8DataRate)
+ 295   1        { 
+ 296   2          case PHY_DATA_RATE_31K    : xSETRATE = 0x09;  break;
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 6   
+
+ 297   2          case PHY_DATA_RATE_62K    : xSETRATE = 0x05;  break;
+ 298   2          case PHY_DATA_RATE_125K : xSETRATE = 0x03;  break;
+ 299   2          case PHY_DATA_RATE_250K : xSETRATE = 0x02;  break;
+ 300   2          case PHY_DATA_RATE_1000K  : xSETRATE = 0x10;  break;
+ 301   2        }
+ 302   1        REGCMD_TX_CANCEL_CLEAR;
+ 303   1        HAL_RxEnable(1);
+ 304   1      
+ 305   1        gu8DataRate = u8DataRate;
+ 306   1      
+ 307   1        return RETURN_PHY_SUCCESS;
+ 308   1      }
+ 309          
+ 310          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 311          /// 
+ 312          ///   Sets RF's data rate. This should be called only in ISR(Interrupt Service Routine).
+ 313          ///
+ 314          /// @param  u8DataRate  : Data rate to set.
+ 315          ///             \n  0 = 31.25 Kbps
+ 316          ///             \n  1 = 62.50 Kbps
+ 317          ///             \n  2 = 125 Kbps
+ 318          ///             \n  3 = 250 Kbps
+ 319          ///             \n  4 = reserved
+ 320          ///             \n  5 = 1.0 Mbps
+ 321          /// @return UINT8. Status.
+ 322          /// 
+ 323          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 324          UINT8 HAL_DataRateSet_ISR(UINT8 u8DataRate)
+ 325          {
+ 326   1        LIB_DataRateSet(u8DataRate);
+ 327   1      
+ 328   1        switch(u8DataRate)
+ 329   1        { 
+ 330   2          case PHY_DATA_RATE_31K    : xSETRATE = 0x09;  break;
+ 331   2          case PHY_DATA_RATE_62K    : xSETRATE = 0x05;  break;
+ 332   2          case PHY_DATA_RATE_125K : xSETRATE = 0x03;  break;
+ 333   2          case PHY_DATA_RATE_250K : xSETRATE = 0x02;  break;
+ 334   2          case PHY_DATA_RATE_1000K  : xSETRATE = 0x10;  break;
+ 335   2        }
+ 336   1      
+ 337   1        gu8DataRate = u8DataRate;
+ 338   1      
+ 339   1        return RETURN_PHY_SUCCESS;
+ 340   1      }
+ 341          
+ 342          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 343          /// 
+ 344          ///   Enables or disables Multiple Data Rate mode. If receiving packets with various data rate
+ 345          ///   over 250Kbps is needed, this should be called.
+ 346          ///
+ 347          /// @param  u8On  : 0=Off, 1=On
+ 348          /// @return void
+ 349          /// 
+ 350          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 351          void HAL_MultiDataRateSet(UINT8 u8On)
+ 352          {
+ 353   1        HAL_DataRateSet(PHY_DATA_RATE_250K);
+ 354   1      
+ 355   1        if(u8On)
+ 356   1        {
+ 357   2          xCORCNF4 |= BIT6;
+ 358   2          xPHY_MPTOP_CLK_SEL |= BIT3;
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 7   
+
+ 359   2          xAGCCNF7 |= BIT7;
+ 360   2        }
+ 361   1        else
+ 362   1        {
+ 363   2          xCORCNF4 &= ~(BIT6 | BIT7);
+ 364   2          xPHY_MPTOP_CLK_SEL &= ~BIT3;
+ 365   2          xAGCCNF7 &= ~BIT7;
+ 366   2        } 
+ 367   1      }
+ 368          
+ 369          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 370          /// 
+ 371          ///   Sets the RF channel by number defined by IEEE 802.15.4.
+ 372          ///
+ 373          /// @param  u8ChanNum : Number of RF channel.
+ 374          ///             \n  11 = 2405 MHz.
+ 375          ///             \n  12 = 2410 MHz.
+ 376          ///             \n  13 = 2415 MHz.
+ 377          ///             \n  14 = 2420 MHz.
+ 378          ///             \n  15 = 2425 MHz.
+ 379          ///             \n  16 = 2430 MHz.
+ 380          ///             \n  17 = 2435 MHz.
+ 381          ///             \n  18 = 2440 MHz.
+ 382          ///             \n  19 = 2445 MHz.
+ 383          ///             \n  20 = 2450 MHz.
+ 384          ///             \n  21 = 2455 MHz.
+ 385          ///             \n  22 = 2460 MHz.
+ 386          ///             \n  23 = 2465 MHz.
+ 387          ///             \n  24 = 2470 MHz.
+ 388          ///             \n  25 = 2475 MHz.
+ 389          ///             \n  26 = 2480 MHz.
+ 390          /// @return UINT8. Status.
+ 391          /// 
+ 392          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 393          UINT8 HAL_ChannelSet(UINT8 u8ChanNum)
+ 394          {
+ 395   1        UINT8 u8Status;
+ 396   1      
+ 397   1        if( (u8ChanNum < 11) || (u8ChanNum > 26) )
+ 398   1        {
+ 399   2          assert_error(PHY_CODE | RETURN_PHY_INVALID_CHANNEL);
+ 400   2          return RETURN_PHY_INVALID_CHANNEL;
+ 401   2        }
+ 402   1      
+ 403   1        REGCMD_TX_CANCEL;
+ 404   1        HAL_RxEnable(0);
+ 405   1      
+ 406   1        JP_FREQ_SET:
+ 407   1      
+ 408   1        switch(u8ChanNum)
+ 409   1        {
+ 410   2          case 11 : u8Status = LIB_FrequencySet(2405);  break;
+ 411   2          case 12 : u8Status = LIB_FrequencySet(2410);  break;
+ 412   2          case 13 : u8Status = LIB_FrequencySet(2415);  break;
+ 413   2          case 14 : u8Status = LIB_FrequencySet(2420);  break;
+ 414   2          case 15 : u8Status = LIB_FrequencySet(2425);  break;
+ 415   2          case 16 : u8Status = LIB_FrequencySet(2430);  break;
+ 416   2          case 17 : u8Status = LIB_FrequencySet(2435);  break;
+ 417   2          case 18 : u8Status = LIB_FrequencySet(2440);  break;
+ 418   2          case 19 : u8Status = LIB_FrequencySet(2445);  break;
+ 419   2          case 20 : u8Status = LIB_FrequencySet(2450);  break;
+ 420   2          case 21 : u8Status = LIB_FrequencySet(2455);  break;
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 8   
+
+ 421   2          case 22 : u8Status = LIB_FrequencySet(2460);  break;
+ 422   2          case 23 : u8Status = LIB_FrequencySet(2465);  break;
+ 423   2          case 24 : u8Status = LIB_FrequencySet(2470);  break;
+ 424   2          case 25 : u8Status = LIB_FrequencySet(2475);  break;
+ 425   2          case 26 : u8Status = LIB_FrequencySet(2480);  break;
+ 426   2        }
+ 427   1      
+ 428   1        if(u8Status)
+ 429   1        {
+ 430   2          assert_error(PHY_CODE | u8Status);
+ 431   2          goto JP_FREQ_SET;
+ 432   2        }
+ 433   1      
+ 434   1        REGCMD_TX_CANCEL_CLEAR;
+ 435   1        HAL_RxEnable(1);
+ 436   1      
+ 437   1        if(u8Status)
+ 438   1        {
+ 439   2          assert_error(PHY_CODE | u8Status);
+ 440   2        }
+ 441   1        return u8Status;
+ 442   1      }
+ 443          
+ 444          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 445          /// 
+ 446          ///   Gets the energy detection(ED) level.
+ 447          ///
+ 448          /// @param  void
+ 449          /// @return INT8. Value of energy detection level. This is 2's complementary value.
+ 450          /// 
+ 451          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 452          INT8 HAL_EnergyLevelGet(void)
+ 453          {
+ 454   1        INT8    i8dBm;
+ 455   1        UINT8 ib;
+ 456   1      
+ 457   1        for(ib = 0; ib < 250; ib++)
+ 458   1        {
+ 459   2          i8dBm = xAGCSTS2;
+ 460   2          if(i8dBm != 0)
+ 461   2          {
+ 462   3            break;
+ 463   3          }
+ 464   2        }
+ 465   1      
+ 466   1        return  i8dBm;
+ 467   1      }
+ 468          
+ 469          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 470          /// 
+ 471          ///   Enables/Disables the source of PHY interrupts. If a bit is set to 1, the corresponding interrupt sour
+             -ce is enabled.
+ 472          ///
+ 473          /// @param  u8IntSource : Interrupt source
+ 474          ///           \n  bit[7:5]  : reserved
+ 475          ///           \n  bit[4]  : If set to 1, Modem-Fail interrupt is enabled. This interrupt has lowest priority.
+ 476          ///           \n  bit[3]  : If set to 1, RX-End interrupt is enabled. This interrupt has low priority.
+ 477          ///           \n  bit[2]  : If set to 1, RX-Start interrupt is enabled. This interrupt has medium priority.
+ 478          ///           \n  bit[1]  : If set to 1, TX-End interrupt is enabled. This interrupt has high priority.
+ 479          ///           \n  bit[0]  : If set to 1, Modem-On interrupt is enabled. This interrupt has highest priority.
+ 480          /// @return void
+ 481          /// 
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 9   
+
+ 482          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 483          void HAL_PhyIntSourceSet(UINT8 u8IntSource)
+ 484          {
+ 485   1        xINTCON = u8IntSource & 0x1F;
+ 486   1      }
+ 487          
+ 488          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 489          /// 
+ 490          ///   Enables/Disables the PHY interrupt.
+ 491          ///
+ 492          /// @param  u8IntEna  : 0=Disable, 1=Enable.
+ 493          /// @param  u8Priority  : Priority of interrupt. 0=Low, 1=High.
+ 494          /// @return void
+ 495          /// 
+ 496          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 497          void HAL_PhyIntSet(UINT8 u8IntEna, UINT8 u8Priority)
+ 498          {
+ 499   1        UINT8 u8EA;
+ 500   1      
+ 501   1        u8EA = EA;
+ 502   1        EA = 0;
+ 503   1      
+ 504   1        PHYIP = u8Priority;
+ 505   1        PHYIE = u8IntEna;
+ 506   1      
+ 507   1        EA = u8EA;
+ 508   1      }
+ 509          
+ 510          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 511          /// 
+ 512          ///   Stops or resumes receiving operations
+ 513          ///
+ 514          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 515          /// @return void
+ 516          /// 
+ 517          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 518          void HAL_RxEnable(UINT8 u8Ena)
+ 519          {
+ 520   1        UINT8 u8EA;
+ 521   1      
+ 522   1        if(u8Ena)
+ 523   1        {
+ 524   2          REGCMD_PHY_INT_RESET_ON;
+ 525   2          REGCMD_PHY_INT_RESET_OFF;
+ 526   2          MCU_INT_FLAG_CLEAR_PHY;
+ 527   2          u8EA = EA;
+ 528   2          EA = 0;
+ 529   2          xMRFCSTA = 0x00;
+ 530   2          xMRFCWP = 0;
+ 531   2          xMRFCRP = 0;
+ 532   2          EA = u8EA;
+ 533   2          gu8RxInLowQ = 0; // Double FIFO
+ 534   2          REGCMD_RSM_RESET_ON;
+ 535   2          REGCMD_RSM_RESET_OFF;
+ 536   2          REGCMD_RX_ON;
+ 537   2        }
+ 538   1        else
+ 539   1        {
+ 540   2          REGCMD_RX_OFF;
+ 541   2        }
+ 542   1      }
+ 543          
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 10  
+
+ 544          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 545          /// 
+ 546          ///   Sets the system interrupt(EA) of 8051.
+ 547          ///
+ 548          /// @param  u8EA  : Value of EA to set. 0=Disable, 1=Enable.
+ 549          /// @return void
+ 550          /// 
+ 551          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 552          void HAL_SystemIntSet(UINT8 u8EA)
+ 553          {
+ 554   1        EA = u8EA;
+ 555   1      }
+ 556          
+ 557          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 558          /// 
+ 559          ///   Sets several registers for TX.
+ 560          ///
+ 561          /// @return void
+ 562          /// 
+ 563          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 564          void HAL_TxReady(void)
+ 565          {
+ 566   1        LIB_TxReady();
+ 567   1      }
+ 568          
+ 569          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 570          /// 
+ 571          ///   Global variable which indicates whether transmitting is undergoing.
+ 572          /// 
+ 573          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 574          UINT8 gu8TxOperating = 0;
+ 575          
+ 576          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 577          /// 
+ 578          ///   Transmits a packet in TXFIFO. The starting address of the packet is 0x00.
+ 579          ///
+ 580          /// @param  void
+ 581          /// @return UINT8. Status.
+ 582          /// 
+ 583          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 584          UINT8 HAL_TxFifoTransmit(void)
+ 585          {
+ 586   1        static  UINT16  su16MaxLoopCnt;
+ 587   1        static  UINT16  su16Loop;
+ 588   1        UINT8 u8Status;
+ 589   1        UINT8 u8RXSTS;
+ 590   1      
+ 591   1        xMTFCRP = 0;
+ 592   1        xMACDSN = xMTxFIFO(0+3);
+ 593   1      
+ 594   1        //
+ 595   1        // Check Modem Status before transmitting.
+ 596   1        //
+ 597   1        u8RXSTS = xPHYSTS0 & 0x70;
+ 598   1        if( (u8RXSTS != 0x00) && (u8RXSTS != 0x10) )
+ 599   1        {
+ 600   2          return RETURN_PHY_MODEM_BUSY;
+ 601   2        }
+ 602   1        //
+ 603   1      
+ 604   1        gu8TxOperating = 1;
+ 605   1        gu8PhyIntFlag &= ~(PHY_FLAG_MASK_TX_END | PHY_FLAG_MASK_RX_ACK);
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 11  
+
+ 606   1      
+ 607   1        u8Status = RETURN_PHY_CCA_FAILURE;
+ 608   1      
+ 609   1        HAL_TxReady();
+ 610   1        REGCMD_TX_REQ;        // bit[2]=0
+ 611   1      
+ 612   1        su16MaxLoopCnt = gcau16MaxWait_DataTxDone[gu8DataRate][gu8McuPeriClockMode];
+ 613   1        for(su16Loop=0 ; su16Loop < su16MaxLoopCnt ; su16Loop++)
+ 614   1        {
+ 615   2          if(gu8PhyIntFlag & PHY_FLAG_MASK_TX_END)
+ 616   2          {
+ 617   3            u8Status = RETURN_PHY_SUCCESS;
+ 618   3            break;
+ 619   3          }
+ 620   2        }
+ 621   1      
+ 622   1        if(u8Status == RETURN_PHY_CCA_FAILURE)
+ 623   1        {
+ 624   2          REGCMD_TX_CANCEL;   // bit[3]=0
+ 625   2          xMTFCRP = 0;
+ 626   2          gu8TxOperating = 0;
+ 627   2      
+ 628   2          return RETURN_PHY_CCA_FAILURE;
+ 629   2        }
+ 630   1      
+ 631   1        gu8TxOperating = 0;
+ 632   1      
+ 633   1        u8Status = RETURN_PHY_SUCCESS;
+ 634   1        if(xMTxFIFO(0+1) & 0x20)      // If AckRequest=1
+ 635   1        {
+ 636   2          u8Status = RETURN_PHY_NO_ACK_FAILURE;
+ 637   2          su16MaxLoopCnt = gcau16MaxWait_AckRxDone[gu8DataRate][gu8McuPeriClockMode];
+ 638   2          for(su16Loop=0 ; su16Loop < su16MaxLoopCnt ; su16Loop++)
+ 639   2          {
+ 640   3            if(gu8PhyIntFlag & PHY_FLAG_MASK_RX_ACK)
+ 641   3            {
+ 642   4              u8Status = RETURN_PHY_SUCCESS;
+ 643   4              break;
+ 644   4            }
+ 645   3          }
+ 646   2        }
+ 647   1      
+ 648   1        xMTFCRP = 0;
+ 649   1      
+ 650   1        return u8Status;
+ 651   1      }
+ 652          
+ 653          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 654          /// 
+ 655          ///   Transmits an ACK packet.
+ 656          ///
+ 657          /// @param  u8FramePend : If this is 1, FramePend subfield of FrameControl field in ACK packet is set to 1.
+ 658          ///           \n  0 = Pended frame is not present.
+ 659          ///           \n  1 = Pended frame is present.
+ 660          /// @param  u8DSN   : Value for sequence number field in ACK packet.
+ 661          /// @return void
+ 662          /// 
+ 663          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 664          void HAL_AckTransmit(UINT8 u8FramePend, UINT8 u8DSN)
+ 665          {
+ 666   1        static  UINT16  su16MaxLoopCnt;
+ 667   1        static  UINT16  su16Loop;
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 12  
+
+ 668   1        UINT8 u8RXSTS;
+ 669   1        UINT8 u8CCA0;
+ 670   1      
+ 671   1        if(gu8TxOperating)
+ 672   1        {
+ 673   2          return;
+ 674   2        }
+ 675   1      
+ 676   1        xMTxFIFO(0x80) = 0x05;
+ 677   1        xMTxFIFO(0x81) = 0x02;
+ 678   1        if(u8FramePend)
+ 679   1        {
+ 680   2          xMTxFIFO(0x81) |= 0x10;
+ 681   2        }
+ 682   1        xMTxFIFO(0x82) = 0x00;
+ 683   1        xMTxFIFO(0x83) = u8DSN; 
+ 684   1      
+ 685   1        u8CCA0 = xCCA0;
+ 686   1        xCCA0 |= BIT5;    // bit[5]=1. Disable
+ 687   1        xMTFCRP = 0x80;
+ 688   1      
+ 689   1        //
+ 690   1        // Check Modem Status before transmitting.
+ 691   1        //
+ 692   1        u8RXSTS = xPHYSTS0 & 0x70;
+ 693   1        if( (u8RXSTS != 0x00) && (u8RXSTS != 0x10) )
+ 694   1        {
+ 695   2          goto JP_HAL_AckTransmit;
+ 696   2        }
+ 697   1        //
+ 698   1      
+ 699   1      
+ 700   1        REGCMD_TX_REQ;        // bit[2]=0
+ 701   1        su16MaxLoopCnt = gcau16MaxWait_AckTxDone[gu8DataRate][gu8McuPeriClockMode];
+ 702   1        for(su16Loop=0 ; su16Loop < su16MaxLoopCnt ; su16Loop++);
+ 703   1        REGCMD_TX_CANCEL;     // bit[3]=0
+ 704   1      
+ 705   1        JP_HAL_AckTransmit:
+ 706   1      
+ 707   1        xMTFCRP = 0x00;
+ 708   1        xCCA0 = u8CCA0;     // Enable CCA
+ 709   1      }
+ 710          
+ 711          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 712          /// 
+ 713          ///   Enables/Disables CCA function. And, Sets CCA's mode.
+ 714          ///
+ 715          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 716          /// @param  u8CcaMode : CCA mode. 0=ED, 1=CD, 2=FD, 3=Reserved.
+ 717          /// @return UINT8. Status.
+ 718          /// 
+ 719          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 720          UINT8 HAL_CCAModeSet(UINT8 u8Ena, UINT8 u8CcaMode)
+ 721          {
+ 722   1        if(u8CcaMode > PHY_CCA_MODE_FD)
+ 723   1        {
+ 724   2          assert_error(PHY_CODE | RETURN_PHY_INVALID_PARAMETER);
+ 725   2          return RETURN_PHY_INVALID_PARAMETER;
+ 726   2        } 
+ 727   1      
+ 728   1        if(u8Ena)
+ 729   1        {
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 13  
+
+ 730   2          xCCA0 = (0x10 | u8CcaMode);
+ 731   2        }
+ 732   1        else
+ 733   1        {
+ 734   2          xCCA0 = 0x30;
+ 735   2        }
+ 736   1      
+ 737   1        return RETURN_PHY_SUCCESS;
+ 738   1      }
+ 739          
+ 740          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 741          /// 
+ 742          ///   Sets threshold of CCA. The packet is transmitted when energy detection level is lower than CCA thresh
+             -old.
+ 743          ///
+ 744          /// @param  i8Threshold_dBm : The threshold value in dBm. This is 2's complementary value.
+ 745          /// @return void
+ 746          /// 
+ 747          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 748          void HAL_CCAThresholdSet(INT8 i8Threshold_dBm)
+ 749          {
+ 750   1        xCCA1 = i8Threshold_dBm;
+ 751   1      }
+ 752          
+ 753          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 754          /// 
+ 755          ///   Enables/Disables Correlation Indicator. The correlation value is acquired by reading LQICNF1 register
+             -(0x227F)
+ 756          ///   after receiving a packet.
+ 757          ///
+ 758          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 759          /// @return void
+ 760          /// 
+ 761          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 762          void HAL_CorrelationSet(UINT8 u8Ena)
+ 763          {
+ 764   1        if(u8Ena)
+ 765   1        {
+ 766   2          xLQICNF0 |= BIT3;
+ 767   2        }
+ 768   1        else
+ 769   1        {
+ 770   2          xLQICNF0 &= ~BIT3;
+ 771   2        }
+ 772   1      }
+ 773          
+ 774          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 775          /// 
+ 776          ///   Sets mode for RF testing.
+ 777          ///
+ 778          /// @param  u8TestMode  : Test Mode.
+ 779          ///           \n  0 = Disable test mode.
+ 780          ///           \n  1 = CW(Continuous Wave). Carrier Signal Generation.
+ 781          ///           \n  2 = CM(Continuous Modulated Spectrum). Modulated Signal Generation without 
+ 782          ///               IFS(Inter-Frame-Space)
+ 783          ///           \n  3 = CM(Continuous Modulated Spectrum). Modulated Signal Generation with 
+ 784          ///               IFS(Inter-Frame-Space)
+ 785          /// @return UINT8. Status.
+ 786          /// 
+ 787          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 788          UINT8 HAL_RFTestMode(UINT8 u8TestMode)
+ 789          {
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 14  
+
+ 790   1        UINT8 u8Status;
+ 791   1        static  UINT8 u8CurrentTestMode = 0;
+ 792   1      
+ 793   1        if(u8TestMode > 3)
+ 794   1        {
+ 795   2          assert_error(PHY_CODE | RETURN_PHY_INVALID_PARAMETER);
+ 796   2          return RETURN_PHY_INVALID_PARAMETER;
+ 797   2        }
+ 798   1      
+ 799   1        if( (u8TestMode == 0) && (u8CurrentTestMode == 0) )
+ 800   1        {
+ 801   2          assert_error(PHY_CODE | RETURN_PHY_ILLEGAL_REQUEST);
+ 802   2          return RETURN_PHY_ILLEGAL_REQUEST;
+ 803   2        } 
+ 804   1        
+ 805   1        u8Status = RETURN_PHY_SUCCESS;
+ 806   1        if(u8TestMode == PHY_RF_TEST_CW)    // Continuous Wave(CW). Unmodulated Carrier.
+ 807   1        {
+ 808   2          HAL_ModemOff();
+ 809   2          LIB_RFTestMode(PHY_RF_TEST_CW);
+ 810   2          u8CurrentTestMode = PHY_RF_TEST_CW;
+ 811   2        }
+ 812   1        else if(u8TestMode == PHY_RF_TEST_CM_WITHOUT_IFS) // Continuous Modulated Spectrum(CM) without IFS(Inter 
+             -Frame Space)
+ 813   1        {
+ 814   2          HAL_ModemOff();
+ 815   2          LIB_RFTestMode(PHY_RF_TEST_CM_WITHOUT_IFS);
+ 816   2          u8CurrentTestMode = PHY_RF_TEST_CM_WITHOUT_IFS;
+ 817   2        }
+ 818   1        else if(u8TestMode == PHY_RF_TEST_CM_WITH_IFS)  // Continuous Modulated Spectrum(CM) with IFS(Inter Frame 
+             -Space)
+ 819   1        {
+ 820   2          HAL_ModemOff();
+ 821   2          LIB_RFTestMode(PHY_RF_TEST_CM_WITH_IFS);
+ 822   2          u8CurrentTestMode = PHY_RF_TEST_CM_WITH_IFS;
+ 823   2        } 
+ 824   1        else
+ 825   1        {   
+ 826   2          LIB_RFTestMode(PHY_RF_TEST_DISABLE);
+ 827   2          u8Status = HAL_ModemOn(10000, 0);
+ 828   2          u8CurrentTestMode = 0;
+ 829   2        }
+ 830   1      
+ 831   1        return u8Status;
+ 832   1      }
+ 833          
+ 834          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 835          /// 
+ 836          ///   Sets the transmitting power.
+ 837          ///
+ 838          /// @param  u8PowerLevel  : level of transmitting power
+ 839          ///           \n  0 = 9.0 dBm.
+ 840          ///           \n  1 = 8.0 dBm.
+ 841          ///           \n  2 = 7.0 dBm.
+ 842          ///           \n  3 = 6.0 dBm.
+ 843          ///           \n  4 = 5.0 dBm.
+ 844          ///           \n  5 = 4.0 dBm.
+ 845          ///           \n  6 = 3.0 dBm.
+ 846          ///           \n  7 = 2.0 dBm.
+ 847          ///           \n  8 = 1.0 dBm.
+ 848          ///           \n  9 = 0.0 dBm.
+ 849          ///           \n  10 = -1 dBm.
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 15  
+
+ 850          ///           \n  11 = -2 dBm.
+ 851          ///           \n  12 = -3 dBm.
+ 852          ///           \n  13 = -4 dBm.
+ 853          ///           \n  14 = -5 dBm.
+ 854          ///           \n  15 = -7 dBm.
+ 855          ///           \n  16 = -8 dBm.
+ 856          ///           \n  17 = -9 dBm.
+ 857          ///           \n  18 = -10 dBm.
+ 858          ///           \n  19 = -23 dBm.
+ 859          ///           \n  20 = -27 dBm.
+ 860          ///           \n  21 = -33 dBm.
+ 861          ///           \n  22 = -64 dBm.
+ 862          
+ 863          /// @return UINT8. Status.
+ 864          /// 
+ 865          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 866          UINT8 HAL_TxPowerSet(UINT8 u8PowerLevel)
+ 867          {
+ 868   1        if(u8PowerLevel > 22)
+ 869   1        {
+ 870   2          assert_error(PHY_CODE | RETURN_PHY_INVALID_PARAMETER);
+ 871   2          return RETURN_PHY_INVALID_PARAMETER;
+ 872   2        }
+ 873   1      
+ 874   1        LIB_TxPowerSet(u8PowerLevel);
+ 875   1      
+ 876   1        return RETURN_PHY_SUCCESS;
+ 877   1      }
+ 878          
+ 879          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 880          /// 
+ 881          ///   Sets signals to control an external amplifier when it is used. There are two kinds of signals.
+ 882          ///   \n TRSW is high in transmitting and low in receiving.
+ 883          ///   \n nTRSW is reversed TRSW. It's low in transmitting and high in receiving.
+ 884          ///   \n GPIO3_6 and GPIO3_7 are used for those and the polarity is dependent on "u8Polarity".
+ 885          ///
+ 886          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 887          /// @param  u8Polarity  : Polarity of GPIO which is used for TRSW and nTRSW.
+ 888          ///   \n  0 = GPIO3_7 is TRSW. GPIO3_6 is nTRSW.
+ 889          ///   \n  1 = GPIO3_7 is nTRSW. GPIO3_6 is TRSW.
+ 890          /// @return void
+ 891          /// 
+ 892          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 893          void HAL_AmpCtrlSignalSet(UINT8 u8Ena, UINT8 u8Polarity)
+ 894          {
+ 895   1        if(u8Ena)
+ 896   1        {
+ 897   2          LIB_AmpCtrlSignalSet(u8Polarity);
+ 898   2          P3SRC_SEL |= (BIT6 | BIT7);
+ 899   2        }
+ 900   1        else
+ 901   1        {
+ 902   2          P3SRC_SEL &= ~(BIT6 | BIT7);
+ 903   2        } 
+ 904   1      }
+ 905          
+ 906          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 907          /// 
+ 908          ///   Sets signals to control an external amplifier when it is used. There are two kinds of signals.
+ 909          ///   \n GPIO1_7 is TRSW. This is high in transmitting and low in receiving.
+ 910          ///   \n GPIO1_6 is nTRSW. This is reversed TRSW. It's low in transmitting and high in receiving.
+ 911          ///
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 16  
+
+ 912          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 913          /// @return void
+ 914          /// 
+ 915          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 916          void HAL_AmpCtrlGpio1Set(UINT8 u8Ena)
+ 917          {
+ 918   1        if(u8Ena)
+ 919   1        {
+ 920   2          LIB_AmpCtrlGpio1Set();
+ 921   2          P1SRC_SEL |= (BIT6 | BIT7);
+ 922   2        }
+ 923   1        else
+ 924   1        {
+ 925   2          P1SRC_SEL &= ~(BIT6 | BIT7);
+ 926   2        } 
+ 927   1      }
+ 928          
+ 929          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 930          /// 
+ 931          ///   Checks the state of PLL locking. If it is not locked, make it to be locked again.
+ 932          ///
+ 933          /// @param  void
+ 934          /// @return void
+ 935          /// 
+ 936          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 937          void HAL_LockStateCheck(void)
+ 938          {
+ 939   1        UINT16  iw;
+ 940   1        UINT8 u8Status;
+ 941   1      
+ 942   1        if( (xPHYSTS1 & 0x1F) > 2)
+ 943   1        {
+ 944   2          if( (xPLLMON & BIT0) == 0)    // If PLL is unlocked
+ 945   2          {
+ 946   3            u8Status = 1;
+ 947   3            while(1)
+ 948   3            {
+ 949   4              xPLLCTRL |= BIT0;   // Re-lock
+ 950   4              for(iw=0 ; iw<1000 ; iw++)
+ 951   4              {
+ 952   5                if(xPLLMON & BIT0)
+ 953   5                {
+ 954   6                  u8Status = 0;
+ 955   6                  break;
+ 956   6                }
+ 957   5              }
+ 958   4      
+ 959   4              if(u8Status == 0)
+ 960   4              {
+ 961   5                break;
+ 962   5              }
+ 963   4            }
+ 964   3          }
+ 965   2        }
+ 966   1      }
+ 967          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1494    ----
+   CONSTANT SIZE    =     72    ----
+   XDATA SIZE       =     15      14
+C51 COMPILER V9.53.0.0   PHY                                                               01/28/2020 11:28:53 PAGE 17  
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

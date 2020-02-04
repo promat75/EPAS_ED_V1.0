@@ -1,0 +1,1 @@
+"Source\main_exti.c" LARGE OPTIMIZE (9,SIZE) INCDIR(..\..\..\..\Platform\Include\; ..\..\..\..\Platform\hal\; ..\..\..\Include\; ..\..\..\Utility\; ..\..\) DEFINE (DEBUG) NOPRINT OBJECT(.\HEX\main_exti.obj)

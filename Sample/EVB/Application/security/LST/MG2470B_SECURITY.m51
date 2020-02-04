@@ -1,0 +1,1038 @@
+BL51 BANKED LINKER/LOCATER V6.00                                                        01/21/2015  12:22:20  PAGE 1
+
+
+BL51 BANKED LINKER/LOCATER V6.00, INVOKED BY:
+C:\KEIL\C51\BIN\BL51.EXE .\HEX\L51_BANK_RP_MG2470.obj, .\HEX\rpmemcpy.obj, .\HEX\STARTUP_BANK_RP_MG2470.obj, .\HEX\adc.o
+>> bj, .\HEX\clock.obj, .\HEX\exti.obj, .\HEX\flash.obj, .\HEX\gpio.obj, .\HEX\gpioint.obj, .\HEX\hmac.obj, .\HEX\phy.ob
+>> j, .\HEX\power.obj, .\HEX\pwm.obj, .\HEX\security.obj, .\HEX\spi.obj, .\HEX\timer.obj, .\HEX\uart.obj, .\HEX\wdt.obj,
+>>  .\HEX\HIB.obj, .\HEX\i2c.obj, .\HEX\irtx_NEC.obj, ..\..\..\..\Platform\Library\MG2470_LIB_V25.LIB, .\HEX\UTIL_APP.ob
+>> j, .\HEX\UTIL_SYS.obj, .\HEX\main_security.obj TO .\HEX\MG2470B_SECURITY PRINT (.\LST\MG2470B_SECURITY.m51) NOLINES, 
+>> NOSYMBOLS, NOPUBLICS DISABLEWARNING (16) CODE (0X0000-0XFFFF) XDATA (0X0000-0X17FF)
+
+
+MEMORY MODEL: LARGE WITH FLOATING POINT ARITHMETIC
+
+
+INPUT MODULES INCLUDED:
+  .\HEX\L51_BANK_RP_MG2470.obj (?BANK?SWITCHING)
+  .\HEX\rpmemcpy.obj (RPMEMCPY)
+  .\HEX\STARTUP_BANK_RP_MG2470.obj (?C_STARTUP)
+  .\HEX\adc.obj (ADC)
+  .\HEX\clock.obj (CLOCK)
+  .\HEX\exti.obj (EXTI)
+  .\HEX\flash.obj (FLASH)
+  .\HEX\gpio.obj (GPIO)
+  .\HEX\gpioint.obj (GPIOINT)
+  .\HEX\hmac.obj (HMAC)
+  .\HEX\phy.obj (PHY)
+  .\HEX\power.obj (POWER)
+  .\HEX\pwm.obj (PWM)
+  .\HEX\security.obj (SECURITY)
+  .\HEX\spi.obj (SPI)
+  .\HEX\timer.obj (TIMER)
+  .\HEX\uart.obj (UART)
+  .\HEX\wdt.obj (WDT)
+  .\HEX\HIB.obj (HIB)
+  .\HEX\i2c.obj (I2C)
+  .\HEX\irtx_NEC.obj (IRTX_NEC)
+  ..\..\..\..\Platform\Library\MG2470_LIB_V25.LIB (MG2470_LIB)
+  .\HEX\UTIL_APP.obj (UTIL_APP)
+  .\HEX\UTIL_SYS.obj (UTIL_SYS)
+  .\HEX\main_security.obj (MAIN_SECURITY)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FPADD)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FPMUL)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FPDIV)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FCAST)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?CASTF)
+  C:\KEIL\C51\LIB\C51FPL.LIB (VSPRINTF)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FPGETOPN)
+  C:\KEIL\C51\LIB\C51FPL.LIB (PRINTF)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FPROUND)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FPCONVERT)
+  C:\KEIL\C51\LIB\C51FPL.LIB (?C?FTNPWR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C_INIT)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?COPY)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?CLDPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?CLDOPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?CILDPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?CSTPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?CSTOPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?IMUL)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?UIDIV)
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 2
+
+
+  C:\KEIL\C51\LIB\C51L.LIB (?C?SIDIV)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?IILDX)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ILDIX)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ILDPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ILDOPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ISTPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ISTOPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LADD)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LMUL)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ULDIV)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?SLDIV)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LOR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LNEG)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ULCMP)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ULSHR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LSHL)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LLDXDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LLDXDATA0)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LSTXDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LSTKXDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?OFFXADD)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PLDXDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PLDIXDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PSTXDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PLDOPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PSTOPTR)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?CCASE)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ICASE)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?LCASE)
+  C:\KEIL\C51\LIB\C51L.LIB (?C_XBP)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?ADDXBP)
+  C:\KEIL\C51\LIB\C51L.LIB (PUTCHAR)
+  C:\KEIL\C51\LIB\C51L.LIB (RAND)
+  C:\KEIL\C51\LIB\C51L.LIB (TOINT)
+  C:\KEIL\C51\LIB\C51L.LIB (STRLEN)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?MEMCMP)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?MEMSET)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PLDIDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PSTIDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PLDPDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PSTPDATA)
+  C:\KEIL\C51\LIB\C51L.LIB (?C?PLDCODE)
+
+
+LINK MAP OF MODULE:  .\HEX\MG2470B_SECURITY (?BANK?SWITCHING)
+
+
+            TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
+            -----------------------------------------------------
+
+            * * * * * * *   D A T A   M E M O R Y   * * * * * * *
+            REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
+            DATA    0008H     0005H     UNIT         _DATA_GROUP_
+            DATA    000DH     0002H     UNIT         ?C?LIB_DATA
+            DATA    000FH     0001H     UNIT         ?BANK?DATA
+                    0010H     0010H                  *** GAP ***
+            BIT     0020H.0   0001H.1   UNIT         _BIT_GROUP_
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 3
+
+
+                    0021H.1   0000H.7                *** GAP ***
+            IDATA   0022H     0001H     UNIT         ?STACK
+
+            * * * * * * *  X D A T A   M E M O R Y  * * * * * * *
+            XDATA   0000H     0522H     UNIT         ?XD?UTIL_SYS
+            XDATA   0522H     0291H     UNIT         _XDATA_GROUP_
+            XDATA   07B3H     0112H     UNIT         ?XD?UART
+            XDATA   08C5H     0089H     UNIT         ?XD?MAIN_SECURITY
+            XDATA   094EH     0047H     UNIT         ?XD?SPI
+            XDATA   0995H     002EH     UNIT         ?XD?UTIL_APP
+            XDATA   09C3H     0015H     UNIT         ?XD?_HAL_FLASHWRITE?FLASH
+            XDATA   09D8H     0014H     UNIT         ?XD?_HAL_FLASHPAGEWRITE?FLASH
+            XDATA   09ECH     0012H     UNIT         ?XD?_SYS_ADCCALIB?ADC
+            XDATA   09FEH     0011H     UNIT         ?XD?_HAL_FLASHREAD?FLASH
+            XDATA   0A0FH     000FH     UNIT         ?XD?PHY
+            XDATA   0A1EH     000CH     UNIT         ?XD?_HAL_POWERDOWNMODE1?POWER
+            XDATA   0A2AH     000CH     UNIT         ?XD?_HAL_POWERDOWNMODE2?POWER
+            XDATA   0A36H     000BH     UNIT         ?XD?_SYS_ADCCALIBGET_ONCE?ADC
+            XDATA   0A41H     000BH     UNIT         ?XD?_HAL_UART0INTSET?UART
+            XDATA   0A4CH     000BH     UNIT         ?XD?_HAL_I2CMASTER_SEQUENTIALREAD?I2C
+            XDATA   0A57H     000AH     UNIT         ?XD?ADC
+            XDATA   0A61H     000AH     UNIT         ?XD?_HAL_TIMER2INTSET?TIMER
+            XDATA   0A6BH     000AH     UNIT         ?XD?_HAL_TIMER3INTSET?TIMER
+            XDATA   0A75H     0009H     UNIT         ?XD?_SYS_PWM0SET_PWMMODE?PWM
+            XDATA   0A7EH     0009H     UNIT         ?XD?_SYS_PWM1SET_PWMMODE?PWM
+            XDATA   0A87H     0009H     UNIT         ?XD?_SYS_PWM2SET_PWMMODE?PWM
+            XDATA   0A90H     0009H     UNIT         ?XD?_SYS_PWM3SET_PWMMODE?PWM
+            XDATA   0A99H     0009H     UNIT         ?XD?_SYS_PWM4SET_PWMMODE?PWM
+            XDATA   0AA2H     0009H     UNIT         ?XD?_HAL_TIMER1INTSET?TIMER
+            XDATA   0AABH     0008H     UNIT         ?XD?_HAL_POWERDOWNMODE3?POWER
+            XDATA   0AB3H     0008H     UNIT         ?XD?I2C
+            XDATA   0ABBH     0008H     UNIT         ?XD?_HAL_I2CMASTER_RANDOMWRITE?I2C
+            XDATA   0AC3H     0008H     UNIT         ?XD?_HAL_I2CMASTER_RANDOMREAD?I2C
+            XDATA   0ACBH     0007H     UNIT         ?XD?_HAL_GPIOINT0SET?GPIOINT
+            XDATA   0AD2H     0007H     UNIT         ?XD?_HAL_GPIOINT1SET?GPIOINT
+            XDATA   0AD9H     0007H     UNIT         ?XD?_HAL_GPIOINT3SET?GPIOINT
+            XDATA   0AE0H     0007H     UNIT         ?XD?_HAL_I2CMASTER_SEQUENTIALWRITE?I2C
+            XDATA   0AE7H     0006H     UNIT         ?XD?_SYS_ADCCALIBGET?ADC
+            XDATA   0AEDH     0006H     UNIT         ?XD?_HAL_GPIO1INOUTSET?GPIO
+            XDATA   0AF3H     0006H     UNIT         ?XD?_HAL_PWM0SET_PWMMODE?PWM
+            XDATA   0AF9H     0006H     UNIT         ?XD?_HAL_PWM1SET_PWMMODE?PWM
+            XDATA   0AFFH     0006H     UNIT         ?XD?_HAL_PWM2SET_PWMMODE?PWM
+            XDATA   0B05H     0006H     UNIT         ?XD?_HAL_PWM3SET_PWMMODE?PWM
+            XDATA   0B0BH     0006H     UNIT         ?XD?_HAL_PWM4SET_PWMMODE?PWM
+            XDATA   0B11H     0006H     UNIT         ?XD?_HAL_SPIINTSET?SPI
+            XDATA   0B17H     0005H     UNIT         ?XD?_HAL_RTCINTSET?POWER
+            XDATA   0B1CH     0005H     UNIT         ?XD?_HAL_PWM0SET_TIMERMODE?PWM
+            XDATA   0B21H     0005H     UNIT         ?XD?_HAL_PWM1SET_TIMERMODE?PWM
+            XDATA   0B26H     0005H     UNIT         ?XD?_HAL_PWM2SET_TIMERMODE?PWM
+            XDATA   0B2BH     0005H     UNIT         ?XD?_HAL_PWM3SET_TIMERMODE?PWM
+            XDATA   0B30H     0005H     UNIT         ?XD?_HAL_PWM4SET_TIMERMODE?PWM
+            XDATA   0B35H     0005H     UNIT         ?XD?SECURITY
+            XDATA   0B3AH     0005H     UNIT         ?XD?_HAL_TIMER0INTSET_SHORTPERIOD?TIMER
+            XDATA   0B3FH     0005H     UNIT         ?XD?_HAL_TIMER1INTSET_SHORTPERIOD?TIMER
+            XDATA   0B44H     0004H     UNIT         ?XD?HAL_SECTXNONCEFRAMECNTGET?SECURITY
+            XDATA   0B48H     0004H     UNIT         ?XD?HAL_SECRXNONCEFRAMECNTGET?SECURITY
+            XDATA   0B4CH     0004H     UNIT         ?XD?_SYS_SPIMASTERPUTMULTIBYTES?SPI
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 4
+
+
+            XDATA   0B50H     0004H     UNIT         ?XD?TIMER
+            XDATA   0B54H     0004H     UNIT         ?XD?_OUTDATA?UART
+            XDATA   0B58H     0004H     UNIT         ?XD?_HAL_I2CINTSET?I2C
+            XDATA   0B5CH     0004H     UNIT         ?XD?_HAL_IRTXNECINTSET?IRTX_NEC
+            XDATA   0B60H     0004H     UNIT         ?XD?RAND?RAND
+            XDATA   0B64H     0003H     UNIT         ?XD?_HAL_MCUPERICLOCKSET?CLOCK
+            XDATA   0B67H     0003H     UNIT         ?XD?_HAL_EXT0INTSET?EXTI
+            XDATA   0B6AH     0003H     UNIT         ?XD?_HAL_EXT1INTSET?EXTI
+            XDATA   0B6DH     0003H     UNIT         ?XD?GPIOINT
+            XDATA   0B70H     0003H     UNIT         ?XD?_HAL_MCUIDLEMODE?POWER
+            XDATA   0B73H     0003H     UNIT         ?XD?_HAL_POWERDOWNGPIO0WAKEUPSOURCESET?POWER
+            XDATA   0B76H     0003H     UNIT         ?XD?_HAL_POWERDOWNGPIO1WAKEUPSOURCESET?POWER
+            XDATA   0B79H     0003H     UNIT         ?XD?_HAL_POWERDOWNGPIO3WAKEUPSOURCESET?POWER
+            XDATA   0B7CH     0003H     UNIT         ?XD?_SYS_SPISLAVEPUTMULTIPLEBYTES?SPI
+            XDATA   0B7FH     0003H     UNIT         ?XD?_LIB_EXPRESSFREQUENCYSET?MG2470_LIB
+            XDATA   0B82H     0002H     UNIT         ?XD?_HAL_ADCSAMPLERATESET?ADC
+            XDATA   0B84H     0002H     UNIT         ?XD?EXTI
+            XDATA   0B86H     0002H     UNIT         ?XD?_HAL_RFTESTMODE?PHY
+            XDATA   0B88H     0002H     UNIT         ?XD?POWER
+            XDATA   0B8AH     0002H     UNIT         ?XD?WDT
+            XDATA   0B8CH     0002H     UNIT         ?XD?_HAL_IRTXNECTXDATA?IRTX_NEC
+            XDATA   0B8EH     0002H     UNIT         ?XD?_APPLIB_DELAYFORUS?UTIL_APP
+            XDATA   0B90H     0001H     UNIT         ?XD?CLOCK
+            XDATA   0B91H     0001H     UNIT         ?XD?FLASH
+            XDATA   0B92H     0001H     UNIT         ?XD?_HAL_DATARATESET_ISR?PHY
+            XDATA   0B93H     0001H     UNIT         ?XD?_HAL_MULTIDATARATESET?PHY
+            XDATA   0B94H     0001H     UNIT         ?XD?_HAL_RFANALOGSLEEP?POWER
+            XDATA   0B95H     0001H     UNIT         ?XD?_HAL_SECKEY1SET?SECURITY
+            XDATA   0B96H     0001H     UNIT         ?XD?HAL_IRTXNECTXCONT?IRTX_NEC
+            XDATA   0B97H     0001H     UNIT         ?XD?IRTX_NEC
+
+            * * * * * * *   C O D E   M E M O R Y   * * * * * * *
+            CODE    0000H     0003H     ABSOLUTE     
+            CODE    0003H     0003H     ABSOLUTE     
+            CODE    0006H     0005H     UNIT         ?PR?LIB_TAGINFOGET?MG2470_LIB
+            CODE    000BH     0003H     ABSOLUTE     
+            CODE    000EH     0004H     UNIT         ?PR?TIMER2_ISR?MAIN_SECURITY
+            CODE    0012H     0001H     UNIT         ?PR?DMA_ISR?MAIN_SECURITY
+            CODE    0013H     0003H     ABSOLUTE     
+            CODE    0016H     0004H     UNIT         ?PR?AES_ISR?MAIN_SECURITY
+                    001AH     0001H                  *** GAP ***
+            CODE    001BH     0003H     ABSOLUTE     
+            CODE    001EH     0004H     UNIT         ?PR?TIMER3_ISR?MAIN_SECURITY
+                    0022H     0001H                  *** GAP ***
+            CODE    0023H     0003H     ABSOLUTE     
+            CODE    0026H     0003H     UNIT         ?PR?_HAL_PERICLOCK0SET?CLOCK
+            CODE    0029H     0002H     UNIT         ?PR?APPLIB_DELAYFOR1US?UTIL_APP
+            CODE    002BH     0003H     ABSOLUTE     
+            CODE    002EH     0003H     UNIT         ?PR?_HAL_PERICLOCK1SET?CLOCK
+                    0031H     0002H                  *** GAP ***
+            CODE    0033H     0003H     ABSOLUTE     
+            CODE    0036H     0003H     UNIT         ?PR?_HAL_PERICLOCK2SET?CLOCK
+                    0039H     0002H                  *** GAP ***
+            CODE    003BH     0003H     ABSOLUTE     
+            CODE    003EH     0003H     UNIT         ?PR?HAL_TXREADY?PHY
+                    0041H     0002H                  *** GAP ***
+            CODE    0043H     0003H     ABSOLUTE     
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 5
+
+
+            CODE    0046H     0003H     UNIT         ?PR?_CALLBACK_OOBRXFROMPHYISR?MAIN_SECURITY
+                    0049H     0002H                  *** GAP ***
+            CODE    004BH     0003H     ABSOLUTE     
+                    004EH     0005H                  *** GAP ***
+            CODE    0053H     0003H     ABSOLUTE     
+                    0056H     0005H                  *** GAP ***
+            CODE    005BH     0003H     ABSOLUTE     
+                    005EH     0005H                  *** GAP ***
+            CODE    0063H     0003H     ABSOLUTE     
+                    0066H     0005H                  *** GAP ***
+            CODE    006BH     0003H     ABSOLUTE     
+                    006EH     0005H                  *** GAP ***
+            CODE    0073H     0003H     ABSOLUTE     
+                    0076H     0005H                  *** GAP ***
+            CODE    007BH     0003H     ABSOLUTE     
+                    007EH     0005H                  *** GAP ***
+            CODE    0083H     0003H     ABSOLUTE     
+                    0086H     0005H                  *** GAP ***
+            CODE    008BH     0003H     ABSOLUTE     
+            CODE    008EH     0E2EH     UNIT         ?PR?MAIN?MAIN_SECURITY
+            CODE    0EBCH     0141H     UNIT         ?C_C51STARTUP
+                    0FFDH     0003H                  *** GAP ***
+            CODE    1000H     0200H     ABSOLUTE     
+            CODE    1200H     0D5FH     UNIT         ?C?LIB_CODE
+            CODE    1F5FH     0B75H     UNIT         ?CO?MAIN_SECURITY
+            CODE    2AD4H     0483H     UNIT         ?PR?PRINTF?PRINTF
+            CODE    2F57H     03E6H     UNIT         ?CO?UTIL_APP
+            CODE    333DH     035CH     UNIT         ?PR?PHY_ISR?MAIN_SECURITY
+            CODE    3699H     0312H     UNIT         ?PR?_SYS_RXQUEUEPARSE?UTIL_SYS
+            CODE    39ABH     029CH     UNIT         ?PR?_APPLIB_MACDATAFRAMEMAKE?UTIL_APP
+            CODE    3C47H     026DH     UNIT         ?PR?UTIL_APP
+            CODE    3EB4H     0217H     UNIT         ?PR?_ZSCANF_DECIMAL?UTIL_APP
+            CODE    40CBH     01DDH     UNIT         ?PR?_DISPLAY_HIB?UTIL_APP
+            CODE    42A8H     01ABH     UNIT         ?PR?_HAL_FLASHWRITE?FLASH
+            CODE    4453H     0199H     UNIT         ?PR?_DISPLAY_MACINFO?UTIL_APP
+            CODE    45ECH     0193H     UNIT         ?PR?_HAL_FLASHPAGEWRITE?FLASH
+            CODE    477FH     0181H     UNIT         ?PR?MAIN_SECURITY
+            CODE    4900H     015AH     UNIT         ?PR?_LIB_FREQUENCYSET_FOR_16MHZCRYSTAL?MG2470_LIB
+            CODE    4A5AH     014FH     UNIT         ?C_INITSEG
+            CODE    4BA9H     014CH     UNIT         ?PR?_HAL_UARTBAUDRATEPARAMETERGET?UART
+            CODE    4CF5H     013DH     UNIT         ?PR?_HAL_SECDECRYPTIONCCM32?SECURITY
+            CODE    4E32H     013CH     UNIT         ?PR?_LIB_EXPRESSFREQUENCYSET?MG2470_LIB
+            CODE    4F6EH     0133H     UNIT         ?PR?_HAL_POWERDOWNMODE1?POWER
+            CODE    50A1H     012BH     UNIT         ?PR?_HAL_SECENCRYPTIONCCM32?SECURITY
+            CODE    51CCH     0129H     UNIT         ?PR?_HAL_POWERDOWNMODE2?POWER
+            CODE    52F5H     0125H     UNIT         ?PR?_HAL_GPIO0INOUTSET?GPIO
+            CODE    541AH     0125H     UNIT         ?PR?_HAL_GPIO1INOUTSET?GPIO
+            CODE    553FH     0125H     UNIT         ?PR?_HAL_GPIO3INOUTSET?GPIO
+            CODE    5664H     0123H     UNIT         ?PR?_SYS_ADCCALIB?ADC
+            CODE    5787H     0120H     UNIT         ?CO?UART
+            CODE    58A7H     011AH     UNIT         ?PR?_LIB_TXPOWERSET?MG2470_LIB
+            CODE    59C1H     0114H     UNIT         ?PR?UART1_ISR?MAIN_SECURITY
+            CODE    5AD5H     0107H     UNIT         ?PR?_HAL_TIMER3INTSET?TIMER
+            CODE    5BDCH     0104H     UNIT         ?PR?_HAL_GPIOINT0SET?GPIOINT
+            CODE    5CE0H     0104H     UNIT         ?PR?_HAL_GPIOINT1SET?GPIOINT
+            CODE    5DE4H     0104H     UNIT         ?PR?_HAL_SPIINTSET?SPI
+            CODE    5EE8H     0102H     UNIT         ?PR?_HAL_POWERDOWNMODE3?POWER
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 6
+
+
+            CODE    5FEAH     0100H     UNIT         ?PR?UART0_ISR?MAIN_SECURITY
+            CODE    60EAH     00FBH     UNIT         ?PR?POWER
+            CODE    61E5H     00F9H     UNIT         ?PR?_HAL_TIMER2INTSET?TIMER
+            CODE    62DEH     00F3H     UNIT         ?PR?_ZSCANF?UTIL_APP
+            CODE    63D1H     00F1H     UNIT         ?PR?SECURITY
+            CODE    64C2H     00EDH     UNIT         ?PR?FLASH
+            CODE    65AFH     00EDH     UNIT         ?PR?_HAL_UART0INTSET?UART
+            CODE    669CH     00EDH     UNIT         ?PR?_HAL_UART1INTSET?UART
+            CODE    6789H     00EDH     UNIT         ?PR?LIB_TXREADY?MG2470_LIB
+            CODE    6876H     00EAH     UNIT         ?PR?_HAL_I2CMASTER_SEQUENTIALREAD?I2C
+            CODE    6960H     00E7H     UNIT         ?PR?_DISPLAY_MIB?UTIL_APP
+            CODE    6A47H     00E6H     UNIT         ?PR?_HAL_GPIOINT3SET?GPIOINT
+            CODE    6B2DH     00E3H     UNIT         ?PR?_ZSCANFBYTE?UTIL_APP
+            CODE    6C10H     00E2H     UNIT         ?PR?_HAL_CHANNELSET?PHY
+            CODE    6CF2H     00DEH     UNIT         ?PR?_LIB_MODEMINIT?MG2470_LIB
+            CODE    6DD0H     00D0H     UNIT         ?PR?HAL_TXFIFOTRANSMIT?PHY
+            CODE    6EA0H     00CEH     UNIT         ?PR?_HAL_FLASHREAD?FLASH
+            CODE    6F6EH     00CDH     UNIT         ?PR?_HAL_I2CMASTER_RANDOMREAD?I2C
+            CODE    703BH     00C1H     UNIT         ?PR?_HAL_MODEMON?PHY
+            CODE    70FCH     00B9H     UNIT         ?PR?_LIB_FREQUENCYSET?MG2470_LIB
+            CODE    71B5H     00B3H     UNIT         ?PR?UART
+            CODE    7268H     00ADH     UNIT         ?PR?TIMER
+            CODE    7315H     00ADH     UNIT         ?PR?_ZPRINTF?UTIL_APP
+            CODE    73C2H     00A8H     UNIT         ?PR?SPI_ISR?MAIN_SECURITY
+            CODE    746AH     00A0H     UNIT         ?PR?_HAL_I2CMASTER_RANDOMWRITE?I2C
+            CODE    750AH     009DH     UNIT         ?PR?_OUTDATA?UART
+            CODE    75A7H     009DH     UNIT         ?PR?MG2470_LIB
+            CODE    7644H     0098H     UNIT         ?PR?_SYS_ADCSET?ADC
+            CODE    76DCH     0098H     UNIT         ?PR?_HAL_ACKTRANSMIT?PHY
+            CODE    7774H     0098H     UNIT         ?PR?_HAL_I2CMASTER_SEQUENTIALWRITE?I2C
+            CODE    780CH     0097H     UNIT         ?PR?_SYS_ADCCALIBGET_ONCE?ADC
+            CODE    78A3H     0097H     UNIT         ?PR?_HAL_IRTXNECINTSET?IRTX_NEC
+            CODE    793AH     0094H     UNIT         ?PR?_HAL_TIMER0INTSET?TIMER
+            CODE    79CEH     0093H     UNIT         ?PR?_HAL_RFTESTMODE?PHY
+            CODE    7A61H     0093H     UNIT         ?PR?UTIL_SYS
+            CODE    7AF4H     0091H     UNIT         ?PR?_HAL_MCUPERICLOCKSET?CLOCK
+            CODE    7B85H     008EH     UNIT         ?PR?_HAL_TIMER1INTSET?TIMER
+            CODE    7C13H     0088H     UNIT         ?PR?I2C
+            CODE    7C9BH     0087H     UNIT         ?PR?PWM
+            CODE    7D22H     0086H     UNIT         ?PR?_HAL_I2CINTSET?I2C
+            CODE    7DA8H     0083H     UNIT         ?PR?TIMER0_ISR?MAIN_SECURITY
+            CODE    7E2BH     007EH     UNIT         ?PR?_HAL_DATARATESET?PHY
+            CODE    7EA9H     007CH     UNIT         ?PR?_HAL_MCUIDLEMODE?POWER
+            CODE    7F25H     007CH     UNIT         ?PR?_HAL_PWM0SET_PWMMODE?PWM
+            CODE    7FA1H     007CH     UNIT         ?PR?_HAL_PWM1SET_PWMMODE?PWM
+            CODE    801DH     007CH     UNIT         ?PR?_HAL_PWM2SET_PWMMODE?PWM
+            CODE    8099H     007CH     UNIT         ?PR?_HAL_PWM3SET_PWMMODE?PWM
+            CODE    8115H     007CH     UNIT         ?PR?_HAL_PWM4SET_PWMMODE?PWM
+            CODE    8191H     007BH     UNIT         ?PR?_LIB_AGCSET?MG2470_LIB
+            CODE    820CH     007AH     UNIT         ?PR?_HAL_ADCSET?ADC
+            CODE    8286H     007AH     UNIT         ?PR?_SYS_PWM4SET_PWMMODE?PWM
+            CODE    8300H     0079H     UNIT         ?PR?_ZPRINTF_UARTINTERRUPTCHECKPUT?UTIL_APP
+            CODE    8379H     0077H     UNIT         ?PR?_SYS_PWM2SET_PWMMODE?PWM
+            CODE    83F0H     0077H     UNIT         ?PR?_SYS_PWM3SET_PWMMODE?PWM
+            CODE    8467H     0076H     UNIT         ?PR?_ZPRINTF_UARTINTERRUPTCHECK?UTIL_APP
+            CODE    84DDH     0074H     UNIT         ?PR?_SYS_PWM0SET_PWMMODE?PWM
+            CODE    8551H     0074H     UNIT         ?PR?_SYS_PWM1SET_PWMMODE?PWM
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 7
+
+
+            CODE    85C5H     006DH     UNIT         RADIOPUSE_MEMCPY
+            CODE    8632H     006AH     UNIT         ?PR?_HAL_PWM0SET_TIMERMODE?PWM
+            CODE    869CH     006AH     UNIT         ?PR?_HAL_PWM1SET_TIMERMODE?PWM
+            CODE    8706H     006AH     UNIT         ?PR?_HAL_PWM2SET_TIMERMODE?PWM
+            CODE    8770H     006AH     UNIT         ?PR?_HAL_PWM3SET_TIMERMODE?PWM
+            CODE    87DAH     006AH     UNIT         ?PR?_HAL_PWM4SET_TIMERMODE?PWM
+            CODE    8844H     006AH     UNIT         ?PR?_LIB_RFTESTMODE?MG2470_LIB
+            CODE    88AEH     0069H     UNIT         ?PR?_LIB_FLASHPARKING?MG2470_LIB
+            CODE    8917H     0068H     UNIT         ?PR?_HAL_RTCINTSET?POWER
+            CODE    897FH     0067H     UNIT         ?PR?_DISPLAY_BUFFER?UTIL_APP
+            CODE    89E6H     0063H     UNIT         ?PR?_HAL_IRTXNECTXDATA?IRTX_NEC
+            CODE    8A49H     0063H     UNIT         ?PR?_APPLIB_TXFIFOTRANSMIT?UTIL_APP
+            CODE    8AACH     0061H     UNIT         ?PR?PWM_ISR?MAIN_SECURITY
+            CODE    8B0DH     0060H     UNIT         ?PR?_HAL_EXT0INTSET?EXTI
+            CODE    8B6DH     0060H     UNIT         ?PR?_HAL_EXT1INTSET?EXTI
+            CODE    8BCDH     0060H     UNIT         ?PR?_HAL_POWERDOWNGPIO0WAKEUPSOURCESET?POWER
+            CODE    8C2DH     0060H     UNIT         ?PR?_HAL_POWERDOWNGPIO1WAKEUPSOURCESET?POWER
+            CODE    8C8DH     0060H     UNIT         ?PR?_HAL_POWERDOWNGPIO3WAKEUPSOURCESET?POWER
+            CODE    8CEDH     005FH     UNIT         ?PR?_SYS_ADCGET?ADC
+            CODE    8D4CH     005DH     UNIT         ?PR?_SYS_ADCCALIBGET?ADC
+            CODE    8DA9H     0059H     UNIT         ?PR?GPIO
+            CODE    8E02H     0058H     UNIT         ?PR?_LIB_DATARATESET?MG2470_LIB
+            CODE    8E5AH     0057H     UNIT         ?PR?_SYS_UART1PUT?UART
+            CODE    8EB1H     0056H     UNIT         ?PR?_SYS_UART0PUT?UART
+            CODE    8F07H     0055H     UNIT         ?PR?_SYS_UART1GET?UART
+            CODE    8F5CH     0055H     UNIT         ?PR?HAL_IRTXNECTXCONT?IRTX_NEC
+            CODE    8FB1H     004FH     UNIT         ?PR?_SYS_SPIMASTERPUTMULTIBYTES?SPI
+            CODE    9000H     0054H     PAGE         ?BANK?SWITCH
+            CODE    9054H     0054H     UNIT         ?PR?_SYS_UART0GET?UART
+            CODE    90A8H     0052H     UNIT         ?PR?_HAL_WDTSET?WDT
+            CODE    90FAH     004EH     UNIT         ?PR?PHY
+            CODE    9148H     004DH     UNIT         ?PR?RAND?RAND
+            CODE    9195H     004CH     UNIT         ?PR?_HAL_DATARATESET_ISR?PHY
+            CODE    91E1H     004CH     UNIT         ?PR?_SYS_UART0PUT_POLL?UART
+            CODE    922DH     004CH     UNIT         ?PR?_SYS_UART1PUT_POLL?UART
+            CODE    9279H     004AH     UNIT         ?PR?I2C_ISR?MAIN_SECURITY
+            CODE    92C3H     004AH     UNIT         ?PR?_VSPRINTF?VSPRINTF
+            CODE    930DH     0048H     UNIT         ?PR?_HAL_RXENABLE?PHY
+            CODE    9355H     0048H     UNIT         ?CO?PHY
+            CODE    939DH     0046H     UNIT         ?PR?_HAL_TIMER0INTSET_SHORTPERIOD?TIMER
+            CODE    93E3H     0046H     UNIT         ?PR?_HAL_TIMER1INTSET_SHORTPERIOD?TIMER
+            CODE    9429H     0044H     UNIT         ?C?LDIV
+            CODE    946DH     0043H     UNIT         ?PR?_HAL_ADCSAMPLERATESET?ADC
+            CODE    94B0H     0042H     UNIT         ?PR?_HAL_SECMICLENGTHSET?SECURITY
+            CODE    94F2H     0041H     UNIT         ?PR?_HAL_ADCBUFFMODESET?ADC
+            CODE    9533H     0041H     UNIT         ?PR?_SYS_ADCGET_ONCE?ADC
+            CODE    9574H     0041H     UNIT         ?PR?GPIOINT
+            CODE    95B5H     0041H     UNIT         ?PR?_SYS_HIBCOPY?HIB
+            CODE    95F6H     003FH     UNIT         ?PR?_SYS_SPISLAVEGET?SPI
+            CODE    9635H     003CH     UNIT         ?PR?_APPLIB_MACDATAREQUEST?UTIL_APP
+            CODE    9671H     0039H     UNIT         ?PR?_HAL_MULTIDATARATESET?PHY
+            CODE    96AAH     0038H     UNIT         ?PR?_HAL_FLASHPAGEERASE?FLASH
+            CODE    96E2H     0038H     UNIT         ?PR?HAL_LOCKSTATECHECK?PHY
+            CODE    971AH     0037H     UNIT         ?PR?_SYS_SPISLAVEPUTMULTIPLEBYTES?SPI
+            CODE    9751H     0037H     UNIT         ?PR?GPIO_ISR?MAIN_SECURITY
+            CODE    9788H     0035H     UNIT         ?PR?_SYS_DBMTOLQI?UTIL_SYS
+            CODE    97BDH     0032H     UNIT         ?PR?_HAL_SECMODESET?SECURITY
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 8
+
+
+            CODE    97EFH     0031H     UNIT         ?PR?_SYS_WDTSET?WDT
+            CODE    9820H     0030H     UNIT         ?PR?_HAL_CCAMODESET?PHY
+            CODE    9850H     0030H     UNIT         ?CO?MG2470_LIB
+            CODE    9880H     0030H     UNIT         ?PR?_APPLIB_DELAYFORUS?UTIL_APP
+            CODE    98B0H     002FH     UNIT         ?PR?_HAL_SECTXNONCEFRAMECNTSET?SECURITY
+            CODE    98DFH     002FH     UNIT         ?PR?_HAL_SECRXNONCEFRAMECNTSET?SECURITY
+            CODE    990EH     002EH     UNIT         ?PR?_HAL_GPIOPARAMETERCHECK?GPIO
+            CODE    993CH     002EH     UNIT         ?PR?_HAL_RFANALOGSLEEP?POWER
+            CODE    996AH     002EH     UNIT         ?PR?HAL_SECTXNONCEFRAMECNTGET?SECURITY
+            CODE    9998H     002EH     UNIT         ?PR?HAL_SECRXNONCEFRAMECNTGET?SECURITY
+            CODE    99C6H     0029H     UNIT         ?PR?_ZSCANF_UART0GET?UTIL_APP
+            CODE    99EFH     0029H     UNIT         ?PR?_ZSCANF_UART1GET?UTIL_APP
+            CODE    9A18H     0028H     UNIT         ?PR?ADC
+            CODE    9A40H     0028H     UNIT         ?PR?_HAL_SECTXNONCEEXTADDRSET?SECURITY
+            CODE    9A68H     0028H     UNIT         ?PR?_HAL_SECRXNONCEEXTADDRSET?SECURITY
+            CODE    9A90H     0028H     UNIT         ?PR?_?HAL_WDTRESTART?WDT
+            CODE    9AB8H     0027H     UNIT         ?PR?HAL_RFANALOGWAKEUP?POWER
+            CODE    9ADFH     0027H     UNIT         ?PR?PUTCHAR?PUTCHAR
+            CODE    9B06H     0025H     UNIT         ?PR?_HAL_SECKEY0SET?SECURITY
+            CODE    9B2BH     0025H     UNIT         ?PR?_HAL_SECKEY1SET?SECURITY
+            CODE    9B50H     0024H     UNIT         ?PR?_SYS_WDTRESET?WDT
+            CODE    9B74H     0023H     UNIT         ?PR?SYS_UART1RXLENGET?UART
+            CODE    9B97H     0023H     UNIT         ?PR?SYS_UART1TXLENGET?UART
+            CODE    9BBAH     0023H     UNIT         ?PR?_ZPRINTF_UART0PUT?UTIL_APP
+            CODE    9BDDH     0023H     UNIT         ?PR?_ZPRINTF_UART1PUT?UTIL_APP
+            CODE    9C00H     0023H     UNIT         ?PR?_APPLIB_VIRTUALTIMERSET?UTIL_APP
+            CODE    9C23H     0022H     UNIT         ?PR?SPI
+            CODE    9C45H     0021H     UNIT         ?PR?HAL_ADCGET?ADC
+            CODE    9C66H     0021H     UNIT         ?PR?SYS_UART0RXLENGET?UART
+            CODE    9C87H     0021H     UNIT         ?PR?SYS_UART0TXLENGET?UART
+            CODE    9CA8H     0020H     UNIT         ?PR?_APPLIB_DELAY?UTIL_APP
+            CODE    9CC8H     0020H     UNIT         ?PR?WAKEUP_ISR?MAIN_SECURITY
+            CODE    9CE8H     001FH     UNIT         ?PR?_HAL_TXPOWERSET?PHY
+            CODE    9D07H     001FH     UNIT         ?PR?_SYS_SPIMASTERPUT?SPI
+            CODE    9D26H     001FH     UNIT         ?PR?SYS_RXQUEUECLEAR?UTIL_SYS
+            CODE    9D45H     001FH     UNIT         ?PR?IRTX_ISR?MAIN_SECURITY
+            CODE    9D64H     001EH     UNIT         ?PR?HAL_I2CONECLOCKDELAY?I2C
+            CODE    9D82H     001EH     UNIT         ?PR?_APPLIB_VIRTUALTIMERGET?UTIL_APP
+            CODE    9DA0H     001DH     UNIT         ?PR?TOINT?TOINT
+            CODE    9DBDH     001CH     UNIT         ?PR?SYS_RXQUEUECHECK?UTIL_SYS
+            CODE    9DD9H     001CH     UNIT         ?PR?_ASSERT_FAILED?MAIN_SECURITY
+            CODE    9DF5H     001BH     UNIT         ?PR?_HAL_SECTXNONCEKEYSEQSET?SECURITY
+            CODE    9E10H     001BH     UNIT         ?PR?_HAL_SECRXNONCEKEYSEQSET?SECURITY
+            CODE    9E2BH     001AH     UNIT         ?PR?_HAL_GPIOINTMODESET?GPIOINT
+            CODE    9E45H     001AH     UNIT         ?PR?HAL_TXFIFORESET?HMAC
+            CODE    9E5FH     001AH     UNIT         ?PR?HAL_RXFIFORESET?HMAC
+            CODE    9E79H     001AH     UNIT         ?PR?_HAL_PWMINTMODESET?PWM
+            CODE    9E93H     001AH     UNIT         ?PR?APPLIB_DELAYFOR500US?UTIL_APP
+            CODE    9EADH     001AH     UNIT         ?PR?APPLIB_DELAYFOR1MS?UTIL_APP
+            CODE    9EC7H     001AH     UNIT         ?PR?_SYS_LQITODBM?UTIL_SYS
+            CODE    9EE1H     0019H     UNIT         ?PR?_HAL_PHYINTSET?PHY
+            CODE    9EFAH     0019H     UNIT         ?PR?TIMER1_ISR?MAIN_SECURITY
+            CODE    9F13H     0018H     UNIT         ?PR?_SYS_SPISLAVEPUT?SPI
+            CODE    9F2BH     0015H     UNIT         ?PR?ST_ISR?MAIN_SECURITY
+            CODE    9F40H     0015H     UNIT         ?PR?_STRLEN?STRLEN
+            CODE    9F55H     0014H     UNIT         ?PR?_SYS_UART0GET_POLL?UART
+            CODE    9F69H     0014H     UNIT         ?PR?_SYS_UART1GET_POLL?UART
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 9
+
+
+            CODE    9F7DH     0014H     UNIT         ?PR?IRTX_NEC
+            CODE    9F91H     0014H     UNIT         ?PR?_LIB_AMPCTRLSIGNALSET?MG2470_LIB
+            CODE    9FA5H     0013H     UNIT         ?PR?SYS_UART0TXWORKING?UART
+            CODE    9FB8H     0013H     UNIT         ?PR?SYS_UART1TXWORKING?UART
+            CODE    9FCBH     0013H     UNIT         ?PR?EXT0_ISR?MAIN_SECURITY
+            CODE    9FDEH     0013H     UNIT         ?PR?EXT1_ISR?MAIN_SECURITY
+            CODE    9FF1H     0011H     UNIT         ?PR?HAL_MODEMPOST?PHY
+            CODE    A002H     0010H     UNIT         ?PR?HAL_ADCDATACOUNTGET?ADC
+            CODE    A012H     0010H     UNIT         ?PR?_HAL_AUTOCRCSET?HMAC
+            CODE    A022H     0010H     UNIT         ?PR?_HAL_ADDRDECODESET?HMAC
+            CODE    A032H     0010H     UNIT         ?PR?_HAL_COORDINATORSET?HMAC
+            CODE    A042H     0010H     UNIT         ?PR?_HAL_PREVENTACKSET?HMAC
+            CODE    A052H     0010H     UNIT         ?PR?_HAL_CORRELATIONSET?PHY
+            CODE    A062H     0010H     UNIT         ?PR?_HAL_AMPCTRLSIGNALSET?PHY
+            CODE    A072H     0010H     UNIT         ?PR?_HAL_SECTXKEYCHOICE?SECURITY
+            CODE    A082H     0010H     UNIT         ?PR?_HAL_SECRXKEYCHOICE?SECURITY
+            CODE    A092H     0010H     UNIT         ?PR?APPLIB_DELAYFOR2US?UTIL_APP
+            CODE    A0A2H     0010H     UNIT         ?PR?APPLIB_DELAYFOR10US?UTIL_APP
+            CODE    A0B2H     0010H     UNIT         ?PR?APPLIB_DELAYFOR50US?UTIL_APP
+            CODE    A0C2H     0010H     UNIT         ?PR?APPLIB_DELAYFOR100US?UTIL_APP
+            CODE    A0D2H     000FH     UNIT         ?PR?_HAL_IEEEADDRSET?HMAC
+            CODE    A0E1H     000FH     UNIT         ?PR?HAL_ENERGYLEVELGET?PHY
+            CODE    A0F0H     000EH     UNIT         ?PR?HAL_ADCDECIMATORRESET?ADC
+            CODE    A0FEH     000EH     UNIT         ?PR?_HAL_MODEMINIT?PHY
+            CODE    A10CH     000EH     UNIT         ?PR?_HAL_AMPCTRLGPIO1SET?PHY
+            CODE    A11AH     000EH     UNIT         ?PR?HAL_SPIMASTERCSNSELECT?SPI
+            CODE    A128H     000DH     UNIT         ?BANK?SELECT
+            CODE    A135H     000DH     UNIT         ?PR?HMAC
+            CODE    A142H     000DH     UNIT         ?PR?_HAL_SPIMASTERCSNSET?SPI
+            CODE    A14FH     000CH     UNIT         ?PR?SYS_ADCGET_VCCFORCALIB?ADC
+            CODE    A15BH     000CH     UNIT         ?PR?SYS_ADCGET_GNDFORCALIB?ADC
+            CODE    A167H     000CH     UNIT         ?CO?ADC
+            CODE    A173H     000CH     UNIT         ?PR?LIB_FREQUENCYGET?MG2470_LIB
+            CODE    A17FH     000BH     UNIT         ?PR?EXTI
+            CODE    A18AH     000BH     UNIT         ?PR?_HAL_GPIOCLOCKON?GPIO
+            CODE    A195H     000BH     UNIT         ?PR?_HAL_GPIOINT0CLOCKON?GPIOINT
+            CODE    A1A0H     000BH     UNIT         ?PR?_HAL_GPIOINT1CLOCKON?GPIOINT
+            CODE    A1ABH     000BH     UNIT         ?PR?_HAL_GPIOINT3CLOCKON?GPIOINT
+            CODE    A1B6H     000BH     UNIT         ?PR?HAL_MACINIT?HMAC
+            CODE    A1C1H     000BH     UNIT         ?PR?_HAL_PWM0CLOCKON?PWM
+            CODE    A1CCH     000BH     UNIT         ?PR?_HAL_PWM1CLOCKON?PWM
+            CODE    A1D7H     000BH     UNIT         ?PR?_HAL_PWM2CLOCKON?PWM
+            CODE    A1E2H     000BH     UNIT         ?PR?_HAL_PWM3CLOCKON?PWM
+            CODE    A1EDH     000BH     UNIT         ?PR?_HAL_PWM4CLOCKON?PWM
+            CODE    A1F8H     000BH     UNIT         ?PR?_HAL_SPICLOCKON?SPI
+            CODE    A203H     000BH     UNIT         ?PR?_HAL_TIMER0CLOCKON?TIMER
+            CODE    A20EH     000BH     UNIT         ?PR?_HAL_TIMER1CLOCKON?TIMER
+            CODE    A219H     000BH     UNIT         ?PR?_HAL_TIMER2CLOCKON?TIMER
+            CODE    A224H     000BH     UNIT         ?PR?_HAL_TIMER3CLOCKON?TIMER
+            CODE    A22FH     000BH     UNIT         ?PR?_HAL_UART0CLOCKON?UART
+            CODE    A23AH     000BH     UNIT         ?PR?_HAL_UART1CLOCKON?UART
+            CODE    A245H     000BH     UNIT         ?PR?_HAL_WDTCLOCKON?WDT
+            CODE    A250H     000BH     UNIT         ?PR?_HAL_I2CCLOCKON?I2C
+            CODE    A25BH     000BH     UNIT         ?PR?_HAL_IRTXCLOCKON?IRTX_NEC
+            CODE    A266H     0009H     UNIT         ?PR?_HAL_PANIDSET?HMAC
+            CODE    A26FH     0009H     UNIT         ?PR?_HAL_SHORTADDRSET?HMAC
+            CODE    A278H     0009H     UNIT         ?PR?WDT
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 10
+
+
+            CODE    A281H     0008H     UNIT         ?PR?_HAL_PHYINTSOURCESET?PHY
+            CODE    A289H     0008H     UNIT         ?PR?_HAL_SECTXNONCEEXTADDRGET?SECURITY
+            CODE    A291H     0008H     UNIT         ?PR?_HAL_SECRXNONCEEXTADDRGET?SECURITY
+            CODE    A299H     0008H     UNIT         ?PR?_HAL_SECTXLSET?SECURITY
+            CODE    A2A1H     0008H     UNIT         ?PR?_HAL_SECRXLSET?SECURITY
+            CODE    A2A9H     0008H     UNIT         ?PR?LIB_AMPCTRLGPIO1SET?MG2470_LIB
+            CODE    A2B1H     0007H     UNIT         ?PR?HAL_FLASHWRITEPROTECTED?FLASH
+            CODE    A2B8H     0007H     UNIT         ?PR?HAL_MODEMOFF?PHY
+            CODE    A2BFH     0006H     UNIT         ?PR?HAL_FLASHWRITEUNPROTECTED?FLASH
+            CODE    A2C5H     0006H     UNIT         ?PR?_HAL_MACCTRLSET?HMAC
+            CODE    A2CBH     0006H     UNIT         ?PR?_HAL_SYSTEMINTSET?PHY
+            CODE    A2D1H     0006H     UNIT         ?PR?_HAL_CCATHRESHOLDSET?PHY
+            CODE    A2D7H     0006H     UNIT         ?PR?HAL_SECTXNONCEKEYSEQGET?SECURITY
+            CODE    A2DDH     0006H     UNIT         ?PR?HAL_SECRXNONCEKEYSEQGET?SECURITY
+
+
+
+OVERLAY MAP OF MODULE:   .\HEX\MG2470B_SECURITY (?BANK?SWITCHING)
+
+
+SEGMENT                                             BIT_GROUP          DATA_GROUP          XDATA_GROUP
+  +--> CALLED SEGMENT                            START    LENGTH     START    LENGTH     START    LENGTH
+--------------------------------------------------------------------------------------------------------
+?C_C51STARTUP                                    -----    -----      -----    -----      -----    -----
+  +--> ?PR?MAIN?MAIN_SECURITY
+  +--> ?C_INITSEG
+
+?PR?MAIN?MAIN_SECURITY                           -----    -----      -----    -----      0522H    01C0H
+  +--> ?PR?MAIN_SECURITY
+  +--> ?PR?_SYS_WDTSET?WDT
+  +--> ?PR?_HAL_TIMER0CLOCKON?TIMER
+  +--> ?PR?_HAL_TIMER0INTSET?TIMER
+  +--> ?PR?_HAL_UART1CLOCKON?UART
+  +--> ?PR?_HAL_UART1INTSET?UART
+  +--> ?PR?_HAL_SYSTEMINTSET?PHY
+  +--> ?PR?_HAL_GPIOCLOCKON?GPIO
+  +--> ?PR?_HAL_GPIO0INOUTSET?GPIO
+  +--> ?PR?_HAL_GPIO3INOUTSET?GPIO
+  +--> ?CO?MAIN_SECURITY
+  +--> ?PR?_ZPRINTF?UTIL_APP
+  +--> ?PR?SYS_UART1TXWORKING?UART
+  +--> ?PR?_SYS_WDTRESET?WDT
+  +--> ?PR?_HAL_MODEMINIT?PHY
+  +--> ?PR?_HAL_MODEMON?PHY
+  +--> ?PR?HAL_MODEMPOST?PHY
+  +--> ?PR?_SYS_HIBCOPY?HIB
+  +--> ?PR?_DISPLAY_HIB?UTIL_APP
+  +--> ?PR?_APPLIB_VIRTUALTIMERSET?UTIL_APP
+  +--> ?PR?_APPLIB_VIRTUALTIMERGET?UTIL_APP
+  +--> ?PR?_SYS_UART1PUT?UART
+  +--> ?PR?_DISPLAY_MIB?UTIL_APP
+  +--> ?PR?_HAL_CHANNELSET?PHY
+  +--> ?PR?_HAL_TXPOWERSET?PHY
+  +--> ?PR?_HAL_DATARATESET?PHY
+  +--> ?PR?_HAL_IEEEADDRSET?HMAC
+  +--> ?PR?HAL_MACINIT?HMAC
+  +--> ?PR?_HAL_RXENABLE?PHY
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 11
+
+
+  +--> ?PR?_HAL_PHYINTSET?PHY
+  +--> ?PR?_SYS_ADCGET_ONCE?ADC
+  +--> ?PR?RAND?RAND
+  +--> ?PR?HAL_LOCKSTATECHECK?PHY
+  +--> ?PR?SYS_RXQUEUECHECK?UTIL_SYS
+  +--> ?PR?_SYS_RXQUEUEPARSE?UTIL_SYS
+  +--> ?PR?_HAL_SECDECRYPTIONCCM32?SECURITY
+  +--> ?PR?_DISPLAY_MACINFO?UTIL_APP
+  +--> ?PR?SYS_RXQUEUECLEAR?UTIL_SYS
+  +--> ?PR?_ZSCANF?UTIL_APP
+  +--> ?PR?_ZSCANFBYTE?UTIL_APP
+  +--> ?PR?_HAL_SECTXNONCEEXTADDRSET?SECURITY
+  +--> ?PR?_HAL_SECENCRYPTIONCCM32?SECURITY
+  +--> ?PR?_HAL_SECRXNONCEEXTADDRSET?SECURITY
+  +--> ?PR?_DISPLAY_BUFFER?UTIL_APP
+  +--> ?PR?_APPLIB_MACDATAREQUEST?UTIL_APP
+  +--> ?PR?_ZSCANF_DECIMAL?UTIL_APP
+  +--> ?PR?_HAL_SECKEY0SET?SECURITY
+  +--> ?PR?_HAL_SECTXKEYCHOICE?SECURITY
+  +--> ?PR?_HAL_SECRXKEYCHOICE?SECURITY
+  +--> ?PR?_HAL_PANIDSET?HMAC
+  +--> ?PR?_HAL_SHORTADDRSET?HMAC
+  +--> ?PR?_SYS_UART1GET?UART
+
+?PR?_SYS_WDTSET?WDT                              -----    -----      -----    -----      06F2H    0001H
+  +--> ?PR?_HAL_WDTSET?WDT
+
+?PR?_HAL_WDTSET?WDT                              -----    -----      -----    -----      06F3H    0002H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?WDT
+
+?PR?_ASSERT_FAILED?MAIN_SECURITY                 -----    -----      -----    -----      -----    -----
+  +--> ?CO?MAIN_SECURITY
+  +--> ?PR?_ZPRINTF?UTIL_APP
+
+?PR?_ZPRINTF?UTIL_APP                            -----    -----      -----    -----      06F5H    0070H
+  +--> ?PR?_ZPRINTF_UARTINTERRUPTCHECK?UTIL_APP
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_VSPRINTF?VSPRINTF
+  +--> ?PR?_ZPRINTF_UART1PUT?UTIL_APP
+  +--> ?PR?_ZPRINTF_UART0PUT?UTIL_APP
+
+?PR?_ZPRINTF_UARTINTERRUPTCHECK?UTIL_APP         -----    -----      -----    -----      0765H    0004H
+  +--> ?CO?UTIL_APP
+  +--> ?PR?_ZPRINTF_UARTINTERRUPTCHECKPUT?UT...
+
+?PR?_ZPRINTF_UARTINTERRUPTCHECKPUT?UT...         -----    -----      -----    -----      0769H    0005H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_STRLEN?STRLEN
+
+?PR?UTIL_APP                                     -----    -----      -----    -----      -----    -----
+  +--> ?CO?UTIL_APP
+
+?PR?_VSPRINTF?VSPRINTF                           -----    -----      -----    -----      0765H    0006H
+  +--> ?PR?PRINTF?PRINTF
+
+?PR?PRINTF?PRINTF                                0020H.0  0001H.1    0008H    0005H      076BH    0030H
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 12
+
+
+  +--> ?PR?PUTCHAR?PUTCHAR
+
+?PR?_ZPRINTF_UART1PUT?UTIL_APP                   -----    -----      -----    -----      0765H    0002H
+  +--> ?PR?_SYS_UART1PUT?UART
+  +--> ?PR?_SYS_UART1PUT_POLL?UART
+
+?PR?_SYS_UART1PUT?UART                           -----    -----      -----    -----      -----    -----
+  +--> ?PR?SYS_UART1TXLENGET?UART
+  +--> ?PR?UART
+
+?PR?SYS_UART1TXLENGET?UART                       -----    -----      -----    -----      0767H    0001H
+  +--> ?PR?UART
+
+?PR?_SYS_UART1PUT_POLL?UART                      -----    -----      -----    -----      0767H    0004H
+  +--> ?PR?UART
+
+?PR?_ZPRINTF_UART0PUT?UTIL_APP                   -----    -----      -----    -----      0765H    0002H
+  +--> ?PR?_SYS_UART0PUT?UART
+  +--> ?PR?_SYS_UART0PUT_POLL?UART
+
+?PR?_SYS_UART0PUT?UART                           -----    -----      -----    -----      -----    -----
+  +--> ?PR?SYS_UART0TXLENGET?UART
+  +--> ?PR?UART
+
+?PR?SYS_UART0TXLENGET?UART                       -----    -----      -----    -----      0767H    0001H
+  +--> ?PR?UART
+
+?PR?_SYS_UART0PUT_POLL?UART                      -----    -----      -----    -----      0767H    0004H
+  +--> ?PR?UART
+
+?PR?_HAL_TIMER0INTSET?TIMER                      -----    -----      -----    -----      06E2H    0009H
+  +--> ?PR?TIMER
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?_HAL_UART1INTSET?UART                        -----    -----      -----    -----      06E2H    000BH
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_HAL_UARTBAUDRATEPARAMETERGET?UART
+  +--> ?PR?UART
+
+?PR?_HAL_UARTBAUDRATEPARAMETERGET?UART           -----    -----      -----    -----      06EDH    000FH
+  +--> ?PR?UART
+  +--> ?CO?UART
+
+?PR?_HAL_GPIO0INOUTSET?GPIO                      -----    -----      -----    -----      06E2H    0006H
+  +--> ?PR?GPIO
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_HAL_GPIOPARAMETERCHECK?GPIO
+
+?PR?_HAL_GPIO3INOUTSET?GPIO                      -----    -----      -----    -----      06E2H    0006H
+  +--> ?PR?GPIO
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_HAL_GPIOPARAMETERCHECK?GPIO
+
+?PR?_SYS_WDTRESET?WDT                            -----    -----      -----    -----      06E2H    0001H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?WDT
+
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 13
+
+
+?PR?_HAL_MODEMINIT?PHY                           -----    -----      -----    -----      -----    -----
+  +--> ?PR?_LIB_MODEMINIT?MG2470_LIB
+
+?PR?_LIB_MODEMINIT?MG2470_LIB                    -----    -----      -----    -----      -----    -----
+  +--> ?PR?MG2470_LIB
+
+?PR?_HAL_MODEMON?PHY                             -----    -----      -----    -----      06E2H    0006H
+  +--> ?PR?_HAL_PHYINTSOURCESET?PHY
+  +--> ?PR?PHY
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?HAL_MODEMPOST?PHY                            -----    -----      -----    -----      -----    -----
+  +--> ?PR?_HAL_PHYINTSOURCESET?PHY
+  +--> ?PR?_HAL_CCAMODESET?PHY
+  +--> ?PR?_HAL_CORRELATIONSET?PHY
+
+?PR?_HAL_CCAMODESET?PHY                          -----    -----      -----    -----      06E2H    0002H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?_SYS_HIBCOPY?HIB                             -----    -----      -----    -----      06E2H    0004H
+
+?PR?_DISPLAY_HIB?UTIL_APP                        -----    -----      -----    -----      06E2H    0003H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_ZPRINTF?UTIL_APP
+  +--> ?CO?UTIL_APP
+  +--> ?PR?_DISPLAY_BUFFER?UTIL_APP
+
+?PR?_DISPLAY_BUFFER?UTIL_APP                     -----    -----      -----    -----      06E5H    0008H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_ZPRINTF?UTIL_APP
+  +--> ?CO?UTIL_APP
+
+?PR?_DISPLAY_MIB?UTIL_APP                        -----    -----      -----    -----      06E2H    0003H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_ZPRINTF?UTIL_APP
+  +--> ?CO?UTIL_APP
+  +--> ?PR?_DISPLAY_BUFFER?UTIL_APP
+
+?PR?_HAL_CHANNELSET?PHY                          -----    -----      -----    -----      06E2H    0002H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?PHY
+  +--> ?PR?_HAL_RXENABLE?PHY
+  +--> ?PR?_LIB_FREQUENCYSET?MG2470_LIB
+
+?PR?_LIB_FREQUENCYSET?MG2470_LIB                 -----    -----      -----    -----      -----    -----
+  +--> ?PR?MG2470_LIB
+  +--> ?PR?_LIB_FREQUENCYSET_FOR_16MHZCRYSTA...
+
+?PR?_LIB_FREQUENCYSET_FOR_16MHZCRYSTA...         -----    -----      -----    -----      06E4H    0004H
+  +--> ?PR?MG2470_LIB
+
+?PR?_HAL_TXPOWERSET?PHY                          -----    -----      -----    -----      06E2H    0001H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_LIB_TXPOWERSET?MG2470_LIB
+
+?PR?_LIB_TXPOWERSET?MG2470_LIB                   -----    -----      -----    -----      -----    -----
+  +--> ?PR?MG2470_LIB
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 14
+
+
+
+?PR?_HAL_DATARATESET?PHY                         -----    -----      -----    -----      06E2H    0001H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?PHY
+  +--> ?PR?_HAL_RXENABLE?PHY
+  +--> ?PR?_LIB_DATARATESET?MG2470_LIB
+
+?PR?_LIB_DATARATESET?MG2470_LIB                  -----    -----      -----    -----      -----    -----
+  +--> ?PR?_LIB_AGCSET?MG2470_LIB
+
+?PR?_LIB_AGCSET?MG2470_LIB                       -----    -----      -----    -----      -----    -----
+  +--> ?PR?MG2470_LIB
+
+?PR?HAL_MACINIT?HMAC                             -----    -----      -----    -----      -----    -----
+  +--> ?PR?_HAL_MACCTRLSET?HMAC
+  +--> ?PR?HAL_TXFIFORESET?HMAC
+  +--> ?PR?HAL_RXFIFORESET?HMAC
+
+?PR?HAL_TXFIFORESET?HMAC                         -----    -----      -----    -----      -----    -----
+  +--> ?PR?HMAC
+
+?PR?HAL_RXFIFORESET?HMAC                         -----    -----      -----    -----      -----    -----
+  +--> ?PR?HMAC
+
+?PR?_SYS_ADCGET_ONCE?ADC                         -----    -----      -----    -----      06E2H    0004H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_SYS_ADCSET?ADC
+  +--> ?PR?_SYS_ADCGET?ADC
+
+?PR?_SYS_ADCSET?ADC                              -----    -----      -----    -----      06E6H    0004H
+  +--> ?PR?ADC
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_HAL_ADCBUFFMODESET?ADC
+  +--> ?PR?_HAL_ADCSET?ADC
+  +--> ?PR?HAL_ADCDECIMATORRESET?ADC
+  +--> ?CO?ADC
+
+?PR?_HAL_ADCBUFFMODESET?ADC                      -----    -----      -----    -----      06EAH    0002H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?_HAL_ADCSET?ADC                              -----    -----      -----    -----      06EAH    0003H
+  +--> ?PR?ADC
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?_SYS_ADCGET?ADC                              -----    -----      -----    -----      06E6H    0001H
+  +--> ?PR?HAL_ADCGET?ADC
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?_SYS_RXQUEUEPARSE?UTIL_SYS                   -----    -----      -----    -----      06E2H    0007H
+  +--> ?PR?UTIL_SYS
+
+?PR?_HAL_SECDECRYPTIONCCM32?SECURITY             -----    -----      -----    -----      06E2H    000DH
+  +--> ?PR?SECURITY
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_HAL_SECMODESET?SECURITY
+  +--> ?PR?_HAL_SECRXNONCEFRAMECNTSET?SECURITY
+  +--> ?PR?_HAL_SECRXNONCEKEYSEQSET?SECURITY
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 15
+
+
+  +--> ?PR?_HAL_SECRXLSET?SECURITY
+  +--> ?PR?_HAL_SECMICLENGTHSET?SECURITY
+
+?PR?_HAL_SECMODESET?SECURITY                     -----    -----      -----    -----      06EFH    0001H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?_HAL_SECRXNONCEFRAMECNTSET?SECURITY          -----    -----      -----    -----      06EFH    0004H
+  +--> ?PR?SECURITY
+
+?PR?_HAL_SECRXNONCEKEYSEQSET?SECURITY            -----    -----      -----    -----      -----    -----
+  +--> ?PR?SECURITY
+
+?PR?_HAL_SECMICLENGTHSET?SECURITY                -----    -----      -----    -----      06EFH    0001H
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+
+?PR?_DISPLAY_MACINFO?UTIL_APP                    -----    -----      -----    -----      06E2H    0003H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_ZPRINTF?UTIL_APP
+  +--> ?CO?UTIL_APP
+  +--> ?PR?_DISPLAY_BUFFER?UTIL_APP
+
+?PR?_ZSCANF?UTIL_APP                             -----    -----      -----    -----      06E2H    0007H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_SYS_WDTSET?WDT
+  +--> ?PR?_ZSCANF_UART1GET?UTIL_APP
+  +--> ?PR?_ZPRINTF_UART1PUT?UTIL_APP
+  +--> ?PR?_ZSCANF_UART0GET?UTIL_APP
+  +--> ?PR?_ZPRINTF_UART0PUT?UTIL_APP
+  +--> ?PR?TOINT?TOINT
+
+?PR?_ZSCANF_UART1GET?UTIL_APP                    -----    -----      -----    -----      06F2H    0004H
+  +--> ?PR?_SYS_UART1GET?UART
+  +--> ?PR?_SYS_UART1GET_POLL?UART
+
+?PR?_SYS_UART1GET?UART                           -----    -----      -----    -----      06F6H    0004H
+  +--> ?PR?SYS_UART1RXLENGET?UART
+  +--> ?PR?UART
+
+?PR?SYS_UART1RXLENGET?UART                       -----    -----      -----    -----      06FAH    0001H
+  +--> ?PR?UART
+
+?PR?_SYS_UART1GET_POLL?UART                      -----    -----      -----    -----      -----    -----
+  +--> ?PR?UART
+
+?PR?_ZSCANF_UART0GET?UTIL_APP                    -----    -----      -----    -----      06F2H    0004H
+  +--> ?PR?_SYS_UART0GET?UART
+  +--> ?PR?_SYS_UART0GET_POLL?UART
+
+?PR?_SYS_UART0GET?UART                           -----    -----      -----    -----      06F6H    0004H
+  +--> ?PR?SYS_UART0RXLENGET?UART
+  +--> ?PR?UART
+
+?PR?SYS_UART0RXLENGET?UART                       -----    -----      -----    -----      06FAH    0001H
+  +--> ?PR?UART
+
+?PR?_SYS_UART0GET_POLL?UART                      -----    -----      -----    -----      -----    -----
+  +--> ?PR?UART
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 16
+
+
+
+?PR?_ZSCANFBYTE?UTIL_APP                         -----    -----      -----    -----      06E2H    0007H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_SYS_WDTSET?WDT
+  +--> ?PR?_ZSCANF_UART1GET?UTIL_APP
+  +--> ?PR?_ZPRINTF_UART1PUT?UTIL_APP
+  +--> ?PR?_ZSCANF_UART0GET?UTIL_APP
+  +--> ?PR?_ZPRINTF_UART0PUT?UTIL_APP
+  +--> ?PR?TOINT?TOINT
+
+?PR?_HAL_SECTXNONCEEXTADDRSET?SECURITY           -----    -----      -----    -----      06E2H    0001H
+  +--> ?PR?SECURITY
+
+?PR?_HAL_SECENCRYPTIONCCM32?SECURITY             -----    -----      -----    -----      06E2H    000DH
+  +--> ?PR?SECURITY
+  +--> ?PR?_ASSERT_FAILED?MAIN_SECURITY
+  +--> ?PR?_HAL_SECMODESET?SECURITY
+  +--> ?PR?_HAL_SECTXNONCEFRAMECNTSET?SECURITY
+  +--> ?PR?_HAL_SECTXNONCEKEYSEQSET?SECURITY
+  +--> ?PR?_HAL_SECTXLSET?SECURITY
+  +--> ?PR?_HAL_SECMICLENGTHSET?SECURITY
+
+?PR?_HAL_SECTXNONCEFRAMECNTSET?SECURITY          -----    -----      -----    -----      06EFH    0004H
+  +--> ?PR?SECURITY
+
+?PR?_HAL_SECTXNONCEKEYSEQSET?SECURITY            -----    -----      -----    -----      -----    -----
+  +--> ?PR?SECURITY
+
+?PR?_HAL_SECRXNONCEEXTADDRSET?SECURITY           -----    -----      -----    -----      06E2H    0001H
+  +--> ?PR?SECURITY
+
+?PR?_APPLIB_MACDATAREQUEST?UTIL_APP              -----    -----      -----    -----      06E2H    0001H
+  +--> ?PR?_APPLIB_MACDATAFRAMEMAKE?UTIL_APP
+  +--> ?PR?_APPLIB_TXFIFOTRANSMIT?UTIL_APP
+
+?PR?_APPLIB_MACDATAFRAMEMAKE?UTIL_APP            -----    -----      -----    -----      06E3H    000BH
+  +--> ?PR?UTIL_APP
+
+?PR?_APPLIB_TXFIFOTRANSMIT?UTIL_APP              -----    -----      -----    -----      06E3H    0005H
+  +--> ?PR?HAL_TXFIFOTRANSMIT?PHY
+
+?PR?HAL_TXFIFOTRANSMIT?PHY                       -----    -----      -----    -----      06E8H    0001H
+  +--> ?PR?HAL_TXREADY?PHY
+  +--> ?PR?PHY
+  +--> ?CO?PHY
+
+?PR?HAL_TXREADY?PHY                              -----    -----      -----    -----      -----    -----
+  +--> ?PR?LIB_TXREADY?MG2470_LIB
+
+?PR?LIB_TXREADY?MG2470_LIB                       -----    -----      -----    -----      -----    -----
+  +--> ?PR?MG2470_LIB
+
+?PR?_ZSCANF_DECIMAL?UTIL_APP                     -----    -----      -----    -----      06E2H    0010H
+  +--> ?PR?UTIL_APP
+  +--> ?PR?_SYS_WDTSET?WDT
+  +--> ?PR?_ZSCANF_UART1GET?UTIL_APP
+  +--> ?PR?_ZPRINTF_UART1PUT?UTIL_APP
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 17
+
+
+  +--> ?PR?_ZSCANF_UART0GET?UTIL_APP
+  +--> ?PR?_ZPRINTF_UART0PUT?UTIL_APP
+
+?PR?_HAL_SECKEY0SET?SECURITY                     -----    -----      -----    -----      06E2H    0001H
+  +--> ?PR?SECURITY
+
+*** NEW ROOT ***************************************************
+
+?PR?TIMER0_ISR?MAIN_SECURITY                     -----    -----      -----    -----      -----    -----
+  +--> ?PR?MAIN_SECURITY
+  +--> ?PR?_?HAL_WDTRESTART?WDT
+
+?PR?_?HAL_WDTRESTART?WDT                         -----    -----      -----    -----      -----    -----
+  +--> ?PR?WDT
+
+*** NEW ROOT ***************************************************
+
+?PR?UART0_ISR?MAIN_SECURITY                      -----    -----      -----    -----      079BH    0002H
+  +--> ?PR?MAIN_SECURITY
+
+*** NEW ROOT ***************************************************
+
+?PR?IRTX_ISR?MAIN_SECURITY                       -----    -----      -----    -----      079DH    0001H
+  +--> ?PR?MAIN_SECURITY
+
+*** NEW ROOT ***************************************************
+
+?PR?I2C_ISR?MAIN_SECURITY                        -----    -----      -----    -----      079EH    0001H
+
+*** NEW ROOT ***************************************************
+
+?PR?UART1_ISR?MAIN_SECURITY                      -----    -----      -----    -----      079FH    0002H
+  +--> ?PR?MAIN_SECURITY
+
+*** NEW ROOT ***************************************************
+
+?PR?PHY_ISR?MAIN_SECURITY                        -----    -----      -----    -----      07A1H    000FH
+  +--> ?PR?MAIN_SECURITY
+  +--> ?PR?_CALLBACK_OOBRXFROMPHYISR?MAIN_SE...
+  +--> ?PR?_HAL_ACKTRANSMIT?PHY
+
+?PR?_HAL_ACKTRANSMIT?PHY                         -----    -----      -----    -----      07B0H    0001H
+  +--> ?PR?PHY
+  +--> ?CO?PHY
+
+*** NEW ROOT ***************************************************
+
+?PR?SPI_ISR?MAIN_SECURITY                        -----    -----      -----    -----      07B1H    0002H
+  +--> ?PR?MAIN_SECURITY
+
+
+
+UNRESOLVED EXTERNAL SYMBOLS:
+   RETRY_COUNT
+
+*** WARNING L1: UNRESOLVED EXTERNAL SYMBOL
+    SYMBOL:  RETRY_COUNT
+BL51 BANKED LINKER/LOCATER V6.00                                                      01/21/2015  12:22:20  PAGE 18
+
+
+    MODULE:  .\HEX\UTIL_APP.obj (UTIL_APP)
+
+*** WARNING L2: REFERENCE MADE TO UNRESOLVED EXTERNAL
+    SYMBOL:  RETRY_COUNT
+    MODULE:  .\HEX\UTIL_APP.obj (UTIL_APP)
+    ADDRESS: 8A4BH
+
+*** WARNING L2: REFERENCE MADE TO UNRESOLVED EXTERNAL
+    SYMBOL:  RETRY_COUNT
+    MODULE:  .\HEX\UTIL_APP.obj (UTIL_APP)
+    ADDRESS: 8A8BH
+
+Program Size: data=18.1 xdata=2968 code=41646
+LINK/LOCATE RUN COMPLETE.  3 WARNING(S),  0 ERROR(S)

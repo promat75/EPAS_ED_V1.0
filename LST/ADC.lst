@@ -1,0 +1,606 @@
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE ADC
+OBJECT MODULE PLACED IN .\HEX\ADC.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\ADC.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inclu
+                    -de\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ADC.ls
+                    -t) TABS(2) OBJECT(.\HEX\ADC.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "INCLUDE_MG2470.h"
+  13          #include "adc.h"
+  14          #include "clock.h"
+  15          
+  16          ///////////////////////////////////////////////////////////////////////////////////////////////
+  17          ///
+  18          /// Constants which indicates the for() loop counter for waiting to complete passing the internal filter.
+  19          /// \n  The loop counter is dependent on the MCU clock.
+  20          /// \n  The index of the array indicates the MCU clock mode.
+  21          ///     \n  0 = 16 MHz
+  22          ///     \n  1 = 8 MHz
+  23          ///     \n  2 = 4 MHz
+  24          ///     \n  3 = 2 MHz
+  25          ///     \n  4 = 1 MHz
+  26          ///     \n  5 = 500 KHz
+  27          ///
+  28          ///////////////////////////////////////////////////////////////////////////////////////////////
+  29          UINT16  code gcau16MaxWait_FilterPass[6] =    // [MCU Clock Mode]
+  30            {
+  31              360, 170, 90, 45, 21, 11
+  32            };
+  33          
+  34          ///////////////////////////////////////////////////////////////////////////////////////////////
+  35          /// 
+  36          /// Global variable which has the ADC data for VCC channel. This is used for calibration.
+  37          /// 
+  38          ///////////////////////////////////////////////////////////////////////////////////////////////
+  39          INT16 gi16ADC_VCC = 0;
+  40          
+  41          ///////////////////////////////////////////////////////////////////////////////////////////////
+  42          /// 
+  43          /// Global variable which has the ADC data for GND channel. This is used for calibration.
+  44          /// 
+  45          ///////////////////////////////////////////////////////////////////////////////////////////////
+  46          INT16 gi16ADC_GND = 0;
+  47          
+  48          ///////////////////////////////////////////////////////////////////////////////////////////////
+  49          /// 
+  50          /// Resets decimator blocks in MG2470B. 
+  51          /// After calling HAL_AdcSet(), this should be called to remove remaining data for the previous 
+  52          /// ADC channel. When this is called, ADC value is not correct for 2ms because some time is 
+  53          /// needed for passing filters. So, after that time, ADC should be read
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 2   
+
+  54          ///
+  55          /// @param  void
+  56          /// @return void
+  57          /// 
+  58          ///////////////////////////////////////////////////////////////////////////////////////////////
+  59          void HAL_AdcDecimatorReset(void)    // Decimator Reset
+  60          {
+  61   1        xPHY_SW_RSTB &= ~BIT6;  // bit[6]=0. Enable reset. Active low.
+  62   1        _nop_();
+  63   1        _nop_();
+  64   1        xPHY_SW_RSTB |= BIT6; // bit[6]=1. Disable reset. Active low.
+  65   1      }
+  66          
+  67          ///////////////////////////////////////////////////////////////////////////////////////////////
+  68          /// 
+  69          /// Sets an ADC channel and its reference.
+  70          /// 
+  71          /// @param  u8Ena     : 0=Disable, 1=Enable.
+  72          /// @param  u8Ref     : 0=Band gap reference(1.25V), 2=1/3 of AVDD3V, 3=Internal voltage regulator output.
+  73          /// @param  u8AdcChan : ADC channel to use.
+  74          ///             \n  0=ACH0.
+  75          ///             \n  1=ACH1. 
+  76          ///             \n  2=ACH2. 
+  77          ///             \n  3=ACH3. 
+  78          ///             \n  4=difference of ACH0 and ACH1.
+  79          ///             \n  5=difference of ACH2 and ACH3.
+  80          ///             \n  6=Temperature Sensor.
+  81          ///             \n  7=Battery Monitoring.
+  82          ///             \n  8=GND(for Calibration).
+  83          /// @return UINT8. Status.
+  84          /// 
+  85          ///////////////////////////////////////////////////////////////////////////////////////////////
+  86          UINT8 HAL_AdcSet(UINT8 u8Ena, UINT8 u8Ref, UINT8 u8AdcChan)
+  87          {
+  88   1        if(u8AdcChan > ADC_CHAN_GND)
+  89   1        {
+  90   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_CHANNEL);
+  91   2          return RETURN_ADC_INVALID_CHANNEL;
+  92   2        }
+  93   1        if( (u8Ref > ADC_REFERENCE_VOL_REG) || (u8Ref == ADC_REFERENCE_RESERVED) )
+  94   1        {
+  95   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_PARAMETER);
+  96   2          return RETURN_ADC_INVALID_PARAMETER;
+  97   2        }
+  98   1      
+  99   1        if(u8Ena)
+ 100   1        {
+ 101   2          xPDMON |= BIT2;     // bit[2]=1. Enable ADC current.
+ 102   2          xPHY_CLK_EN1 |= 0x0C; // bit[3:2]=2'b11
+ 103   2          xADCCNF1 |= BIT7;   // bit[7]=1. ADCEN
+ 104   2          xADCCNF1 = (xADCCNF1 & 0xF0) | u8AdcChan;   // bit[3:0]
+ 105   2          xADCCNF1 = (xADCCNF1 & 0x9F) | (u8Ref << 5);    // bit[6:5]
+ 106   2        }
+ 107   1        else
+ 108   1        {
+ 109   2          xPDMON &= ~BIT2;    // bit[2]=0. Disable ADC current.
+ 110   2          xADCCNF1 &= ~BIT7;    // bit[7]=0. ADCEN
+ 111   2          xPHY_CLK_EN1 &= ~0x0C;  // bit[3:2]=2'b00
+ 112   2        }
+ 113   1      
+ 114   1        return RETURN_ADC_SUCCESS;
+ 115   1      }
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 3   
+
+ 116          
+ 117          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 118          /// 
+ 119          /// Sets a sampling rate.
+ 120          /// 
+ 121          /// @param  u8SampleRate      : 0=1MHz, 1=2MHz, 2=4MHz, 3=8MHz. Reset value is 2.
+ 122          /// @param  u8OverSampleRatio : 0=32x, 1=64x, 2=128x, 3=256x. Reset value is 3.
+ 123          /// @return UINT8. Status.
+ 124          /// 
+ 125          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 126          UINT8 HAL_AdcSampleRateSet(UINT8 u8SampleRate, UINT8 u8OverSampleRatio)
+ 127          {
+ 128   1        if(   (u8SampleRate > ADC_SAMPLE_RATE_8MHz)
+ 129   1        ||  (u8OverSampleRatio > ADC_OVER_SAMPLE_RATIO_256X) )
+ 130   1        {
+ 131   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_PARAMETER);
+ 132   2          return RETURN_ADC_INVALID_PARAMETER;
+ 133   2        }
+ 134   1      
+ 135   1        xPHY_ADC_CLK_SEL = (xPHY_ADC_CLK_SEL & 0xFC) | u8SampleRate;
+ 136   1        xADCCNF2 = (xADCCNF2 & 0xF3) | (u8OverSampleRatio << 2);
+ 137   1      
+ 138   1        return RETURN_ADC_SUCCESS;
+ 139   1      }
+ 140          
+ 141          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 142          /// 
+ 143          /// Sets whether FIFO mode is used.
+ 144          /// 
+ 145          /// @param  u8FifoEna   : 0=Non-FIFO mode, 1=FIFO mode.
+ 146          /// @param  u8BufferCnt : Number of buffers to be used. 1~14.
+ 147          /// @return UINT8. Status.
+ 148          /// 
+ 149          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 150          UINT8 HAL_AdcBuffModeSet(UINT8 u8FifoEna, UINT8 u8BufferCnt)
+ 151          {
+ 152   1        UINT8 u8BuffThreshold;
+ 153   1      
+ 154   1        if( (u8BufferCnt == 0) || (u8BufferCnt > 14) )
+ 155   1        {
+ 156   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_PARAMETER);
+ 157   2          return RETURN_ADC_INVALID_PARAMETER;
+ 158   2        }
+ 159   1      
+ 160   1        u8BuffThreshold = u8BufferCnt + 1;
+ 161   1      
+ 162   1        xADCCNF2 = (xADCCNF2 & 0x0F) | (u8BuffThreshold << 4);    // bit[7:4]
+ 163   1      
+ 164   1        if(u8FifoEna)
+ 165   1        {
+ 166   2          xADCCNF2 |= BIT1;   // bit[1]=1
+ 167   2        }
+ 168   1        else
+ 169   1        {
+ 170   2          xADCCNF2 &= ~BIT1;    // bit[1]=0
+ 171   2        }
+ 172   1      
+ 173   1        return RETURN_ADC_SUCCESS;
+ 174   1      }
+ 175          
+ 176          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 177          /// 
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 4   
+
+ 178          /// Gets a value of the selected ADC channel.
+ 179          /// 
+ 180          /// @param  void
+ 181          /// @return INT16. Value of read ADC. -2048 ~ 2047.
+ 182          /// 
+ 183          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 184          INT16 HAL_AdcGet(void)
+ 185          {
+ 186   1        UINT8 u8LowByte;
+ 187   1        UINT8 u8HighByte;
+ 188   1        INT16 i16ReadADC;
+ 189   1        UINT8 u8EA;
+ 190   1      
+ 191   1        u8EA = EA;
+ 192   1        EA = 0; 
+ 193   1        u8LowByte = xADVAL;
+ 194   1        u8HighByte = xADVAL;
+ 195   1        EA = u8EA;
+ 196   1        i16ReadADC = u8HighByte << 8;
+ 197   1        i16ReadADC |= u8LowByte;
+ 198   1        i16ReadADC = i16ReadADC / 16;
+ 199   1      
+ 200   1        return  i16ReadADC;
+ 201   1      }
+ 202          
+ 203          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 204          /// 
+ 205          /// Gets the number of currently acquired ADC values.
+ 206          /// 
+ 207          /// @param  void
+ 208          /// @return UINT8. Number of currently acquired ADC values.
+ 209          /// 
+ 210          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 211          UINT8 HAL_AdcDataCountGet(void)
+ 212          {
+ 213   1        UINT8 u8NumOfData;
+ 214   1      
+ 215   1        u8NumOfData = (xADCSTS & 0x78) >> 3;  // bit[6:3]
+ 216   1        if(u8NumOfData) u8NumOfData--;
+ 217   1      
+ 218   1        return  u8NumOfData;
+ 219   1      }
+ 220          
+ 221          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 222          ///
+ 223          /// Gets an ADC data when acquiring is done.
+ 224          ///
+ 225          /// @param  pi16ReadADC : Pointer to the read ADC data.
+ 226          /// @return UINT8. Status.
+ 227          ///
+ 228          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 229          UINT8 SYS_AdcGet(INT16* pi16ReadADC)
+ 230          {
+ 231   1        static  UINT16  su16Loop;
+ 232   1        UINT8 u8Status;
+ 233   1      
+ 234   1        *pi16ReadADC = 0xFFFF;
+ 235   1        u8Status = RETURN_ADC_READ_FAILURE;
+ 236   1        for(su16Loop=0; su16Loop < 2000; su16Loop++)
+ 237   1        {
+ 238   2          if(xADCSTS & 0x70)
+ 239   2          {
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 5   
+
+ 240   3            *pi16ReadADC = HAL_AdcGet();
+ 241   3            u8Status = RETURN_ADC_SUCCESS;
+ 242   3            break;
+ 243   3          }
+ 244   2        }
+ 245   1      
+ 246   1        if(u8Status)
+ 247   1        {
+ 248   2          assert_error(ADC_CODE | u8Status);
+ 249   2        }
+ 250   1        return u8Status;  
+ 251   1      }
+ 252          
+ 253          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 254          /// 
+ 255          /// Sets an ADC channel to use and initialize the channel.
+ 256          /// 
+ 257          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 258          /// @param  u8Ref     : 0=Band gap reference(1.25V), 2=1/3 of AVDD3V, 3=Internal voltage regulator output.
+ 259          /// @param  u8AdcChan : ADC channel to use.
+ 260          ///             \n  0=ACH0.
+ 261          ///             \n  1=ACH1. 
+ 262          ///             \n  2=ACH2. 
+ 263          ///             \n  3=ACH3. 
+ 264          ///             \n  4=difference of ACH0 and ACH1.
+ 265          ///             \n  5=difference of ACH2 and ACH3.
+ 266          ///             \n  6=Temperature Sensor.
+ 267          ///             \n  7=Battery Monitoring.
+ 268          ///             \n  8=GND(for Calibration).
+ 269          /// @return UINT8. Status.
+ 270          /// 
+ 271          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 272          UINT8 SYS_AdcSet(UINT8 u8Ena, UINT8 u8Ref, UINT8 u8AdcChan)
+ 273          {
+ 274   1        UINT8 u8Status;
+ 275   1        static  UINT16  su16MaxLoopCnt;
+ 276   1        static  UINT16  su16Loop;
+ 277   1      
+ 278   1        if(u8AdcChan > ADC_CHAN_GND)
+ 279   1        {
+ 280   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_CHANNEL);
+ 281   2          return RETURN_ADC_INVALID_CHANNEL;
+ 282   2        }
+ 283   1        if(u8Ref > ADC_REFERENCE_VOL_REG)
+ 284   1        {
+ 285   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_PARAMETER);
+ 286   2          return RETURN_ADC_INVALID_PARAMETER;
+ 287   2        }
+ 288   1        
+ 289   1        if(u8Ena)
+ 290   1        {
+ 291   2          HAL_AdcBuffModeSet(0, 2);
+ 292   2          u8Status = HAL_AdcSet(1, u8Ref, u8AdcChan);
+ 293   2          if(u8Status == RETURN_ADC_SUCCESS)
+ 294   2          {
+ 295   3            HAL_AdcDecimatorReset();
+ 296   3            su16MaxLoopCnt = gcau16MaxWait_FilterPass[gu8McuPeriClockMode];
+ 297   3            for(su16Loop=0 ; su16Loop < su16MaxLoopCnt ; su16Loop++); // 2ms delay
+ 298   3          }   
+ 299   2        }
+ 300   1        else
+ 301   1        {
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 6   
+
+ 302   2          u8Status = HAL_AdcSet(0, 0, 0);
+ 303   2        }
+ 304   1      
+ 305   1        return  u8Status;
+ 306   1      }
+ 307          
+ 308          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 309          /// 
+ 310          /// Gets an ADC data once after selecting a channel. After getting, ADC is disabled.
+ 311          /// 
+ 312          /// @param  u8AdcChan : ADC channel to use.
+ 313          ///           \n  0=ACH0.
+ 314          ///           \n  1=ACH1. 
+ 315          ///           \n  2=ACH2. 
+ 316          ///           \n  3=ACH3. 
+ 317          ///           \n  4=difference of ACH0 and ACH1.
+ 318          ///           \n  5=difference of ACH2 and ACH3.
+ 319          ///           \n  6=Temperature Sensor.
+ 320          ///           \n  7=Battery Monitoring.
+ 321          ///           \n  8=GND(for Calibration).
+ 322          /// @param  pi16ReadADC : Pointer to the read ADC data.
+ 323          /// @return UINT8. Status.
+ 324          /// 
+ 325          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 326          UINT8 SYS_AdcGet_Once(UINT8 u8AdcChan, INT16 *pi16ReadADC)
+ 327          {
+ 328   1        UINT8 u8Status;
+ 329   1      
+ 330   1        if(u8AdcChan > ADC_CHAN_GND)
+ 331   1        {
+ 332   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_CHANNEL);
+ 333   2          return RETURN_ADC_INVALID_CHANNEL;
+ 334   2        }
+ 335   1      
+ 336   1        u8Status = SYS_AdcSet(1, 0, u8AdcChan);
+ 337   1        if(u8Status)
+ 338   1        {
+ 339   2          return u8Status;
+ 340   2        }
+ 341   1      
+ 342   1        u8Status = SYS_AdcGet(pi16ReadADC);
+ 343   1        if(u8Status)
+ 344   1        {
+ 345   2          return u8Status;
+ 346   2        }
+ 347   1      
+ 348   1        SYS_AdcSet(0, 0, 0);
+ 349   1      
+ 350   1        return RETURN_ADC_SUCCESS;
+ 351   1      }
+ 352          
+ 353          #ifdef __MG2470_ADC_CALIBRATION_INCLUDE_
+ 354          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 355          ///
+ 356          /// Calibrates an input data comparing to Max/Min values.
+ 357          /// 
+ 358          /// @param  i16MaxADC : Maximum value for calibration.
+ 359          /// @param  i16MinADC : Minimum value for calibration.
+ 360          /// @param  i16InputADC : ADC data to be calibrated
+ 361          /// @param  u8ResBitNum : Number of resolution bits. 10 ~ 15.
+ 362          /// @param  pi16CalibADC  : Pointer to the calibrated ADC data.
+ 363          ///             \n  if u8ResBitNum = 10, the range of calibrated data is 0 ~ 1023.
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 7   
+
+ 364          ///             \n  if u8ResBitNum = 11, the range of calibrated data is 0 ~ 2047.
+ 365          ///             \n  if u8ResBitNum = 12, the range of calibrated data is 0 ~ 4095.
+ 366          ///             \n  if u8ResBitNum = 13, the range of calibrated data is 0 ~ 8191.
+ 367          ///             \n  if u8ResBitNum = 14, the range of calibrated data is 0 ~ 16383.
+ 368          ///             \n  if u8ResBitNum = 15, the range of calibrated data is 0 ~ 32767.
+ 369          /// @return UINT8. Status.
+ 370          /// 
+ 371          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 372          UINT8 SYS_AdcCalib(INT16 i16MaxADC, INT16 i16MinADC, INT16 i16InputADC, UINT8 u8ResBitNum, INT16 *pi16Cali
+             -bADC)
+ 373          {
+ 374   1        UINT16  u16Difference;
+ 375   1        UINT16  u16ADCOffset;
+ 376   1        UINT16  u16Resolution;
+ 377   1        UINT32  u32Temp;
+ 378   1      
+ 379   1        if( (u8ResBitNum < 10) || (u8ResBitNum > 15) )
+ 380   1        {
+ 381   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_PARAMETER);
+ 382   2          return RETURN_ADC_INVALID_PARAMETER;
+ 383   2        } 
+ 384   1      
+ 385   1        if(i16MinADC >= i16MaxADC)
+ 386   1        {
+ 387   2          assert_error(ADC_CODE | RETURN_ADC_OUT_OF_RANGE);
+ 388   2          return RETURN_ADC_OUT_OF_RANGE;
+ 389   2        }
+ 390   1      
+ 391   1        u16Difference = i16MaxADC - i16MinADC;
+ 392   1      
+ 393   1        if(i16InputADC < i16MinADC)
+ 394   1        {
+ 395   2          u16ADCOffset = 0;
+ 396   2        }
+ 397   1        else if(i16InputADC > i16MaxADC)
+ 398   1        {
+ 399   2          u16ADCOffset = u16Difference;
+ 400   2        }
+ 401   1        else
+ 402   1        {
+ 403   2          u16ADCOffset = i16InputADC - i16MinADC;
+ 404   2        }
+ 405   1      
+ 406   1        u16Resolution = (1 << u8ResBitNum) - 1;
+ 407   1        u32Temp = u16Resolution;
+ 408   1        u32Temp = u32Temp * u16ADCOffset;
+ 409   1        u32Temp = u32Temp / u16Difference;
+ 410   1      
+ 411   1        *pi16CalibADC = u32Temp & 0x00007FFF;
+ 412   1      
+ 413   1        return RETURN_ADC_SUCCESS;
+ 414   1      }
+ 415          
+ 416          
+ 417          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 418          ///
+ 419          /// Gets an ADC data of VCC channel for calibration.
+ 420          ///
+ 421          /// @param  void
+ 422          /// @return UINT8. Status.
+ 423          /// @note The acquired data is written to gi16ADC_VCC.
+ 424          ///
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 8   
+
+ 425          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 426          UINT8 SYS_AdcGet_VCCForCalib(void)
+ 427          {
+ 428   1        UINT8 u8Status;
+ 429   1      
+ 430   1        u8Status = SYS_AdcGet_Once(ADC_CHAN_VCC, &gi16ADC_VCC);
+ 431   1      
+ 432   1        return u8Status;  
+ 433   1      }
+ 434          
+ 435          
+ 436          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 437          ///
+ 438          /// Gets an ADC data of GND channel for calibration.
+ 439          ///
+ 440          /// @param  void
+ 441          /// @return UINT8. Status.
+ 442          /// @note The acquired data is written to gi16ADC_GND.
+ 443          ///
+ 444          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 445          UINT8 SYS_AdcGet_GNDForCalib(void)
+ 446          {
+ 447   1        UINT8 u8Status;
+ 448   1      
+ 449   1        u8Status = SYS_AdcGet_Once(ADC_CHAN_GND, &gi16ADC_GND);
+ 450   1      
+ 451   1        return u8Status;
+ 452   1      }
+ 453          
+ 454          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 455          ///
+ 456          /// Gets a calibrated ADC data.
+ 457          ///
+ 458          /// @param  u8ResBitNum : Number of resolution bits. 10 ~ 15.
+ 459          /// @param  pi16CalibADC  : Pointer to the calibrated ADC data.
+ 460          ///             \n  if u8ResBitNum = 10, the range of calibrated data is 0 ~ 1023.
+ 461          ///             \n  if u8ResBitNum = 11, the range of calibrated data is 0 ~ 2047.
+ 462          ///             \n  if u8ResBitNum = 12, the range of calibrated data is 0 ~ 4095.
+ 463          ///             \n  if u8ResBitNum = 13, the range of calibrated data is 0 ~ 8191.
+ 464          ///             \n  if u8ResBitNum = 14, the range of calibrated data is 0 ~ 16383.
+ 465          ///             \n  if u8ResBitNum = 15, the range of calibrated data is 0 ~ 32767.
+ 466          /// @return UINT8. Status.
+ 467          ///
+ 468          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 469          UINT8 SYS_AdcCalibGet(UINT8 u8ResBitNum, INT16 *pi16CalibADC)
+ 470          {
+ 471   1        INT16 i16ReadADC;
+ 472   1        UINT8 u8Status;
+ 473   1      
+ 474   1        if( (u8ResBitNum < 10) || (u8ResBitNum > 15) )
+ 475   1        {
+ 476   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_PARAMETER);
+ 477   2          return RETURN_ADC_INVALID_PARAMETER;
+ 478   2        }
+ 479   1      
+ 480   1        u8Status = SYS_AdcGet(&i16ReadADC);
+ 481   1        if(u8Status)
+ 482   1        {
+ 483   2          return u8Status;
+ 484   2        }
+ 485   1      
+ 486   1        u8Status = SYS_AdcCalib(gi16ADC_VCC, gi16ADC_GND, i16ReadADC, u8ResBitNum, pi16CalibADC);
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 9   
+
+ 487   1        if(u8Status)
+ 488   1        {
+ 489   2          return u8Status;
+ 490   2        }
+ 491   1      
+ 492   1        return RETURN_ADC_SUCCESS;
+ 493   1      }
+ 494          
+ 495          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 496          ///
+ 497          /// Gets a calibrated ADC data once after selecting a channel. After getting, ADC is disabled.
+ 498          ///
+ 499          /// @param  u8AdcChan : ADC channel to use.
+ 500          ///             \n  0=ACH0.
+ 501          ///             \n  1=ACH1. 
+ 502          ///             \n  2=ACH2. 
+ 503          ///             \n  3=ACH3. 
+ 504          ///             \n  4=difference of ACH0 and ACH1.
+ 505          ///             \n  5=difference of ACH2 and ACH3.
+ 506          ///             \n  6=Temperature Sensor.
+ 507          ///             \n  7=Battery Monitoring.
+ 508          ///             \n  8=GND(for Calibration).
+ 509          /// @param  u8ResBitNum : Number of resolution bits. 10 ~ 15.
+ 510          /// @param  pi16CalibADC  : Pointer to the calibrated ADC data.
+ 511          ///             \n  if u8ResBitNum = 10, the range of calibrated data is 0 ~ 1023.
+ 512          ///             \n  if u8ResBitNum = 11, the range of calibrated data is 0 ~ 2047.
+ 513          ///             \n  if u8ResBitNum = 12, the range of calibrated data is 0 ~ 4095.
+ 514          ///             \n  if u8ResBitNum = 13, the range of calibrated data is 0 ~ 8191.
+ 515          ///             \n  if u8ResBitNum = 14, the range of calibrated data is 0 ~ 16383.
+ 516          ///             \n  if u8ResBitNum = 15, the range of calibrated data is 0 ~ 32767.
+ 517          /// @return UINT8. Status.
+ 518          ///
+ 519          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 520          UINT8 SYS_AdcCalibGet_Once(UINT8 u8AdcChan, UINT8 u8ResBitNum, INT16 *pi16CalibADC)
+ 521          {
+ 522   1        INT16 i16ReadGND;
+ 523   1        INT16 i16ReadVCC;
+ 524   1        INT16 i16ReadADC;
+ 525   1        UINT8 u8Status;
+ 526   1      
+ 527   1        if(u8AdcChan > ADC_CHAN_GND)
+ 528   1        {
+ 529   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_CHANNEL);
+ 530   2          return RETURN_ADC_INVALID_CHANNEL;
+ 531   2        }
+ 532   1      
+ 533   1        if( (u8ResBitNum < 10) || (u8ResBitNum > 15) )
+ 534   1        {
+ 535   2          assert_error(ADC_CODE | RETURN_ADC_INVALID_PARAMETER);
+ 536   2          return RETURN_ADC_INVALID_PARAMETER;
+ 537   2        }
+ 538   1      
+ 539   1        u8Status = SYS_AdcGet_Once(ADC_CHAN_VCC, &i16ReadVCC);
+ 540   1        if(u8Status)
+ 541   1        {
+ 542   2          return u8Status;
+ 543   2        }
+ 544   1        u8Status = SYS_AdcGet_Once(ADC_CHAN_GND, &i16ReadGND);
+ 545   1        if(u8Status)
+ 546   1        {
+ 547   2          return u8Status;
+ 548   2        }
+C51 COMPILER V9.53.0.0   ADC                                                               01/28/2020 11:28:52 PAGE 10  
+
+ 549   1        u8Status = SYS_AdcGet_Once(u8AdcChan, &i16ReadADC);
+ 550   1        if(u8Status)
+ 551   1        {
+ 552   2          return u8Status;
+ 553   2        }
+ 554   1        u8Status = SYS_AdcCalib(i16ReadVCC, i16ReadGND, i16ReadADC, u8ResBitNum, pi16CalibADC);
+ 555   1        if(u8Status)
+ 556   1        {
+ 557   2          return u8Status;
+ 558   2        }
+ 559   1      
+ 560   1        return RETURN_ADC_SUCCESS;
+ 561   1      }
+ 562          #endif  // #ifdef __MG2470_ADC_CALIBRATION_INCLUDE_
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1014    ----
+   CONSTANT SIZE    =     12    ----
+   XDATA SIZE       =     10      38
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

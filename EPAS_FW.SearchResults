@@ -1,0 +1,10 @@
+---- u8BackoffRetry Matches (9 in 4 files) ----
+Ib_main_sen.c (sample\evb):	gtMIB.u8BackoffRetry = 5;
+Ib_main_sen.c (sample\evb):	gtMIB.u8BackoffRetry = 10;
+IEEE_802_15_4.h (sample\include):	UINT8	u8BackoffRetry;
+Util_app.c (sample\utility):///	@param	u8BackoffRetry	: Number of retries when CCA(Channel Clear Assessment) is failed.
+Util_app.c (sample\utility):UINT8 AppLib_TxFifoTransmit(UINT8 u8NoAckRetry, UINT8 u8BackoffRetry)
+Util_app.c (sample\utility):	u8BackoffTxNum = u8BackoffRetry + 1;
+Util_app.c (sample\utility):		u8Status = AppLib_TxFifoTransmit(gtMIB.u8NoAckRetry, gtMIB.u8BackoffRetry);
+Util_app.c (sample\utility):	zPrintf(1, " :BackoffRetry=%u",(short)ptMIB->u8BackoffRetry);
+Util_app.h (sample\utility):UINT8 AppLib_TxFifoTransmit(UINT8 u8NoAckRetry, UINT8 u8BackoffRetry);

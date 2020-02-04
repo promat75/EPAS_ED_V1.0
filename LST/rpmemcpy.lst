@@ -1,0 +1,159 @@
+A51 MACRO ASSEMBLER  RPMEMCPY                                                             01/28/2020 11:28:51 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.02b
+OBJECT MODULE PLACED IN .\HEX\rpmemcpy.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE Platform\asm\rpmemcpy.a51 SET(LARGE) PRINT(.\LST\rpmemcpy.lst) OBJECT(.
+                      \HEX\rpmemcpy.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     
+                       2     
+                       3     ;*********************************************************************************;
+                       4     ;
+                       5     ;       Chiip   : MG2450/2455
+                       6     ;       Vendor  : RadioPulse Inc, 2007.
+                       7     ;       Date            : 2009-03-17
+                       8     ;       Version : VER 1.0
+                       9     ;       Describe        : memcpy() using dual DPTR(DPH/DPL) of MG245X
+                      10     ;       Usage   : in C source files;
+                      11     ;                               #include "rpmemcpy.h"
+                      12     ;                               void main()
+                      13     ;                               {
+                      14     ;                                       rpmemcpy(DstBuff, SrcBuff, 128);
+                      15     ;                               }
+                      16     ;
+                      17     ;                               #include "rpmemcpy.h"
+                      18     ;                               void RF_ISR()
+                      19     ;                               {
+                      20     ;                                       rpmemcpy_isr(DstBuff, SrcBuff, 128);
+                      21     ;                               };
+                      22     ;
+                      23     ;       Note            : rpmemcpy_isr() only should be called in RF_ISR()
+                      24     ;
+                      25     ;*********************************************************************************
+                      26     
+                      27     radiopuse_memcpy        SEGMENT         CODE
+                      28     
+                      29             PUBLIC  _rpmemcpy
+                      30             PUBLIC  _rpmemcpy_isr
+                      31     
+  00A2                32             AUXR1   EQU     0xA2
+                      33     
+----                  34             RSEG    radiopuse_memcpy
+                      35     
+0000                  36             _rpmemcpy:
+                      37     
+0000 EB               38             MOV             A,R3
+0001 6001             39             JZ              L001
+0003 0A               40             INC             R2
+0004                  41     L001:
+0004 4A               42             ORL             A,R2
+0005 601D             43             JZ              L003    
+0007 8C83             44             MOV             DPH,R4
+0009 8D82             45             MOV             DPL,R5
+000B 63A201           46             XRL             AUXR1,#0x01     
+000E 8E83             47             MOV             DPH,R6
+0010 8F82             48             MOV             DPL,R7
+0012 63A201           49             XRL             AUXR1,#0x01     
+0015 00               50             NOP
+0016                  51     L002:
+0016 E0               52             MOVX    A,@DPTR
+0017 A3               53             INC             DPTR
+0018 63A201           54             XRL             AUXR1,#0x01     
+001B F0               55             MOVX    @DPTR,A
+001C A3               56             INC             DPTR
+001D 63A201           57             XRL             AUXR1,#0x01
+A51 MACRO ASSEMBLER  RPMEMCPY                                                             01/28/2020 11:28:51 PAGE     2
+
+0020 DBF4             58             DJNZ    R3,L002
+0022 DAF2             59             DJNZ    R2,L002 
+0024                  60     L003:
+0024 22               61             RET
+                      62             
+0025                  63             _rpmemcpy_isr:  
+                      64     
+                      65     ;       CLR             A
+                      66     ;       MOV             AUXR1, A
+                      67     
+0025 C0A2             68             PUSH    AUXR1   
+0027 75A201           69             MOV             AUXR1, #0x01    ; AUXR1=0x01
+002A 00               70             NOP
+002B 00               71             NOP
+002C C082             72             PUSH    DPL
+002E C083             73             PUSH    DPH
+0030 63A201           74             XRL             AUXR1,#0x01             ; AUXR1=0x00
+0033 00               75             NOP
+0034 00               76             NOP
+0035 C082             77             PUSH    DPL
+0037 C083             78             PUSH    DPH
+                      79     
+                      80             ; Here, AUXR1=0x00
+                      81             
+0039 EB               82             MOV             A,R3
+003A 6001             83             JZ              L004
+003C 0A               84             INC             R2
+003D                  85     L004:   
+003D 4A               86             ORL             A,R2
+003E 601D             87             JZ              L006    
+0040 8C83             88             MOV             DPH,R4
+0042 8D82             89             MOV             DPL,R5
+0044 63A201           90             XRL             AUXR1,#0x01     
+0047 8E83             91             MOV             DPH,R6
+0049 8F82             92             MOV             DPL,R7
+004B 63A201           93             XRL             AUXR1,#0x01
+004E 00               94             NOP
+004F                  95     L005:   
+004F E0               96             MOVX    A,@DPTR
+0050 A3               97             INC             DPTR
+0051 63A201           98             XRL             AUXR1,#0x01
+0054 F0               99             MOVX    @DPTR,A
+0055 A3              100             INC             DPTR
+0056 63A201          101             XRL             AUXR1,#0x01
+0059 DBF4            102             DJNZ    R3,L005
+005B DAF2            103             DJNZ    R2,L005 
+005D                 104     L006:
+                     105     
+                     106             ; Here, AUXR1=0x00
+005D D083            107             POP             DPH
+005F D082            108             POP             DPL
+0061 63A201          109             XRL             AUXR1,#0x01             ; AUXR1=0x01
+0064 00              110             NOP
+0065 00              111             NOP
+0066 D083            112             POP             DPH
+0068 D082            113             POP             DPL
+006A D0A2            114             POP             AUXR1
+                     115     
+006C 22              116             RET
+                     117             END
+                             
+                             
+                             
+                             
+A51 MACRO ASSEMBLER  RPMEMCPY                                                             01/28/2020 11:28:51 PAGE     3
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+AUXR1. . . . . . .  N NUMB   00A2H   A   
+DPH. . . . . . . .  D ADDR   0083H   A   
+DPL. . . . . . . .  D ADDR   0082H   A   
+L001 . . . . . . .  C ADDR   0004H   R   SEG=RADIOPUSE_MEMCPY
+L002 . . . . . . .  C ADDR   0016H   R   SEG=RADIOPUSE_MEMCPY
+L003 . . . . . . .  C ADDR   0024H   R   SEG=RADIOPUSE_MEMCPY
+L004 . . . . . . .  C ADDR   003DH   R   SEG=RADIOPUSE_MEMCPY
+L005 . . . . . . .  C ADDR   004FH   R   SEG=RADIOPUSE_MEMCPY
+L006 . . . . . . .  C ADDR   005DH   R   SEG=RADIOPUSE_MEMCPY
+RADIOPUSE_MEMCPY .  C SEG    006DH       REL=UNIT
+_RPMEMCPY. . . . .  C ADDR   0000H   R   SEG=RADIOPUSE_MEMCPY
+_RPMEMCPY_ISR. . .  C ADDR   0025H   R   SEG=RADIOPUSE_MEMCPY
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

@@ -1,0 +1,29 @@
+diff a/Sample/EVB/ib_main_sen.h b/Sample/EVB/ib_main_sen.h	(rejected hunks)
+@@ -41,26 +41,25 @@
+ 
+ #include "ib_ir_sen.h"
+ #include "ib_temp_sen.h"
+ 
+ //--------------------------
+ 
+-
+ #define	FW_UPDATE_DATE						"20190409"
+ // Smart Sensor End Device VERSION  		
+ #define	SSE_VER_MAIN							'1'
+ #define	SSE_VER_SUB1							'6'	// ver �����  Rename_HexFile.bat ������ ver �� ���� ���� �Ұ�  !!!!!!  
+ #define	SSE_VER_SUB2							' '
+ 
+                                    		
+ // Library_VERSION = V2.5           		
+ #define	LIB_VER_MAIN							'2'
+ #define	LIB_VER_SUB							'5'
+ 
+ 
+-#define TEST_SENSOR							0	// Multi comm �׽�Ʈ�� ���� ���� ����
++#define TEST_SENSOR								0	// Multi comm �׽�Ʈ�� ���� ���� ����
+ 
+ // �����Ϸ� ���� ����  
+ #ifdef	__ZENER_BOARD
+ 	#define ZENER_BOARD							1	// �ű� ���� ���� ����    
+ #else
+ 	#define ZENER_BOARD							0	// �ű� ���� ���� �� ����    

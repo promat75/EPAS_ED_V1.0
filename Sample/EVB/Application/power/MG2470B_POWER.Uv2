@@ -1,0 +1,187 @@
+### uVision2 Project, (C) Keil Software
+### Do not modify !
+
+Target (Target 1), 0x0000 // Tools: 'MCS-51'
+
+Group (Platform/Include)
+Group (Platform/asm)
+Group (Platform/hal)
+Group (Platform/Library)
+Group (Utility)
+Group (Application)
+Group (Include)
+
+File 1,5,<..\..\..\..\Platform\Include\Include_MG2470.h><Include_MG2470.h> 0x0 
+File 1,5,<..\..\..\..\Platform\Include\MG2470.h><MG2470.h> 0x0 
+File 1,5,<..\..\..\..\Platform\Include\MG2470_LIB.h><MG2470_LIB.h> 0x0 
+File 1,5,<..\..\..\..\Platform\Include\rpmemcpy.h><rpmemcpy.h> 0x0 
+File 2,2,<..\..\..\..\Platform\asm\L51_BANK_RP_MG2470.a51><L51_BANK_RP_MG2470.a51> 0x0 
+File 2,2,<..\..\..\..\Platform\asm\rpmemcpy.a51><rpmemcpy.a51> 0x0 
+File 2,2,<..\..\..\..\Platform\asm\STARTUP_BANK_RP_MG2470.a51><STARTUP_BANK_RP_MG2470.a51> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\adc.c><adc.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\adc.h><adc.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\clock.c><clock.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\clock.h><clock.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\exti.c><exti.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\exti.h><exti.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\flash.c><flash.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\flash.h><flash.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\gpio.c><gpio.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\gpio.h><gpio.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\gpioint.c><gpioint.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\gpioint.h><gpioint.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\hmac.c><hmac.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\hmac.h><hmac.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\phy.c><phy.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\phy.h><phy.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\power.c><power.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\power.h><power.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\pwm.c><pwm.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\pwm.h><pwm.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\security.c><security.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\security.h><security.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\spi.c><spi.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\spi.h><spi.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\timer.c><timer.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\timer.h><timer.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\uart.c><uart.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\uart.h><uart.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\wdt.c><wdt.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\wdt.h><wdt.h> 0x0 
+File 3,1,<..\..\..\..\Platform\hal\HIB.c><HIB.c> 0x0 
+File 3,5,<..\..\..\..\Platform\hal\HIB.h><HIB.h> 0x0 
+File 4,4,<..\..\..\..\Platform\Library\MG2470_LIB_V25.LIB><MG2470_LIB_V25.LIB> 0x53FBEA59 
+File 5,1,<..\..\..\Utility\UTIL_APP.c><UTIL_APP.c> 0x0 
+File 5,5,<..\..\..\Utility\UTIL_APP.h><UTIL_APP.h> 0x0 
+File 5,1,<..\..\..\Utility\UTIL_SYS.c><UTIL_SYS.c> 0x0 
+File 5,5,<..\..\..\Utility\UTIL_SYS.h><UTIL_SYS.h> 0x0 
+File 6,1,<.\Source\isr_power.c><isr_power.c> 0x0 
+File 6,1,<.\Source\main_power.c><main_power.c> 0x0 
+File 6,5,<.\Source\option_power.h><option_power.h> 0x0 
+File 7,5,<..\..\..\Include\IEEE_802_15_4.h><IEEE_802_15_4.h> 0x0 
+File 7,5,<..\..\..\Include\include_top.h><include_top.h> 0x0 
+
+
+Options 1,0,0  // Target 'Target 1'
+ Device (8051 (all Variants))
+ Vendor (Generic)
+ Cpu (IRAM(0-0x7F) IROM(0-0xFFF) CLOCK(12000000))
+ FlashUt ()
+ StupF ("LIB\STARTUP.A51" ("Standard 8051 Startup Code"))
+ FlashDR ()
+ Rgf (REG51.H)
+ Mem ()
+ C ()
+ A ()
+ RL ()
+ OH ()
+ UseEnv=0
+ EnvBin (C:\Keil\C51\BIN\)
+ EnvInc (.\H\)
+ EnvLib ()
+ EnvReg ()
+ OrgReg ()
+ TgStat=0
+ OutDir (.\HEX\)
+ OutName (MG2470B_POWER)
+ GenApp=1
+ GenLib=0
+ GenHex=1
+ Debug=0
+ Browse=0
+ LstDir (.\LST\)
+ HexSel=0
+ MG32K=0
+ TGMORE=0
+ RunUsr 0 0 <>
+ RunUsr 1 0 <>
+ BrunUsr 0 0 <>
+ BrunUsr 1 0 <>
+ SVCSID <>
+ MODEL5=2
+ RTOS5=0
+ ROMSZ5=2
+ DHOLD5=0
+ XHOLD5=0
+ T51FL=80
+ CBANKS5=1
+ XBANKS5=0
+ RCB51 { 0,0,128,0,0,255,255,0,0 }
+ RXB51 { 0,0,0,0,0,0,0,0,0 }
+ OCM51 { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ OCR51 { 0,0,0,0,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ IRO51 { 1,0,0,0,0,0,16,0,0 }
+ IRA51 { 0,0,0,0,0,128,0,0,0 }
+ XRA51 { 0,0,0,0,0,0,0,0,0 }
+ XRA512 { 0,0,0,0,0,0,0,0,0 }
+ C51FL=17452304
+ C51VA=0
+ C51MSC ()
+ C51DEF (DEBUG)
+ C51UDF ()
+ INCC5 (..\..\..\..\Platform\Include\; ..\..\..\..\Platform\hal\; ..\..\..\Include\; ..\..\..\Utility\; ..\..\)
+ AX51FL=4
+ AX51MSC ()
+ AX51SET ()
+ AX51RST ()
+ INCA5 ()
+ PropFld { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ IncBld=1
+ AlwaysBuild=0
+ GenAsm=0
+ AsmAsm=0
+ PublicsOnly=0
+ StopCode=3
+ CustArgs ()
+ LibMods ()
+ BankNo=65535
+ LX51FL=288
+ LX51OVL ()
+ LX51MSC ()
+ LX51DWN (16)
+ LX51LFI ()
+ LX51ASN ()
+ LX51RES ()
+ LX51CCL ()
+ LX51UCL ()
+ LX51CSC ()
+ LX51UCS ()
+ LX51COB (0X0000-0XFFFF)
+ LX51XDB (0X0000-0X17FF)
+ LX51PDB ()
+ LX51BIB ()
+ LX51DAB ()
+ LX51IDB ()
+ LX51PRC ()
+ LX51STK ()
+ LX51COS ()
+ LX51XDS ()
+ LX51BIS ()
+ LX51DAS ()
+ LX51IDS ()
+  OPTDL (S8051.DLL)()(DP51.DLL)(-p51)(S8051.DLL)()(TP51.DLL)(-p51)
+  OPTDBG 44029,-1,()()()()()()()()()() (BIN\MON51.DLL)()()()
+ FLASH1 { 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ FLASH2 ()
+ FLASH3 ("" ())
+EndOpt
+
+Options 1,6,45  // File 'isr_power.c'
+ PropFld { 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ IncBld=0
+ AlwaysBuild=2
+ GenAsm=2
+ AsmAsm=2
+ PublicsOnly=2
+ StopCode=11
+ CustArgs ()
+ LibMods ()
+ BankNo=65535
+ C51FL=177119914
+ C51VA=0
+ C51MSC ()
+ C51DEF ()
+ C51UDF ()
+ INCC5 ()
+EndOpt
+

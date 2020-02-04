@@ -1,0 +1,798 @@
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE IB_SENSOR
+OBJECT MODULE PLACED IN .\HEX\ib_sensor.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Sample\EVB\ib_sensor.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\I
+                    -nclude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ib
+                    -_sensor.lst) TABS(2) OBJECT(.\HEX\ib_sensor.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2011.
+   5            - Date    : 2016-10-10
+   6            - Version   : V2.6
+   7          
+   8            - File      : ib_sensor.c
+   9          *******************************************************************************/
+  10          
+  11          
+  12          #include "ib_main_sen.h"
+  13          #include "ib_sensor.h"
+  14          #include <stdio.h>
+  15          
+  16          UINT8     ConfigBit_value = 0;
+  17          UINT8     I2C_DataBuff[2]={0};
+  18          
+  19          signed char   AX_data=0;
+  20          signed char   AY_data=0;
+  21          signed char   AZ_data=0;
+  22          signed char   AX_Olddata=0;
+  23          signed char AY_Olddata=0;
+  24          signed char   AZ_Olddata=0;
+  25          float     AX_Result=0;
+  26          float     AY_Result=0;
+  27          float     AZ_Result=0;
+  28          UINT8     Accel_flag=0;
+  29          
+  30          //UINT16 AccelerationSensor_setData[6]={0};
+  31          
+  32          //UINT8 AccelerationSensor_Status[6]={0};
+  33          UINT8     AccelerationSensor_ScalData[6]={0,0,0,0,0,0};
+  34          UINT8     AccelerationSensor_ScalBuff[512]={0};
+  35          UINT8     AccelerationSensor_Scalefactor[3]={0};
+  36          
+  37          char      AccelerationSensor_getData[6]={0,0,0,0,0,0};
+  38          
+  39          //signed char AccelerationSensor_NewData[6]={0};
+  40          //signed char AccelerationSensor_OldMaxData[6]={0};
+  41          //signed char AccelerationSensor_ThirdMaxData[6]={0};
+  42          
+  43          char      AccelerationSensor_NewData[6]={0};
+  44          char      AccelerationSensor_OldMaxData[6]={0};
+  45          char      AccelerationSensor_ThirdMaxData[6]={0};
+  46          
+  47          
+  48          UINT8     u8I2CSenStatus = 0;
+  49          
+  50          
+  51          INT32     Test_int32=0;
+  52          UINT32    Test_uint32=0;
+  53          UINT16    Test_uint16=0;
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 2   
+
+  54          
+  55          float     Current_Val=0;
+  56          float     Inver_A=0;
+  57          float     Inver_B=0;
+  58          float     Inver_C=0;
+  59          float     Inver_D=0;
+  60          
+  61          
+  62          INT16     ADC_DataBuff[2]={0};
+  63          UINT16    ADC_Voltage=0;
+  64          
+  65          INT16   i16ADC_VccValue = 0;
+  66          UINT16    u16ADC_OverCurrentValue = 0;
+  67          
+  68          UINT8   u8StartZenorADC = ADCV_OVER_CURR;
+  69          UINT8   u8RecoveryZenorADC = ADCV_RECV_CURR;
+  70          
+  71          
+  72          
+  73          tAVERGAE_DATA gtCurrentAvg; // current average
+  74          
+  75          //UINT16 AvgBuff[AVG_BUFF_SIZE];
+  76          //float  gAverage = 0;
+  77          
+  78          
+  79          void AvgBufferInit(UINT8 avg_count, tAVERGAE_DATA* pt_current_avg)
+  80          {
+  81   1        //UINT16* pmem;
+  82   1        pt_current_avg->u8AvgInitFlag = 0;
+  83   1        pt_current_avg->u8AvgCount = avg_count;
+  84   1        pt_current_avg->u16AvgBuffer = (UINT16*) malloc(sizeof(UINT16)*pt_current_avg->u8AvgCount);
+  85   1        
+  86   1        memset(pt_current_avg->u16AvgBuffer, 0x00, avg_count*2);  // int 변수를 바이트 변수 size로
+  87   1        pt_current_avg->fAverage = 0;
+  88   1      
+  89   1      } 
+  90          
+  91          
+  92          
+  93          void SensorDataBuff_Init(void)
+  94          {
+  95   1        #if !_ACCEL_USE
+  96   1        // 가속도센서 제거후 지그비 통신 동작상태를 유지할 수 있도록 하기 위하여 추가한 임시 코드 끝
+  97   1        AccelerationSensor_getData[1]  = 0x01;            
+  98   1        AccelerationSensor_getData[3] = 0x02;           
+  99   1        AccelerationSensor_getData[5] = 0x03;
+ 100   1        ADC_DataBuff[0] =0x01;
+ 101   1        #endif
+ 102   1        
+ 103   1        // 현재는 사용 하지 않는 변수 ; 추후 사용시 수정 필요 ???
+ 104   1        AccelerationSensor_ScalData[1] = AccelerationSensor_getData[1];           
+ 105   1        AccelerationSensor_ScalData[3] = AccelerationSensor_getData[3];           
+ 106   1        AccelerationSensor_ScalData[5] = AccelerationSensor_getData[5];   
+ 107   1                
+ 108   1                
+ 109   1        AccelerationSensor_getData[1]  = 0;           
+ 110   1        AccelerationSensor_getData[3] = 0;            
+ 111   1        AccelerationSensor_getData[5] = 0;            
+ 112   1        //AccelerationSensor_setData[1] = 0;
+ 113   1        ADC_DataBuff[0] =0;             
+ 114   1      } 
+ 115          
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 3   
+
+ 116          
+ 117          //----------------------------------------------------------------------------------------------
+ 118          // 
+ 119          UINT8 SensorOut(void)
+ 120          {
+ 121   1        float Voltage_Result=0;
+ 122   1      
+ 123   1      
+ 124   1      #if 0
+                
+                // zPrintf 보다 uart 직접 출력이 더 빨라 데이타가 섞여 출력됨 => 그래서 진동 데이타를 먼저 출력
+                //zPrintf(1,"accl : %d  %d  %d",(short)AX_data, (short)AY_data, (short)AZ_data);
+                    Accelero_OUTPUT_DATA();     
+                    OutData(AX_Result);//Y  
+                    OutData(AY_Result);//Y
+                    OutData(AZ_Result);//Z
+              
+                //OutData(ADC_Voltage);
+                
+                zPrintf(1," %3.1f  ",(float)Real_TempValue);
+                
+                Voltage_Result = (float)ADC_Voltage/16384;
+                Voltage_Result *= 59.2;   // 59.2 = 3.7V * 16(분배 저항 계수)  
+                zPrintf(1," %3.1f  \r",(float)Voltage_Result);
+              #else
+ 141   1      
+ 142   1        zPrintf(1,"T: %3.1f  ",(float)Real_TempValue);    // 온도 
+ 143   1        zPrintf(1,"C: %d  ",(short)ADC_Voltage);      // 전류
+ 144   1        zPrintf(1,"V: %d  %d  %d  \n",(short)AX_data, (short)AY_data, (short)AZ_data);  
+ 145   1        
+ 146   1      #endif
+ 147   1      
+ 148   1            return RETURN_PHY_SUCCESS;
+ 149   1      }
+ 150          
+ 151          
+ 152          UINT8 DataOut(UINT8* data_buf)
+ 153          {
+ 154   1        UINT8 ii;
+ 155   1        
+ 156   1        for(ii = 0; ii < RF_DATA_PACKET_LENGTH; ii++)
+ 157   1          SYS_Uart1Put(*data_buf++);
+ 158   1        
+ 159   1        SYS_Uart1Put(0x0D);
+ 160   1        SYS_Uart1Put(0x0A); 
+ 161   1            
+ 162   1            return RETURN_PHY_SUCCESS;
+ 163   1      }
+ 164          
+ 165          //----------------------------------------------------------------------------------------------
+ 166          
+ 167          
+ 168          void Accelero_OUTPUT_DATA(void)
+ 169          {
+ 170   1      
+ 171   1        signed char n16Value[3]={0};  
+ 172   1        signed char AX_Newdata=0; 
+ 173   1        signed char AY_Newdata=0;
+ 174   1        signed char AZ_Newdata=0; 
+ 175   1          
+ 176   1        AX_Olddata=AX_data;
+ 177   1        AY_Olddata=AY_data;
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 4   
+
+ 178   1        AZ_Olddata=AZ_data; 
+ 179   1      
+ 180   1        n16Value[0]= AX_data-AccelerationSensor_Scalefactor[0];  
+ 181   1        if (n16Value[0]&0x80) 
+ 182   1        {
+ 183   2          n16Value[0]|=0x80;
+ 184   2        }   
+ 185   1      
+ 186   1        n16Value[1]= AY_data - AccelerationSensor_Scalefactor[1];  
+ 187   1        if (n16Value[1]&0x80)
+ 188   1        {
+ 189   2          n16Value[1]|=0x80;
+ 190   2        }  
+ 191   1      
+ 192   1        n16Value[2]= AZ_data - AccelerationSensor_Scalefactor[2];  
+ 193   1        if (n16Value[2]&0x80)
+ 194   1        {
+ 195   2          n16Value[2]|=0x80;
+ 196   2        }  
+ 197   1         
+ 198   1            AX_data =(signed char)n16Value[0];
+ 199   1            AY_data =(signed char)n16Value[1]; 
+ 200   1            AZ_data =(signed char)n16Value[2];
+ 201   1      
+ 202   1        AX_Result=(float)AX_data*19;      //  AX_Result=(float)AX_data*0.019; 
+ 203   1        AY_Result=(float)AY_data*19;      //    AY_Result=(float)AY_data*0.019; 
+ 204   1        AZ_Result=(float)AZ_data*19;      //  AZ_Result=(float)AZ_data*0.019; 
+ 205   1      
+ 206   1        /* 일정 진동 이상 변경시 알람 설정을 위한 루틴 
+ 207   1        if(AX_Olddata>=AX_data)
+ 208   1          AX_Newdata=AX_Olddata-AX_data;
+ 209   1        else
+ 210   1          AX_Newdata=AX_data-AX_Olddata;  
+ 211   1          
+ 212   1        if(AY_Olddata>=AY_data)
+ 213   1          AY_Newdata=AY_Olddata-AY_data;
+ 214   1        else
+ 215   1          AY_Newdata=AY_data-AY_Olddata;  
+ 216   1          
+ 217   1        if(AZ_Olddata>=AZ_data)
+ 218   1          AZ_Newdata=AZ_Olddata-AZ_data;
+ 219   1        else
+ 220   1          AZ_Newdata=AZ_data-AZ_Olddata;          
+ 221   1          
+ 222   1          
+ 223   1        if((AX_Newdata>=10)||(AY_Newdata>=10)||(AZ_Newdata>=10))
+ 224   1          Accel_flag=1;
+ 225   1        else
+ 226   1          Accel_flag=0;
+ 227   1        */
+ 228   1            
+ 229   1      }
+ 230          
+ 231          
+ 232          /***************************************************************
+ 233          * Function : Acceleration Sensor(LIS302DL) Init    
+ 234          * Parameter : Void
+ 235          * Write By Kong
+ 236          ***************************************************************/
+ 237          void AccelSensor_Init(void)
+ 238          {
+ 239   1        // reset 을 먼저 하고 초기화를 수행 하도록
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 5   
+
+ 240   1        ACCELSEN_RESET = RST_ON;
+ 241   1        //AppLib_DelayFor1us();     // 초기화 delay 이므로 read 속도에 영향 없음  : 기존 1ms 사용 
+ 242   1        AppLib_Delay(1);        // 1ms
+ 243   1        ACCELSEN_RESET = RST_OFF;
+ 244   1        //AppLib_DelayFor1us();     // 초기화 delay 이므로 read 속도에 영향 없음  
+ 245   1        AppLib_Delay(1);        // 1ms
+ 246   1        
+ 247   1        
+ 248   1        //--- CTRL_REG1 SET
+ 249   1        //--- Reg   -->   DR        | PD        | FS          | STP     STM   | Zen           | Yen           | Xen
+ 250   1        //--- Value -->   1         | 0         | 0           | 0       0     | 1             | 1             | 1
+ 251   1        //--- Action-->   DR400Hz   | PD mode   | Scale +-2g  | normal mode   | Z axis Enable | Y axis Enable | X axis
+             - Enable 
+ 252   1        //--- X Sensitivity = 16.2mg
+ 253   1        I2C_DataBuff[0] = 0x20;
+ 254   1        I2C_DataBuff[1] = 0x07;
+ 255   1        HAL_I2CMaster_SequentialWrite(0x1C, I2C_DataBuff, 2);  
+ 256   1        
+ 257   1        I2C_DataBuff[0] = 0x21;//CTRL_REG2        
+ 258   1        I2C_DataBuff[1] = 0x02;//0x01;
+ 259   1        HAL_I2CMaster_SequentialWrite(0x1C, I2C_DataBuff, 2); 
+ 260   1      
+ 261   1        I2C_DataBuff[0] = 0x27;//STATUS_REG        
+ 262   1        I2C_DataBuff[1] = 0x0F;
+ 263   1        u8I2CSenStatus = HAL_I2CMaster_SequentialWrite(0x1C, I2C_DataBuff, 2);  
+ 264   1      
+ 265   1      #if 0 
+                if (u8I2CSenStatus & 0x80) {
+                  ACCELSEN_RESET = RST_ON;
+                  AppLib_Delay(100);      // 100ms ; 핀연결이 되어 있지 않음
+                  ACCELSEN_RESET = RST_OFF;
+                  
+                //  SYS_WdtSet(100);      // 계속 무한 루프를 돌게됨  
+                //  while(1);
+                } 
+              #endif  
+ 275   1          
+ 276   1      }
+ 277          
+ 278          /***************************************************************
+ 279          * Function : Acceleration Sensor(LIS302DL) Power Down Control
+ 280          * Parameter : Pown Down Control Bit (0:Power Down Mode  1: Active Mode)
+ 281          * Write By Kong
+ 282          ***************************************************************/
+ 283          void AccelSensor_pd_control(UINT8 pdbit)
+ 284          {
+ 285   1        //--- CTRL_REG1 SET
+ 286   1        I2C_DataBuff[0] = 0x20;
+ 287   1      
+ 288   1        if(pdbit)
+ 289   1        {
+ 290   2          I2C_DataBuff[1] = 0x47;
+ 291   2          AppLib_Delay(10);   //--- active mode 활성화후 유효데이터 취득시 3sec 필요.
+ 292   2        }
+ 293   1        else
+ 294   1          I2C_DataBuff[1] = 0x07;
+ 295   1          
+ 296   1        //--- I2C Write
+ 297   1        HAL_I2CMaster_SequentialWrite(0x1C, I2C_DataBuff, 2);  
+ 298   1      }
+ 299          
+ 300          
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 6   
+
+ 301          UINT32 u32AdcSum = 0;
+ 302          UINT32 u32AdcVccSum = 0;  // vcc 값을 read  
+ 303          UINT8  u8ADCAvgCount = 0;
+ 304          
+ 305           
+ 306          // 20ms 주기 동작 :  최종 1초에 전류 센서 32 or 31회 avg 되고 있음
+ 307          void GetSensor_CurrentData(void)
+ 308          {
+ 309   1        INT16   i16adc_value;
+ 310   1        
+ 311   1        //-----------------------------------------------------
+ 312   1        //SYS_AdcCalibGet_Once(ADC_CHAN_0, 14, &ADC_DataBuff);  
+ 313   1        
+ 314   1        // 고정 vcc,gnd 값을 사용 하는 SYS_AdcCalibGet() 이 좀 더 흔들림이  적게 발생   
+ 315   1        SYS_AdcCalibGet(14, &ADC_DataBuff);     // calibration 된 adc data를 read  : gi16ADC_VCC 값 사용
+ 316   1        
+ 317   1        //SYS_AdcGet(&ADC_DataBuff);        // adc 그대로 데이타를 읽음 => 0X5555 에서 데이타가 0으로 넘어가서 읽혀짐
+             -  
+ 318   1        //-----------------------------------------------------
+ 319   1        
+ 320   1        u32AdcSum += (UINT32)ADC_DataBuff[0];
+ 321   1        u8ADCAvgCount++;
+ 322   1        
+ 323   1        //--------------------------------------
+ 324   1        // vcc 값을 별도 reading  
+ 325   1        SYS_AdcGet_Once(7, &i16adc_value);  
+ 326   1        #if _UARTDEBUG_MODE
+                //zPrintf(1,"VCC is %6d\n",i16adc_value);
+                #endif
+ 329   1        u32AdcVccSum += (UINT32)i16adc_value;
+ 330   1        //--------------------------------------
+ 331   1      
+ 332   1        #if (ZENER_BOARD)
+                SYS_AdcSet(ENABLE, 0, ADC_CHAN_1);      // adc channel 을 온도센서 reading 으로 변경   
+                #else
+ 335   1      
+ 336   1          #if (TEMP_SEN_MODE == THERM_SEN)
+ 337   1          SYS_AdcSet(ENABLE, 0, ADC_CHAN_3);      // adc channel 을 온도센서 reading 으로 변경   
+ 338   1          #else
+                  SYS_AdcSet(ENABLE, 0, ADC_CHAN_0);      // adc channel 을 원상 복귀  
+                  #endif  
+ 341   1        #endif
+ 342   1      }
+ 343          
+ 344          
+ 345          void CalcCurrent_ADCVolt(void)
+ 346          {
+ 347   1      
+ 348   1        //---------------------------------------------------------------------------------------
+ 349   1        // make vcc data  
+ 350   1        i16ADC_VccValue = (UINT32)u32AdcVccSum / u8ADCAvgCount; 
+ 351   1        u32AdcVccSum = 0;
+ 352   1        //---------------------------------------------------------------------------------------
+ 353   1          
+ 354   1        ADC_DataBuff[0] = (UINT32)u32AdcSum / u8ADCAvgCount;  
+ 355   1        
+ 356   1        // TxTimePeriod : 1 일때만 평균을 구함  
+ 357   1        if ( TxTimePeriod == 1)
+ 358   1          ADC_Voltage = ADC_DataBuff[0];
+ 359   1        else {
+ 360   2          MovingAverage(ADC_DataBuff[0], &gtCurrentAvg ); // 한번더 평균을 구함 => 송신 주기 에 한번씩 평균,  4회 
+             -평균시 4번의 송신이 이루어져야 정상 평균값
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 7   
+
+ 361   2          ADC_Voltage = (UINT16)gtCurrentAvg.fAverage;  
+ 362   2        }
+ 363   1      
+ 364   1        //SYS_AdcSet(ENABLE, 0, ADC_CHAN_1);      // adc channel 을 Thermistor 로 변경  
+ 365   1      
+ 366   1        u32AdcSum = 0;
+ 367   1        u8ADCAvgCount = 0;  
+ 368   1      
+ 369   1      }
+ 370          
+ 371          
+ 372          UINT32 u32AdcOverSum = 0; // vcc 값을 read  
+ 373          UINT8  u8ADCOverAvgCount = 0;
+ 374          
+ 375          void GetSensor_OverCurrentData(void)
+ 376          {
+ 377   1        
+ 378   1        // 고정 vcc,gnd 값을 사용 하는 SYS_AdcCalibGet() 이 좀 더 흔들림이  적게 발생   
+ 379   1        SYS_AdcCalibGet(14, &ADC_DataBuff);       // calibration 된 adc data를 read  : gi16ADC_VCC 값 사용
+ 380   1        
+ 381   1        u32AdcOverSum += (UINT32)ADC_DataBuff[0];
+ 382   1        u8ADCOverAvgCount++;
+ 383   1      
+ 384   1      #if (TEMP_SEN_MODE == THERM_SEN)
+ 385   1        SYS_AdcSet(ENABLE, 0, ADC_CHAN_3);        // adc channel 을 온도센서 reading 으로 변경   
+ 386   1      #else
+                SYS_AdcSet(ENABLE, 0, ADC_CHAN_0);        // adc channel 을 원상 복귀  
+              #endif  
+ 389   1      
+ 390   1      }
+ 391          
+ 392          
+ 393          void CalcOverCurrent_ADCVolt(void)
+ 394          {
+ 395   1      
+ 396   1        u16ADC_OverCurrentValue = (UINT32)u32AdcOverSum / u8ADCOverAvgCount;  
+ 397   1      
+ 398   1        //------------------------------------------------------------------------------------- 
+ 399   1        // 과입력 adc 채널 데이타 전송 
+ 400   1        if (u8BoardStatus & BST_OVER_CURR) {
+ 401   2          if (u8RecoveryZenorADC > u16ADC_OverCurrentValue) // histerisys 처리 
+ 402   2            u8BoardStatus &= ~BST_OVER_CURR;
+ 403   2          else 
+ 404   2            ADC_Voltage = u16ADC_OverCurrentValue;  // histerysys 를 넘기 전까지는 계속 과입력 전류 data 전송
+ 405   2        } 
+ 406   1        else {
+ 407   2          if (u8StartZenorADC <= u16ADC_OverCurrentValue) {
+ 408   3            u8BoardStatus |= BST_OVER_CURR;     // GUI에서 파라메터 계산시 사용할 flag set
+ 409   3            ADC_Voltage = u16ADC_OverCurrentValue;  // 전송할 ADC 데이타를 변경함 
+ 410   3          } 
+ 411   2        }
+ 412   1        //------------------------------------------------------------------------------------- 
+ 413   1        // PM_OVER_CURR_MODE 일때는 과입력 전류가 흐르고 있어 위 루틴에서 처리 하게됨 
+ 414   1        // if (Porduct_Mode & PM_OVER_CURR_MODE)
+ 415   1        //  ADC_Voltage = u16ADC_OverCurrentValue; 
+ 416   1        
+ 417   1        u32AdcOverSum = 0;
+ 418   1        u8ADCOverAvgCount = 0;  
+ 419   1      
+ 420   1      }
+ 421          
+ 422          
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 8   
+
+ 423          void GetSensor_AccelData(void)
+ 424          {
+ 425   1        #if _ACCEL_USE
+                UINT8 u8status;
+                  
+                if (u8I2CSenStatus & 0x80) {        // u8I2CSenStatus == 0x80 : 진동 센서 오류 상황  
+                  AccelSensor_Init(); 
+                  return;
+                } 
+                              
+                ConfigBit_value = (GS_COMMAND_WRITE | 0x28);
+              
+                //----------------------------------------------------------------------------------------
+                // HAL_I2CIntSet(,,,20) 1회 read : 360us
+                // HAL_I2CIntSet(,,,28) 1회 read : 440us
+                u8status = HAL_I2CMaster_RandomRead(0x1C, ConfigBit_value, AccelerationSensor_getData, 0x06); 
+                //----------------------------------------------------------------------------------------
+                
+                // Accl 센서가 알수없는 오류로 먹통이 될 경우 reset 기능이 없음
+                if (u8status == 0x80) { 
+                  zPrintf(1,"Accelsen occur!\n");
+                  ACCELSEN_RESET = RST_ON;
+                  SYS_WdtSet(100);
+                  while(1);   
+                } 
+              
+                  
+                // 1초 동안 읽어 들인 값중에서 최고 값을 표시, 1초 마다 송신후 센서값 초기화됨 
+                // Min_MaxModify() 를 수행 하면 AccelerationSensor_getData[] 에는 Max 값이 저장됨
+                Min_MaxModify(1);   // AccelerationSensor_Status(old) 와 AccelerationSensor_getData(new) 중 절대 변화가 큰
+             -값을 return
+                Min_MaxModify(3);
+                Min_MaxModify(5);
+                #endif
+ 456   1      
+ 457   1      } 
+ 458          
+ 459          
+ 460          //--- 온도센서가 NTC 서미스터일경우 Read Task는 SEN_IDLE_WAIT로 시작한다. 
+ 461          #if (TEMP_SEN_MODE == INT_SEN)
+              UINT8 SenReadState = SEN_INIT_TEMP; 
+              #else
+ 464          UINT8 SenReadState = SEN_IDLE_WAIT; 
+ 465          #endif
+ 466          
+ 467          UINT8 SenReadCount = 0; 
+ 468          // wakeup 100ms 동안 몇회 읽을 것인지 체크  
+ 469          void CheckSensorReadCount(void)
+ 470          {
+ 471   1        if (SenReadCount++ >= ACCL_CURR_READ_CNT) { // 100ms(4회, 20ms) 동안 센서 read  
+ 472   2          SenReadState = SEN_CALC_DATA;
+ 473   2          SenReadCount = 0;
+ 474   2        }
+ 475   1        else
+ 476   1          SenReadState = SEN_READ_WAIT;
+ 477   1      
+ 478   1        #if !_EPAS_MODE
+                AppLib_VirtualTimerSet(WAIT_TIMER_SHORT, ACCEL_CURR_SEN_READ_TIME);   
+                #endif
+ 481   1      } 
+ 482          
+ 483          // sleep mode 동작 : sleep wakeup 후  sen read 동작 수행    
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 9   
+
+ 484          // wakeup 동작 : 송신주기와 는 별도로 1초에 한번씩 read 동작 수행 하도록 
+ 485          
+ 486          
+ 487          // - sleep mode wakeup time 100ms 동안 센서 데이타를 읽어 100ms 동안의 평균을 구함  
+ 488          // - wakeup 시간 동안 센서 read를 완료 하여 평균 및 데이타 처리가 되어야됨 
+ 489          // - 진동 센서는 무선 송신 주기 동안의  절대 Max 값을 취함 
+ 490          // 진동, 전류, 온도 센서(conversion time 이 길어 1초 또는 wakeup시 한번) 를 모두 처리  
+ 491          void SensorReadingProcess(void)
+ 492          {
+ 493   1      
+ 494   1        extern INT16 adc_buf[32];
+ 495   1      
+ 496   1        
+ 497   1        //static UINT8 read_cnt = 0;
+ 498   1        
+ 499   1        switch(SenReadState) {
+ 500   2          case SEN_INIT_TEMP :
+ 501   2            // read vcc  and clear data  
+ 502   2            #if _EPAS_MODE
+ 503   2            SYS_AdcSet(ENABLE, 0, ADC_CHAN_3);      // adc channel 을 온도센서 reading 으로 변경   
+ 504   2            #else
+                    GetSensor_CurrentData();
+                    CalcCurrent_ADCVolt();      
+                    #endif
+ 508   2            
+ 509   2            #if (TEMP_SEN_MODE == INT_SEN)
+                      // temp sensor 를 한번 읽어 쓰레기값 초기화 동작   
+                      InitGetSensor_TempData();
+              
+                      if (i16ADC_VccValue < ADCV_MIN_VCC) {
+                        if (Porduct_Mode & PM_SLEEP_MODE) {
+                          //HAL_PowerdownGpio1WakeupSourceSet(4, 1, 0);   // wakeup interrupt pin : p1.4 (pairing button)   
+                          #if _POWERDOWN_USE
+                          HAL_PowerdownMode1(5, 0, 0, 0);         //  5 sec  : wiat for normal power 
+                          #endif
+                        }
+                        InitGetSensor_TempData();
+                      } 
+                    #endif
+ 523   2      
+ 524   2            SenReadState = SEN_IDLE_WAIT;
+ 525   2            break;
+ 526   2          
+ 527   2          case SEN_IDLE_WAIT :
+ 528   2            // sleep wakeup, tx finish 동작에서  next state로 이동 
+ 529   2            break;
+ 530   2            
+ 531   2          case SEN_READ_WAIT :
+ 532   2            #if _EPAS_MODE
+ 533   2              SenReadState = SEN_READ_DATA;
+ 534   2            #else
+                      if (AppLib_VirtualTimerGet(WAIT_TIMER_SHORT) == 0)  // 5ms
+                        SenReadState = SEN_READ_DATA;
+                    #endif
+ 538   2            break;
+ 539   2            
+ 540   2          case SEN_READ_DATA :            // 5ms 주기로 100ms 안에 11회 정도 수행 가능, 
+ 541   2            //---------------------------------------------
+ 542   2            // 전류센서  adc : ADC 채널 변경 시간을 위해 사이에 진동 센서를 읽음   
+ 543   2            #if _EPAS_MODE
+ 544   2            SYS_AdcSet(ENABLE, 0, ADC_CHAN_3);      // adc channel 을 온도센서 reading 으로 변경   
+ 545   2            #else
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 10  
+
+                    GetSensor_CurrentData();
+                    #endif
+ 548   2            
+ 549   2            // 진동센서  
+ 550   2            #if _ACCEL_USE
+                    AccelSensor_pd_control(AccelSensor_Activemode);   // AccelSensor Active mode.. By Kong
+                    GetSensor_AccelData();                              // 1회 550us  - 진동 센서는 수행 주기 동안 max 값을 계속 갱신하여 
+             -보유 
+                    AccelSensor_pd_control(AccelSensor_Powerdownmode);  // AccelSensor Powerdown mode.. By Kong
+                    #endif
+ 555   2          
+ 556   2            #if (ZENER_BOARD)
+                    GetSensor_OverCurrentData();
+                    #endif
+ 559   2                
+ 560   2            // 온도센서 adc  : 써미스터
+ 561   2            #if (TEMP_SEN_MODE == THERM_SEN)
+ 562   2            GetSensor_TempData();               //  전류 센서와 같은 속도(같은 코드), 써미스터를 adc 를 통해 read 할 경우 
+             -여러번 읽어 평균 사용 
+ 563   2            #endif
+ 564   2            
+ 565   2            CheckSensorReadCount();               // 5ms 주기로  100ms 동안 읽을수 있는 횠수 지정 되어 있음, 10회후  SEN_C
+             -ALC_DATA(평균을 구함)    수행 
+ 566   2      
+ 567   2            break;
+ 568   2            
+ 569   2          case SEN_CALC_DATA :                  // sleep mode = 26ms 남음(120ms중), ACCEL_CURR_SEN_READ_TIME = 5, 현재는 변
+             -경 
+ 570   2            #if _EPAS_MODE
+ 571   2            //CalcCurrent_ADCVolt();
+ 572   2            #else
+                    CalcCurrent_ADCVolt();
+                    #endif
+ 575   2            
+ 576   2            #if (ZENER_BOARD)
+                    CalcOverCurrent_ADCVolt();
+                    //zPrintf(1, "i16ADC_OverCurrentValue = %d : ", (short)i16ADC_OverCurrentValue );
+                    #endif 
+ 580   2            
+ 581   2            SET_BOARD_VCC_STS(i16ADC_VccValue); 
+ 582   2            
+ 583   2            #if (TEMP_SEN_MODE == THERM_SEN)
+ 584   2            CalcTemperature(); 
+ 585   2            #else
+                    ReadTempSensor();           // 센서 반응 속도가 느려 1회만 read : 온도센서 conversion time = 750  ms 로 1초 
+             -주기에 한번만 reading 하면 됨 
+                    #endif
+ 588   2      
+ 589   2            SenReadState = SEN_IDLE_WAIT; 
+ 590   2            SetTxWaitStatus();            // 센서 reading 이 끝난후 송신상태로 가도록 status set
+ 591   2            
+ 592   2            break;
+ 593   2            
+ 594   2          default :
+ 595   2            break;
+ 596   2        }
+ 597   1                      
+ 598   1      } 
+ 599          
+ 600          
+ 601          
+ 602          signed char AccelerationSensor_SecondMaxData[6]={0};
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 11  
+
+ 603          
+ 604          // 절대값 기준 변화량이 큰 max 값을 return
+ 605          // 세번째 Max data를 사용 하기 위해 이전 Max value를 계속 shift 시킴  
+ 606          UINT8 Min_MaxModify(UINT8 Num)
+ 607          {
+ 608   1      
+ 609   1        //AccelerationSensor_OldMaxData[Num] = AccelerationSensor_Status[Num];        // Status : 이전 Max데이타
+ 610   1        // UINT8 -> singed char 로 형 변환
+ 611   1        AccelerationSensor_NewData[Num] = (INT16)AccelerationSensor_getData[Num];         // getData : 현재 데이타
+ 612   1        
+ 613   1      /*
+ 614   1        AccelerationSensor_NewData[Num] = AccelerationSensor_getData[Num];      // getData : 현재 데이타 
+ 615   1      
+ 616   1        if(((AccelerationSensor_OldMaxData[Num]<0))&&(AccelerationSensor_NewData[Num]<0))   // '-' --> '-' 변화 
+ 617   1        {
+ 618   1          if(AccelerationSensor_getData[Num] < AccelerationSensor_Status[Num])
+ 619   1            AccelerationSensor_getData[Num] =AccelerationSensor_NewData[Num];   // max = -new 
+ 620   1          else
+ 621   1            AccelerationSensor_getData[Num] =AccelerationSensor_OldMaxData[Num];    // max = -old       
+ 622   1        }
+ 623   1        else if((AccelerationSensor_OldMaxData[Num]<0)&&(AccelerationSensor_NewData[Num]>0)) // '-' --> '+' 변화 
+             -  
+ 624   1        {
+ 625   1          if(AccelerationSensor_getData[Num] < -AccelerationSensor_Status[Num])     // 이전 -를 +로 하여 비교  
+ 626   1            AccelerationSensor_getData[Num] =AccelerationSensor_OldMaxData[Num];    // max = -old  
+ 627   1          else  
+ 628   1            AccelerationSensor_getData[Num] =AccelerationSensor_NewData[Num];   // max = new  
+ 629   1        }       
+ 630   1        else if((AccelerationSensor_OldMaxData[Num]>0)&&(AccelerationSensor_NewData[Num]<0)) // '+' --> '-' 변화 
+             - 
+ 631   1        {
+ 632   1          if(-AccelerationSensor_getData[Num] < AccelerationSensor_Status[Num])
+ 633   1            AccelerationSensor_getData[Num] =AccelerationSensor_OldMaxData[Num];    // max = old  
+ 634   1          else  
+ 635   1            AccelerationSensor_getData[Num] =AccelerationSensor_NewData[Num];   // max = -new     
+ 636   1        }
+ 637   1        else  // '+' --> '+' 변화
+ 638   1        {
+ 639   1          if(AccelerationSensor_getData[Num] < AccelerationSensor_Status[Num])
+ 640   1            AccelerationSensor_getData[Num]=AccelerationSensor_OldMaxData[Num];   // max = old  
+ 641   1          else  
+ 642   1            AccelerationSensor_getData[Num]=AccelerationSensor_NewData[Num];    // max = new   
+ 643   1        }
+ 644   1      */
+ 645   1      
+ 646   1        // AccelerationSensor_OldMaxData[] 바로 이전 Max 값   :  전송후에는 항상 초기화(SetThirdMaxValueInit() ) 
+             -를  수행 하여 wakeup 순간의 3번째 진동값을 취하고 있음   
+ 647   1        if (abs((int)AccelerationSensor_OldMaxData[Num])  < abs((int)AccelerationSensor_NewData[Num])) {
+ 648   2          AccelerationSensor_ThirdMaxData[Num] = AccelerationSensor_SecondMaxData[Num];
+ 649   2          AccelerationSensor_SecondMaxData[Num] = AccelerationSensor_OldMaxData[Num];
+ 650   2          AccelerationSensor_OldMaxData[Num] = AccelerationSensor_NewData[Num];
+ 651   2          
+ 652   2        } 
+ 653   1        else if (abs((int)AccelerationSensor_SecondMaxData[Num])  < abs((int)AccelerationSensor_NewData[Num])) {
+ 654   2          AccelerationSensor_ThirdMaxData[Num] = AccelerationSensor_SecondMaxData[Num];
+ 655   2          AccelerationSensor_SecondMaxData[Num] = AccelerationSensor_NewData[Num];
+ 656   2        }   
+ 657   1        else if (abs((int)AccelerationSensor_ThirdMaxData[Num])  < abs((int)AccelerationSensor_NewData[Num]))
+ 658   1            AccelerationSensor_ThirdMaxData[Num] = AccelerationSensor_NewData[Num];
+ 659   1        
+ 660   1        return AccelerationSensor_getData[Num];   // max 값  
+ 661   1      }
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 12  
+
+ 662          
+ 663          
+ 664          
+ 665          // Third max data 관련 변수 초기화
+ 666          void SetThirdMaxValueInit(UINT8 Num)
+ 667          {
+ 668   1        AccelerationSensor_getData[Num] = 0;
+ 669   1        AccelerationSensor_OldMaxData[Num] = 0;
+ 670   1        AccelerationSensor_SecondMaxData[Num] = 0;
+ 671   1        AccelerationSensor_ThirdMaxData[Num] = 0;
+ 672   1        
+ 673   1      } 
+ 674          
+ 675          
+ 676          void FloatToHEX(float f, char *pStr)
+ 677          {
+ 678   1        UINT32 n;
+ 679   1        UINT16 w1,w2;
+ 680   1      
+ 681   1        memcpy(&n, &f, sizeof(float));
+ 682   1        w1=n>>16;
+ 683   1        w2=n;
+ 684   1        
+ 685   1        sprintf(pStr, "%08X", n);
+ 686   1      
+ 687   1      }
+ 688          
+ 689          
+ 690          #if 1
+ 691          // 흔들림이 있을때 평균값이 흐르는 문제 발생 
+ 692          // shift 하여 전체 평균으로 수정 
+ 693          void MovingAverage(UINT16 in_data, tAVERGAE_DATA* pt_current_avg)
+ 694          {
+ 695   1            UINT8  i8;
+ 696   1          INT32 avg_sum = 0;
+ 697   1          
+ 698   1            if (pt_current_avg->u8AvgInitFlag == 0) {
+ 699   2              pt_current_avg->u8AvgInitFlag  = 1;
+ 700   2          
+ 701   2          // 처음 읽은 값으로 버퍼를 초기화 시킴 
+ 702   2              for (i8 = 0; i8 < pt_current_avg->u8AvgCount; i8++) 
+ 703   2            pt_current_avg->u16AvgBuffer[i8] = in_data;   
+ 704   2            } 
+ 705   1            
+ 706   1            // shift 하면서 sum
+ 707   1            for (i8 = 0; i8 < pt_current_avg->u8AvgCount - 1; i8++) {
+ 708   2                  avg_sum += pt_current_avg->u16AvgBuffer[i8+1];
+ 709   2                  pt_current_avg->u16AvgBuffer[i8] = pt_current_avg->u16AvgBuffer[i8+1];
+ 710   2        }
+ 711   1        pt_current_avg->u16AvgBuffer[i8] = in_data;
+ 712   1        
+ 713   1            avg_sum += in_data;
+ 714   1          pt_current_avg->fAverage = avg_sum / pt_current_avg->u8AvgCount;
+ 715   1      
+ 716   1          //return average;
+ 717   1      }
+ 718          
+ 719          #else 
+              // 버그 : 평균값이 조금식 누적되고 있음
+              void MovingAverage(UINT16 in_data, tAVERGAE_DATA* pt_current_avg)
+              {
+                    UINT8  i;
+C51 COMPILER V9.53.0.0   IB_SENSOR                                                         01/28/2020 11:28:57 PAGE 13  
+
+                  INT16 itemp;
+                  
+                  itemp = in_data - pt_current_avg->u16AvgBuffer[0];      // uint16 변수라 음수 계산을 위해 int 형 처리 
+                    pt_current_avg->fAverage = pt_current_avg-> fAverage + itemp/pt_current_avg->u8AvgCount;
+                  
+                    for (i = 0; i < pt_current_avg->u8AvgCount - 1; i++)
+                        pt_current_avg->u16AvgBuffer[i] = pt_current_avg->u16AvgBuffer[i+1];
+                      
+                    pt_current_avg->u16AvgBuffer[i] = in_data;
+              
+                  //return average;
+              }
+              
+              #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1908    ----
+   CONSTANT SIZE    =     44    ----
+   XDATA SIZE       =    641      46
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

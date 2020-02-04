@@ -1,0 +1,174 @@
+C51 COMPILER V9.53.0.0   CLOCK                                                             01/28/2020 11:28:52 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE CLOCK
+OBJECT MODULE PLACED IN .\HEX\CLOCK.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\CLOCK.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inc
+                    -lude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\CLOC
+                    -K.lst) TABS(2) OBJECT(.\HEX\CLOCK.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "INCLUDE_MG2470.h"
+  13          #include "clock.h"
+  14          
+  15          ///////////////////////////////////////////////////////////////////////////////////////////////
+  16          /// 
+  17          ///   Global variable which indicates the current frequency of clock for MCU and peripherals..
+  18          ///   \n  0 = 16 MHz
+  19          ///   \n  1 = 8 MHz
+  20          ///   \n  2 = 4 MHz
+  21          ///   \n  3 = 2 MHz
+  22          ///   \n  4 = 1 MHz
+  23          ///   \n  5 = 500 KHz
+  24          /// 
+  25          ///////////////////////////////////////////////////////////////////////////////////////////////
+  26          UINT8 gu8McuPeriClockMode = CLOCK_MODE_16_MHz;
+  27          
+  28          ///////////////////////////////////////////////////////////////////////////////////////////////
+  29          /// 
+  30          /// Sets the frequency of clock for MCU and peripherals.
+  31          /// 
+  32          /// @param  u8ClockMode : Clock frequency mode
+  33          ///             \n  0 = 16 MHz
+  34          ///             \n  1 = 8 MHz
+  35          ///             \n  2 = 4 MHz
+  36          ///             \n  3 = 2 MHz
+  37          ///             \n  4 = 1 MHz
+  38          ///             \n  5 = 500 KHz
+  39          /// @return void
+  40          /// @note If the frequency is lower than 8MHz, RF does not work correctly.
+  41          /// 
+  42          ///////////////////////////////////////////////////////////////////////////////////////////////
+  43          UINT8 HAL_McuPeriClockSet(UINT8 u8ClockMode)
+  44          {
+  45   1        UINT8 u8Status;
+  46   1        UINT8 u8MaskOR;
+  47   1      
+  48   1        u8Status = RETURN_CLOCK_SUCCESS;
+  49   1      
+  50   1        switch(u8ClockMode)
+  51   1        {
+  52   2          case CLOCK_MODE_16_MHz    : u8MaskOR = BIT3;            break;
+  53   2          case CLOCK_MODE_8_MHz   : u8MaskOR = 0;             break;
+C51 COMPILER V9.53.0.0   CLOCK                                                             01/28/2020 11:28:52 PAGE 2   
+
+  54   2          case CLOCK_MODE_4_MHz   : u8MaskOR = BIT5;            break;
+  55   2          case CLOCK_MODE_2_MHz   : u8MaskOR = BIT6;            break;
+  56   2          case CLOCK_MODE_1_MHz   : u8MaskOR = (BIT6 | BIT5);       break;
+  57   2          case CLOCK_MODE_500_KHz : u8MaskOR = (BIT3 | BIT2);       break;
+  58   2          default   : u8Status = RETURN_CLOCK_INVALID_DIVISOR;        break;
+  59   2        }
+  60   1      
+  61   1        if(u8Status)
+  62   1        {
+  63   2          assert_error(CLOCK_CODE | u8Status);
+  64   2          return u8Status;
+  65   2        }
+  66   1      
+  67   1        gu8McuPeriClockMode = u8ClockMode;
+  68   1      
+  69   1        CLKCON1 &= ~(BIT7 | BIT6 | BIT5 | BIT3 | BIT2 | BIT1 | BIT0);   // bit[7:5]=0, bit[3:0]=0 
+  70   1        CLKCON1 |= u8MaskOR;
+  71   1        if(CLKCON1 & BIT3)    // MAC Mode : Half
+  72   1        {
+  73   2          xPHY_MPTOP_CLK_SEL |= BIT2;
+  74   2        }
+  75   1        else            // MAC Mode : Quarter
+  76   1        {
+  77   2          xPHY_MPTOP_CLK_SEL &= ~BIT2;
+  78   2        }
+  79   1        
+  80   1        return RETURN_CLOCK_SUCCESS;
+  81   1      }
+  82          
+  83          ///////////////////////////////////////////////////////////////////////////////////////////////
+  84          /// 
+  85          /// Controls clocks for peripherals.
+  86          /// 
+  87          /// @param  u8PeriClk0  : Each bit controls a clock for the corresponding peripheral.
+  88          ///             \n  bit[7] : Clock for SPI.         0=Off, 1=On.  Reset value is 0.
+  89          ///             \n  bit[6] : Clock for UART1.       0=Off, 1=On.  Reset value is 1.
+  90          ///             \n  bit[5] : Clock for UART0.       0=Off, 1=On.  Reset value is 1.
+  91          ///             \n  bit[4] : Clock for GPIO.        0=Off, 1=On.  Reset value is 1.
+  92          ///             \n  bit[3] : Clock for TIMER3.      0=Off, 1=On.  Reset value is 0.
+  93          ///             \n  bit[2] : Clock for TIMER2     0=Off, 1=On.  Reset value is 0.
+  94          ///             \n  bit[1] : Clock for TIMER1.      0=Off, 1=On.  Reset value is 0.
+  95          ///             \n  bit[0] : Clock for TIMER0.      0=Off, 1=On.  Reset value is 0.
+  96          /// @return void
+  97          /// 
+  98          ///////////////////////////////////////////////////////////////////////////////////////////////
+  99          void HAL_PeriClock0Set(UINT8 u8PeriClk0)
+ 100          {
+ 101   1        PERI_CLK_STP0 = u8PeriClk0;
+ 102   1      }
+ 103          
+ 104          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 105          /// 
+ 106          /// Controls clocks for peripherals.
+ 107          /// 
+ 108          /// @param  u8PeriClk1  : Each bit controls a clock for the corresponding peripheral.
+ 109          ///             \n  bit[7] : Clock for I2C.         0=Off, 1=On. Reset value is 0.
+ 110          ///             \n  bit[6] : Clock for IRTX.        0=Off, 1=On. Reset value is 0.
+ 111          ///             \n  bit[5] : Clock for FLASH Controller.  0=Off, 1=On. Reset value is 0.
+ 112          ///             \n  bit[4] : Clock for VOICE.     0=Off, 1=On. Reset value is 0.
+ 113          ///             \n  bit[3] : Clock for I2SRX.       0=Off, 1=On. Reset value is 0.
+ 114          ///             \n  bit[2] : Clock for I2STX.       0=Off, 1=On. Reset value is 0.
+ 115          ///             \n  bit[1] : Clock for QUAD Decoder.    0=Off, 1=On. Reset value is 0.
+C51 COMPILER V9.53.0.0   CLOCK                                                             01/28/2020 11:28:52 PAGE 3   
+
+ 116          ///             \n  bit[0] : Clock for Random Generator.  0=Off, 1=On. Reset value is 0.
+ 117          /// @return void
+ 118          /// 
+ 119          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 120          void HAL_PeriClock1Set(UINT8 u8PeriClk1)
+ 121          {
+ 122   1        PERI_CLK_STP1 = u8PeriClk1;
+ 123   1      }
+ 124          
+ 125          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 126          /// 
+ 127          /// Controls clocks for peripherals.
+ 128          /// 
+ 129          /// @param  u8PeriClk2  : Each bit controls a clock for the corresponding peripheral.
+ 130          ///             \n  bit[7] : 1=PWM_CH4. 0=Off, 1=On. Reset Value is 0.
+ 131          ///             \n  bit[6] : 1=PWM_CH3. 0=Off, 1=On. Reset Value is 0.
+ 132          ///             \n  bit[5] : 1=PWM_CH2. 0=Off, 1=On. Reset Value is 0.
+ 133          ///             \n  bit[4] : 1=PWM_CH1. 0=Off, 1=On. Reset Value is 0.
+ 134          ///             \n  bit[3] : 1=PWM_CH0. 0=Off, 1=On. Reset Value is 0.
+ 135          ///             \n  bit[2] : Clock for MAC/PHY registers. 0=Off, 1=On. Reset value is 1.
+ 136          ///             \n  bit[1] : Clock for LOGIC3V registers.   0=Off, 1=On. Reset value is 1.
+ 137          ///             \n  bit[0] : Clock for Clock and Reset Controller. 0=Off, 1=On. Reset value is 1.
+ 138          /// @return void
+ 139          /// 
+ 140          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 141          void HAL_PeriClock2Set(UINT8 u8PeriClk2)
+ 142          {
+ 143   1        PERI_CLK_STP2 = u8PeriClk2;
+ 144   1      }
+ 145          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     95    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,1 @@
+"Source\main_adc.c" LARGE OPTIMIZE (9,SIZE) INCDIR(..\..\..\..\Platform\Include\;..\..\..\..\Platform\SampleEVB\; ..\..\..\..\Platform\hal\; ..\..\..\Include\; ..\..\..\Utility\; ..\..\) DEFINE (DEBUG) PRINT(.\LST\main_adc.lst) OBJECT(.\HEX\main_adc.obj)

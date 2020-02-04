@@ -285,7 +285,7 @@ void GetSensor_TempData(void)
 	#if _EPAS_MODE
 	NTC_CONNECT = 1;
 	SYS_AdcSet(ENABLE, 0, ADC_CHAN_3);				// adc channel 을 원상 복귀  
-	//AppLib_DelayFor1ms();
+	//AppLib_DelayFor50us();
 	#endif
 
 	// 고정 vcc,gnd 값을 사용 하는 SYS_AdcCalibGet() 이 좀 더 흔들림이  적게 발생   

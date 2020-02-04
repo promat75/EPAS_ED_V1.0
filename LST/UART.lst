@@ -1,0 +1,1184 @@
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE UART
+OBJECT MODULE PLACED IN .\HEX\UART.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\UART.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Incl
+                    -ude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\UART.
+                    -lst) TABS(2) OBJECT(.\HEX\UART.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2014-01-23
+   6            - Version   : V2.3
+   7          
+   8            [2014-01-23] V2.3
+   9            - SYS_Uart0Put_Poll() : enhanced.
+  10            - SYS_Uart0Get_Poll() : enhanced.
+  11            - SYS_Uart1Put_Poll() : enhanced.
+  12            - SYS_Uart1Get_Poll() : enhanced.
+  13          
+  14            [2013-12-20] V2.2
+  15            - SYS_Uart0Get_Poll() : corrected
+  16            - SYS_Uart1Get_Poll() : corrected
+  17          
+  18            [2013-07-24] V2.1
+  19            - SYS_Uart1Put() : corrected & enhanced
+  20            - SYS_Uart1Put_Poll() : corrected & enhanced
+  21          
+  22            [2012-04-25] V2.0
+  23            - Initial Version for MG2470B(ChipID=0x71)
+  24          *******************************************************************************/
+  25          
+  26          #include "INCLUDE_MG2470.h"
+  27          #include "uart.h"
+  28          #include "clock.h"
+  29          
+  30          #if defined __MG2470_UART0_INCLUDE__ || defined __MG2470_UART1_INCLUDE__
+  31          
+  32          ///////////////////////////////////////////////////////////////////////////////////////////////
+  33          ///
+  34          /// Constants which indicates XCR parameter which is required to set the UART baud rate.
+  35          /// \n  The XCR is dependent on the baud rate and MCU clock. Therefore, this is two-dimensional arrays.
+  36          /// \n  The column of the array indicates the baud rate.
+  37          ///     \n  0 = 300 bps
+  38          ///     \n  1 = 600 bps
+  39          ///     \n  2 = 1200 bps
+  40          ///     \n  3 = 2400 bps
+  41          ///     \n  4 = 4800 bps
+  42          ///     \n  5 = 9600 bps
+  43          ///     \n  6 = 14400 bps
+  44          ///     \n  7 = 19200 bps
+  45          ///     \n  8 = 38400 bps
+  46          ///     \n  9 = 56000 bps
+  47          ///     \n  10 = 57600 bps
+  48          ///     \n  11 = 115200 bps
+  49          ///     \n  12 = 230400 bps
+  50          ///     \n  13 = 460800 bps
+  51          ///     \n  14 = 576000 bps
+  52          ///     \n  15 = 1152000 bps
+  53          /// \n  The row of the array indicates the MCU clock mode.
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 2   
+
+  54          ///     \n  0 = 16 MHz
+  55          ///     \n  1 = 8 MHz
+  56          ///     \n  2 = 4 MHz
+  57          ///     \n  3 = 2 MHz
+  58          ///     \n  4 = 1 MHz
+  59          ///     \n  5 = 500 KHz
+  60          ///
+  61          ///////////////////////////////////////////////////////////////////////////////////////////////
+  62          UINT8 code gcau8XCR[16][6] =    // [Baud Rate][MCU Clock Mode]
+  63            {
+  64              0x07, 0x09, 0x43, 0x3B, 0x0B, 0x07,
+  65              0x09, 0x43, 0x3B, 0x0B, 0x07, 0x07,
+  66              0x43, 0x3B, 0x0B, 0x07, 0x07, 0x8B,
+  67              0x3B, 0x0B, 0x07, 0x07, 0x8B, 0x04,
+  68              0x0B, 0x07, 0x07, 0x8B, 0x04, 0x04,
+  69              0x07, 0x07, 0x8B, 0x04, 0x04, 0x04,
+  70              0x0B, 0x04, 0x8B, 0x06, 0x17, 0x05,
+  71              0x07, 0x8B, 0x04, 0x04, 0x04, 0x0D,
+  72              0x8B, 0x04, 0x04, 0x04, 0x0D, 0x00,
+  73              0x0B, 0x0B, 0x04, 0x04, 0x00, 0x00,
+  74              0x8B, 0x06, 0x17, 0x05, 0x00, 0x00,
+  75              0x06, 0x17, 0x05, 0x00, 0x00, 0x00,
+  76              0x17, 0x05, 0x00, 0x00, 0x00, 0x00,
+  77              0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
+  78              0x04, 0x07, 0x00, 0x00, 0x00, 0x00,
+  79              0x07, 0x00, 0x00, 0x00, 0x00, 0x00
+  80            };
+  81          
+  82          ///////////////////////////////////////////////////////////////////////////////////////////////
+  83          ///
+  84          /// Constants which indicates High Divisor parameter which is required to set the UART baud rate.
+  85          /// \n  The High Divisor is dependent on the baud rate and MCU clock. Therefore, this is two-dimensional ar
+             -rays.
+  86          /// \n  The column of the array indicates the baud rate.
+  87          ///     \n  0 = 300 bps
+  88          ///     \n  1 = 600 bps
+  89          ///     \n  2 = 1200 bps
+  90          ///     \n  3 = 2400 bps
+  91          ///     \n  4 = 4800 bps
+  92          ///     \n  5 = 9600 bps
+  93          ///     \n  6 = 14400 bps
+  94          ///     \n  7 = 19200 bps
+  95          ///     \n  8 = 38400 bps
+  96          ///     \n  9 = 56000 bps
+  97          ///     \n  10 = 57600 bps
+  98          ///     \n  11 = 115200 bps
+  99          ///     \n  12 = 230400 bps
+ 100          ///     \n  13 = 460800 bps
+ 101          ///     \n  14 = 576000 bps
+ 102          ///     \n  15 = 1152000 bps
+ 103          /// \n  The row of the array indicates the MCU clock mode.
+ 104          ///     \n  0 = 16 MHz
+ 105          ///     \n  1 = 8 MHz
+ 106          ///     \n  2 = 4 MHz
+ 107          ///     \n  3 = 2 MHz
+ 108          ///     \n  4 = 1 MHz
+ 109          ///     \n  5 = 500 KHz
+ 110          ///
+ 111          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 112          UINT8 code gcau8HighDiv[16][6] =    // [Baud Rate][MCU Clock Mode]
+ 113            {
+ 114              0x1D, 0x0B, 0x00, 0x00, 0x01, 0x00,
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 3   
+
+ 115              0x0B, 0x00, 0x00, 0x01, 0x00, 0x00,
+ 116              0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+ 117              0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+ 118              0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 119              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 120              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 121              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 122              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 123              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 124              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 125              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 126              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 127              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 128              0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 129              0x00, 0x00, 0x00, 0x00, 0x00, 0x00    
+ 130            };
+ 131          
+ 132          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 133          ///
+ 134          /// Constants which indicates Low Divisor parameter which is required to set the UART baud rate.
+ 135          /// \n  The Low Divisor is dependent on the baud rate and MCU clock. Therefore, this is two-dimensional arr
+             -ays.
+ 136          /// \n  The column of the array indicates the baud rate.
+ 137          ///     \n  0 = 300 bps
+ 138          ///     \n  1 = 600 bps
+ 139          ///     \n  2 = 1200 bps
+ 140          ///     \n  3 = 2400 bps
+ 141          ///     \n  4 = 4800 bps
+ 142          ///     \n  5 = 9600 bps
+ 143          ///     \n  6 = 14400 bps
+ 144          ///     \n  7 = 19200 bps
+ 145          ///     \n  8 = 38400 bps
+ 146          ///     \n  9 = 56000 bps
+ 147          ///     \n  10 = 57600 bps
+ 148          ///     \n  11 = 115200 bps
+ 149          ///     \n  12 = 230400 bps
+ 150          ///     \n  13 = 460800 bps
+ 151          ///     \n  14 = 576000 bps
+ 152          ///     \n  15 = 1152000 bps
+ 153          /// \n  The row of the array indicates the MCU clock mode.
+ 154          ///     \n  0 = 16 MHz
+ 155          ///     \n  1 = 8 MHz
+ 156          ///     \n  2 = 4 MHz
+ 157          ///     \n  3 = 2 MHz
+ 158          ///     \n  4 = 1 MHz
+ 159          ///     \n  5 = 500 KHz
+ 160          ///
+ 161          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 162          UINT8 code gcau8LowDiv[16][6] =     // [Baud Rate][MCU Clock Mode]
+ 163            {
+ 164              0xC3, 0x93, 0xC7, 0x71, 0x2F, 0xEE,
+ 165              0x93, 0xC7, 0x71, 0x2F, 0xEE, 0x77,
+ 166              0xC7, 0x71, 0x2F, 0xEE, 0x77, 0x03,
+ 167              0x71, 0x2F, 0xEE, 0x77, 0x03, 0x34,
+ 168              0x2F, 0xEE, 0x77, 0x03, 0x34, 0x1A,
+ 169              0xEE, 0x77, 0x03, 0x34, 0x1A, 0x0D,
+ 170              0x65, 0x8B, 0x02, 0x17, 0x03, 0x07,
+ 171              0x77, 0x03, 0x34, 0x1A, 0x0D, 0x02,
+ 172              0x03, 0x34, 0x1A, 0x0D, 0x02, 0x00,
+ 173              0x1A, 0x0D, 0x12, 0x09, 0x00, 0x00,
+ 174              0x02, 0x17, 0x03, 0x07, 0x00, 0x00,
+ 175              0x17, 0x03, 0x07, 0x00, 0x00, 0x00,
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 4   
+
+ 176              0x03, 0x07, 0x00, 0x00, 0x00, 0x00,
+ 177              0x07, 0x00, 0x00, 0x00, 0x00, 0x00,
+ 178              0x07, 0x02, 0x00, 0x00, 0x00, 0x00,
+ 179              0x02, 0x00, 0x00, 0x00, 0x00, 0x00
+ 180            };
+ 181          
+ 182          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 183          /// 
+ 184          ///   Gets parameters required to set UART baud rate.
+ 185          ///
+ 186          /// @param  u32BaudRate : Baud rate to set.
+ 187          /// @param  pu8XCR    : Pointer to XCR to be obtained.
+ 188          /// @param  pu8HighDiv  : Pointer to High Divisor to be obtained.
+ 189          /// @param  pu8LowDiv : Pointer to Low Divisor to be obtained.
+ 190          /// @return UINT8. Status.
+ 191          /// 
+ 192          //////////////////////////////////////////////////////////////////////////////////////////////
+ 193          UINT8 HAL_UartBaudRateParameterGet(UINT32 u32BaudRate, UINT8* pu8XCR, UINT8* pu8HighDiv, UINT8* pu8LowDiv)
+ 194          {
+ 195   1        UINT8 u8Status;
+ 196   1        UINT8 u8BaudRateIndex;
+ 197   1      
+ 198   1        u8Status = RETURN_UART_SUCCESS;
+ 199   1        switch(u32BaudRate)
+ 200   1        {
+ 201   2          case 300    : u8BaudRateIndex = 0;  break;
+ 202   2          case 600    : u8BaudRateIndex = 1;  break;
+ 203   2          case 1200 : u8BaudRateIndex = 2;  break;
+ 204   2          case 2400 : u8BaudRateIndex = 3;  break;
+ 205   2          case 4800 : u8BaudRateIndex = 4;  break;
+ 206   2          case 9600 : u8BaudRateIndex = 5;  break;
+ 207   2          case 14400  : u8BaudRateIndex = 6;  break;
+ 208   2          case 19200  : u8BaudRateIndex = 7;  break;
+ 209   2          case 38400  : u8BaudRateIndex = 8;  break;
+ 210   2          case 56000  : u8BaudRateIndex = 9;  break;
+ 211   2          case 57600  : u8BaudRateIndex = 10; break;
+ 212   2          case 115200 : u8BaudRateIndex = 11; break;
+ 213   2          case 230400 : u8BaudRateIndex = 12; break;
+ 214   2          case 460800 : u8BaudRateIndex = 13; break;
+ 215   2          case 576000 : u8BaudRateIndex = 14; break;
+ 216   2          case 1152000  : u8BaudRateIndex = 15; break;
+ 217   2          default   : u8Status = RETURN_UART_INVALID_BAUDRATE;    break;
+ 218   2        }
+ 219   1      
+ 220   1        if(u8Status == RETURN_UART_SUCCESS)
+ 221   1        {
+ 222   2          *pu8XCR = gcau8XCR[u8BaudRateIndex][gu8McuPeriClockMode];
+ 223   2          *pu8HighDiv = gcau8HighDiv[u8BaudRateIndex][gu8McuPeriClockMode];
+ 224   2          *pu8LowDiv = gcau8LowDiv[u8BaudRateIndex][gu8McuPeriClockMode];
+ 225   2      
+ 226   2          if(*pu8LowDiv == 0x00)
+ 227   2          {
+ 228   3            u8Status = RETURN_UART_INVALID_BAUDRATE;
+ 229   3          }
+ 230   2        }
+ 231   1      
+ 232   1        return u8Status;  
+ 233   1      }
+ 234          #endif
+ 235          
+ 236          
+ 237          #ifdef __MG2470_UART0_INCLUDE__
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 5   
+
+ 238          
+ 239          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 240          /// 
+ 241          ///   Global variable for UART0's RX Buffer
+ 242          /// 
+ 243          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 244          UINT8 gau8Uart0Rx_Buff[UART0_RXBUF_SIZE]; 
+ 245          
+ 246          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 247          /// 
+ 248          ///   Global variable which indicates index number for writing UART0's RX Buffer
+ 249          /// 
+ 250          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 251          UINT16  gu16Uart0Rx_WrIdx = 0;
+ 252          
+ 253          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 254          /// 
+ 255          ///   Global variable which indicates index number for reading UART0's RX Buffer
+ 256          /// 
+ 257          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 258          UINT16  gu16Uart0Rx_RdIdx = 0;    
+ 259          
+ 260          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 261          /// 
+ 262          ///   Global variable for UART0's TX Buffer
+ 263          /// 
+ 264          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 265          UINT8 gau8Uart0Tx_Buff[UART0_TXBUF_SIZE];
+ 266          
+ 267          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 268          /// 
+ 269          ///   Global variable which indicates index number for writing UART0's TX Buffer
+ 270          /// 
+ 271          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 272          UINT16  gu16Uart0Tx_WrIdx = 0;
+ 273          
+ 274          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 275          /// 
+ 276          ///   Global variable which indicates index number for reading UART0's TX Buffer
+ 277          /// 
+ 278          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 279          UINT16  gu16Uart0Tx_RdIdx = 0;
+ 280          
+ 281          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 282          /// 
+ 283          ///   Global variable which indicates whether UART0's TX Buffer is empty
+ 284          /// 
+ 285          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 286          UINT8 gu8Uart0Tx_Empty = 1;
+ 287          
+ 288          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 289          /// 
+ 290          ///   Sets clock for UART0.
+ 291          ///
+ 292          /// @param  u8On  : 0=Off, 1=On
+ 293          /// @return void
+ 294          /// 
+ 295          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 296          void HAL_Uart0ClockOn(UINT8 u8On)   // Default ON
+ 297          {
+ 298   1        if(u8On)
+ 299   1        {
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 6   
+
+ 300   2          UART0_CLK_ON;
+ 301   2        }
+ 302   1        else
+ 303   1        {
+ 304   2          UART0_CLK_OFF;
+ 305   2        }
+ 306   1      }
+ 307          
+ 308          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 309          /// 
+ 310          ///   Sets UART0 interrupt.
+ 311          ///
+ 312          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+ 313          /// @param  u8Priority    : Priority of interrupt. 0=Low, 1=High.
+ 314          /// @param  u32BaudRate : Baud rate to set.
+ 315          ///           \n The real baud rate is dependent on the MCU frequency. And, The MCU frequency is 
+ 316          ///             determined by HAL_McuPeriClockSet(). Therefore, some baud rate is not supported 
+ 317          ///             on some MCU frequency.
+ 318          ///
+ 319          ///           \n Here is the table which indicates the baud rate supported on each MCU frequency.
+ 320          ///           \n  -----------------------------------------------------------------
+ 321          ///           \n        |       MCU Frequency (Hz)
+ 322          ///           \n                       |----------------------------------------------------
+ 323          ///           \n        | 16M | 8M (Default)  | 4M    | 2M    | 1M    | 500K  |
+ 324          ///           \n  -----------------------------------------------------------------
+ 325          ///           \n  u32BaudRate |
+ 326          ///           \n    300   | O   | O     | O   | O   | O   | O   |
+ 327          ///           \n    600   | O   | O     | O   | O   | O   | O   |
+ 328          ///           \n    1200  | O   | O     | O   | O   | O   | O   |
+ 329          ///           \n    2400  | O   | O     | O   | O   | O   | O   |
+ 330          ///           \n    4800  | O   | O     | O   | O   | O   | O   |
+ 331          ///           \n    9600  | O   | O     | O   | O   | O   | O   |
+ 332          ///           \n    14400 | O   | O     | O   | O   | O   | O   |
+ 333          ///           \n    19200 | O   | O     | O   | O   | O   | O   |
+ 334          ///           \n    38400 | O   | O     | O   | O   | O   | -   |
+ 335          ///           \n    56000 | O   | O     | O   | O   | -   | -   |
+ 336          ///           \n    57600 | O   | O     | O   | O   | -   | -   |
+ 337          ///           \n    115200  | O   | O     | O   | -   | -   | -   |
+ 338          ///           \n    230400  | O   | O     | -   | -   | -   | -   |
+ 339          ///           \n    460800  | O   | -     | -   | -   | -   | -   |
+ 340          ///           \n    576000  | O   | O     | -   | -   | -   | -   |
+ 341          ///           \n    1152000 | O   | -     | -   | -   | -   | -   |
+ 342          ///           \n  -----------------------------------------------------------------
+ 343          /// @param  u8Mode    : UART mode
+ 344          ///           \n  bit[7]  : 1=Disable UART-TX interrupt, 0=Enable.
+ 345          ///           \n  bit[6]  : 1=Disable UART-RX interrupt, 0=Enable.
+ 346          ///           \n  bit[5:3]  : Parity Selection. N=No, O=Odd, E=Even, M=Mark, S=Space.
+ 347          ///           \n    b[5]    b[4]    b[3]
+ 348          ///           \n    1   1   1 : Space(parity bit is '0')
+ 349          ///           \n    1   0   1 : Mark(parity bit is '1')
+ 350          ///           \n    0   1   1 : Even Parity(if the data has an even number of '1', the parity bit is '0')
+ 351          ///           \n    0   0   1 : Odd Parity(if the data has an even number of '1', the parity bit is '1')
+ 352          ///           \n    X   X   0 : No Parity
+ 353          ///           \n  bit[2]  : length of stop bits. 0=1 stop bit. 1=1.5 stop bits(5bit-character) or 2 stop bits(6/7
+             -/8bit-character)
+ 354          ///           \n  bit[1:0]  : bits in each character. 0=5bits, 1=6bits, 2=7bits, 3=8bits
+ 355          ///
+ 356          ///           \n  --------------------------------------------
+ 357          ///           \n    Example for u8Mode (Character-Parity-Stop)
+ 358          ///           \n  --------------------------------------------
+ 359          ///           \n    8N1   8O1   8E1   8M1   8S1
+ 360          ///           \n    0x03  0x0B  0x1B  0x2B  0x3B
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 7   
+
+ 361          ///           \n  --------------------------------------------
+ 362          ///           \n    8N2   8O2   8E2   8M2   8S2
+ 363          ///           \n    0x07  0x0F    0x1F    0x2F    0x3F
+ 364          ///           \n  --------------------------------------------
+ 365          ///           \n    7N1   7O1   7E1   7M1   7S1
+ 366          ///           \n    0x02  0x0A  0x1A  0x2A  0x3A
+ 367          ///           \n  --------------------------------------------
+ 368          ///           \n    7N2   7O2   7E2   7M2   7S2
+ 369          ///           \n    0x06  0x0E  0x1E  0x2E  0x3E
+ 370          ///           \n  --------------------------------------------
+ 371          /// @return UINT8. Status.
+ 372          /// 
+ 373          //////////////////////////////////////////////////////////////////////////////////////////////
+ 374          UINT8 HAL_Uart0IntSet(UINT8 u8IntEna, UINT8 u8Priority, UINT32 u32BaudRate, UINT8 u8Mode)
+ 375          {
+ 376   1        UINT8 u8EA;
+ 377   1        UINT8 u8HighDiv;
+ 378   1        UINT8 u8LowDiv;
+ 379   1        UINT8 u8XCR;
+ 380   1        UINT8 u8Status;
+ 381   1      
+ 382   1        if(UART0_CLK_STATE == 0)
+ 383   1        {
+ 384   2          assert_error(UART_CODE | RETURN_UART_CLOCK_OFF);
+ 385   2          return RETURN_UART_CLOCK_OFF;
+ 386   2        }
+ 387   1      
+ 388   1        u8Status = RETURN_UART_SUCCESS;
+ 389   1        if(u8IntEna)
+ 390   1        {   
+ 391   2          u8Status = HAL_UartBaudRateParameterGet(u32BaudRate, &u8XCR, &u8HighDiv, &u8LowDiv);
+ 392   2        }
+ 393   1        else
+ 394   1        {
+ 395   2          u8XCR = 0;  
+ 396   2          u8HighDiv = 0;
+ 397   2          u8LowDiv = 0;
+ 398   2        } 
+ 399   1      
+ 400   1        if(u8Status)
+ 401   1        {
+ 402   2          assert_error(UART_CODE | u8Status);
+ 403   2          return u8Status;
+ 404   2        }
+ 405   1      
+ 406   1        u8EA = EA;
+ 407   1        EA = 0;
+ 408   1      
+ 409   1        xU0_ECR = 0x00;
+ 410   1        xU0_LCR = BIT7;   // bit[7]=1
+ 411   1        xU0_DLL = u8LowDiv;
+ 412   1        xU0_DLM = u8HighDiv;
+ 413   1        xU0_XCR = u8XCR;
+ 414   1        xU0_LCR = 0x00;   // bit[7]=0
+ 415   1        xU0_XCR = 0;
+ 416   1      
+ 417   1        if(u8IntEna)
+ 418   1        { 
+ 419   2          xU0_FCR = 0x81;
+ 420   2          xU0_LCR = u8Mode & (BIT5 | BIT4 | BIT3 | BIT2 | BIT1 | BIT0);
+ 421   2          xU0_IER = 0x00;
+ 422   2          if( (u8Mode & BIT6) == 0) xU0_IER |= BIT0;    // Enable Data Available interrupt
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 8   
+
+ 423   2          if( (u8Mode & BIT7) == 0) xU0_IER |= BIT1;    // Enable Holding Register interrupt
+ 424   2          
+ 425   2          ES0 = 1;
+ 426   2          PS0 = u8Priority;
+ 427   2        }
+ 428   1        else
+ 429   1        {
+ 430   2          xU0_IER = 0x00;
+ 431   2          ES0 = 0;
+ 432   2          PS0 = 0;
+ 433   2        }
+ 434   1      
+ 435   1        EA = u8EA;
+ 436   1      
+ 437   1        return RETURN_UART_SUCCESS;
+ 438   1      }
+ 439          
+ 440          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 441          /// 
+ 442          ///   Gets the number of pended bytes in UART0 RX Buffer.
+ 443          ///
+ 444          /// @param  void
+ 445          /// @return UINT16. The number of bytes.
+ 446          /// 
+ 447          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 448          UINT16 SYS_Uart0RxLenGet(void)
+ 449          {
+ 450   1        UINT8 u8ES0;
+ 451   1        UINT8 u8PHYIE;
+ 452   1        UINT16  u16RxLen;
+ 453   1      
+ 454   1        u8PHYIE = PHYIE;
+ 455   1        PHYIE = 0;
+ 456   1        u8ES0 = ES0;
+ 457   1        ES0 = 0;
+ 458   1        
+ 459   1        u16RxLen = (gu16Uart0Rx_WrIdx - gu16Uart0Rx_RdIdx) & (UART0_RXBUF_SIZE - 1);
+ 460   1      
+ 461   1        ES0 = u8ES0;
+ 462   1        PHYIE = u8PHYIE;
+ 463   1      
+ 464   1        return u16RxLen;
+ 465   1      }
+ 466          
+ 467          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 468          /// 
+ 469          ///   Gets the number of pended bytes in UART0 TX Buffer.
+ 470          ///
+ 471          /// @param  void
+ 472          /// @return UINT16. The number of bytes.
+ 473          /// 
+ 474          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 475          UINT16 SYS_Uart0TxLenGet(void)
+ 476          {
+ 477   1        UINT8 u8ES0;
+ 478   1        UINT8 u8PHYIE;
+ 479   1        UINT16  u16TxLen;
+ 480   1      
+ 481   1        u8PHYIE = PHYIE;
+ 482   1        PHYIE = 0;
+ 483   1        u8ES0 = ES0;
+ 484   1        ES0 = 0;  
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 9   
+
+ 485   1      
+ 486   1        u16TxLen = (gu16Uart0Tx_WrIdx - gu16Uart0Tx_RdIdx) & (UART0_TXBUF_SIZE - 1);
+ 487   1      
+ 488   1        ES0 = u8ES0;
+ 489   1        PHYIE = u8PHYIE;
+ 490   1      
+ 491   1        return u16TxLen;
+ 492   1      }
+ 493          
+ 494          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 495          /// 
+ 496          ///   Puts a byte to UART0 TX Buffer.
+ 497          ///
+ 498          /// @param  u8Data  : data to put.
+ 499          /// @return void
+ 500          /// 
+ 501          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 502          void SYS_Uart0Put(UINT8 u8Data)
+ 503          {
+ 504   1        UINT8 u8ES0;
+ 505   1        UINT8 u8PHYIE;
+ 506   1        UINT16  u16TxEmptyLen;
+ 507   1      
+ 508   1        while(1)
+ 509   1        {
+ 510   2          u16TxEmptyLen = UART0_TXBUF_SIZE - SYS_Uart0TxLenGet();
+ 511   2          if(u16TxEmptyLen > 3)
+ 512   2          {
+ 513   3            break;
+ 514   3          }
+ 515   2        }
+ 516   1      
+ 517   1        u8PHYIE = PHYIE;
+ 518   1        PHYIE = 0;
+ 519   1        u8ES0 = ES0;
+ 520   1        ES0 = 0;  
+ 521   1      
+ 522   1        if(gu8Uart0Tx_Empty)
+ 523   1        {
+ 524   2          gu8Uart0Tx_Empty = 0;
+ 525   2          EA = 0;
+ 526   2          xU0_THR = u8Data;
+ 527   2          DPH = 0;
+ 528   2          EA = 1;
+ 529   2        }
+ 530   1        else
+ 531   1        {
+ 532   2          gau8Uart0Tx_Buff[gu16Uart0Tx_WrIdx] = u8Data;
+ 533   2          gu16Uart0Tx_WrIdx++; 
+ 534   2          gu16Uart0Tx_WrIdx = gu16Uart0Tx_WrIdx & (UART0_TXBUF_SIZE-1);
+ 535   2        }
+ 536   1      
+ 537   1        ES0 = u8ES0;
+ 538   1        PHYIE = u8PHYIE;  
+ 539   1      }
+ 540          
+ 541          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 542          /// 
+ 543          ///   Gets a byte from UART0 RX Buffer.
+ 544          ///
+ 545          /// @param  pu8Data : Pointer to the data to be got.
+ 546          /// @return UINT8. Status. 0=Buffer is empty, 1=Buffer is not empty and data is got.
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 10  
+
+ 547          /// 
+ 548          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 549          UINT8 SYS_Uart0Get(UINT8* pu8Data)
+ 550          {
+ 551   1        UINT8 u8ES0;
+ 552   1        UINT8 u8PHYIE;
+ 553   1      
+ 554   1        if(SYS_Uart0RxLenGet() == 0)
+ 555   1        {
+ 556   2          return 0;
+ 557   2        }
+ 558   1      
+ 559   1        u8PHYIE = PHYIE;
+ 560   1        PHYIE = 0;
+ 561   1        u8ES0 = ES0;
+ 562   1        ES0 = 0;
+ 563   1        
+ 564   1        *pu8Data = gau8Uart0Rx_Buff[gu16Uart0Rx_RdIdx++]; 
+ 565   1        gu16Uart0Rx_RdIdx = gu16Uart0Rx_RdIdx & (UART0_RXBUF_SIZE - 1);
+ 566   1      
+ 567   1        ES0 = u8ES0;
+ 568   1        PHYIE = u8PHYIE;
+ 569   1        
+ 570   1        return 1;
+ 571   1      }
+ 572          
+ 573          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 574          /// 
+ 575          ///   Checks whether UART0 is transmitting.
+ 576          ///
+ 577          /// @param  void
+ 578          /// @return UINT8. Status. 0=Not transmitting, 1=Transmitting.
+ 579          /// 
+ 580          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 581          UINT8 SYS_Uart0TxWorking(void)
+ 582          {
+ 583   1        UINT8 u8Working;
+ 584   1      
+ 585   1        u8Working = 0;
+ 586   1        if(gu8Uart0Tx_Empty == 0)
+ 587   1        {
+ 588   2          u8Working = 1;
+ 589   2        }
+ 590   1        if( (xU0_LSR & BIT5) == 0)
+ 591   1        {
+ 592   2          u8Working = 1;
+ 593   2        }
+ 594   1      
+ 595   1        return u8Working;
+ 596   1      }
+ 597          
+ 598          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 599          /// 
+ 600          ///   Puts a byte to UART0 H/W FIFO with non-interrupt
+ 601          ///
+ 602          /// @param  pu8DataBuff : Pointer to the buffer to be sent.
+ 603          /// @param  u8PutLen    : Number of data to be sent. 0 ~ 16.
+ 604          /// @return UINT8. Status.
+ 605          /// 
+ 606          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 607          UINT8 SYS_Uart0Put_Poll(UINT8* pu8DataBuff, UINT8 u8PutLen)
+ 608          {
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 11  
+
+ 609   1        UINT8 ib;
+ 610   1        UINT8 u8EA;
+ 611   1      
+ 612   1        if(xU0_IER & BIT1)
+ 613   1        {
+ 614   2          return RETURN_UART_INTERRUPT_ENABLED;
+ 615   2        }
+ 616   1      
+ 617   1        if(u8PutLen > 16)
+ 618   1        {
+ 619   2          return RETURN_UART_FIFO_OVERFLOW; 
+ 620   2        }
+ 621   1        
+ 622   1        while(!(xU0_LSR & BIT5));
+ 623   1        for(ib=0 ; ib<u8PutLen ; ib++)
+ 624   1        {
+ 625   2          u8EA = EA;
+ 626   2          EA = 0;
+ 627   2          xU0_THR = pu8DataBuff[ib];
+ 628   2          DPH = 0;
+ 629   2          EA = u8EA;
+ 630   2        }
+ 631   1      
+ 632   1        return RETURN_UART_SUCCESS;
+ 633   1      }
+ 634          
+ 635          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 636          /// 
+ 637          ///   Gets a byte from UART0 H/W FIFO with non-interrupt
+ 638          ///
+ 639          /// @param  pu8Data : Pointer to the data to be got.
+ 640          /// @return UINT8. Status. 0=No received data, 1=Data is received.
+ 641          /// 
+ 642          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 643          UINT8 SYS_Uart0Get_Poll(UINT8* pu8Data)
+ 644          {
+ 645   1        UINT8 u8EA;
+ 646   1      
+ 647   1        if(xU0_LSR & 0x01)
+ 648   1        {
+ 649   2          u8EA = EA;
+ 650   2          EA = 0;
+ 651   2          *pu8Data = xU0_RBR;
+ 652   2          DPH = 0;
+ 653   2          EA = u8EA;
+ 654   2          return 1;
+ 655   2        }
+ 656   1        else
+ 657   1        {
+ 658   2          return 0;
+ 659   2        } 
+ 660   1      }
+ 661          
+ 662          #endif  // #ifdef __MG2470_UART0_INCLUDE__
+ 663          
+ 664          
+ 665          #ifdef __MG2470_UART1_INCLUDE__
+ 666          
+ 667          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 668          /// 
+ 669          ///   Global variable for UART1's RX Buffer
+ 670          /// 
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 12  
+
+ 671          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 672          UINT8 gau8Uart1Rx_Buff[UART1_RXBUF_SIZE]; 
+ 673          
+ 674          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 675          /// 
+ 676          ///   Global variable which indicates index number for writing UART1's RX Buffer
+ 677          /// 
+ 678          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 679          UINT16  gu16Uart1Rx_WrIdx = 0;
+ 680          
+ 681          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 682          /// 
+ 683          ///   Global variable which indicates index number for reading UART1's RX Buffer
+ 684          /// 
+ 685          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 686          UINT16  gu16Uart1Rx_RdIdx = 0;    
+ 687          
+ 688          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 689          /// 
+ 690          ///   Global variable for UART1's TX Buffer
+ 691          /// 
+ 692          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 693          UINT8 gau8Uart1Tx_Buff[UART1_TXBUF_SIZE];
+ 694          
+ 695          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 696          /// 
+ 697          ///   Global variable which indicates index number for writing UART1's TX Buffer
+ 698          /// 
+ 699          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 700          UINT16  gu16Uart1Tx_WrIdx = 0;
+ 701          
+ 702          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 703          /// 
+ 704          ///   Global variable which indicates index number for reading UART1's TX Buffer
+ 705          /// 
+ 706          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 707          UINT16  gu16Uart1Tx_RdIdx = 0;
+ 708          
+ 709          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 710          /// 
+ 711          ///   Global variable which indicates whether UART1's TX Buffer is empty
+ 712          /// 
+ 713          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 714          UINT8 gu8Uart1Tx_Empty = 1;
+ 715          
+ 716          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 717          /// 
+ 718          ///   Sets clock for UART1.
+ 719          ///
+ 720          /// @param  u8On  : 0=Off, 1=On.
+ 721          /// @return void
+ 722          /// 
+ 723          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 724          void HAL_Uart1ClockOn(UINT8 u8On)   // Default ON
+ 725          {
+ 726   1        if(u8On)
+ 727   1        {
+ 728   2          UART1_CLK_ON;
+ 729   2        }
+ 730   1        else
+ 731   1        {
+ 732   2          UART1_CLK_OFF;
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 13  
+
+ 733   2        }
+ 734   1      }
+ 735          
+ 736          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 737          /// 
+ 738          ///   Sets UART1 interrupt.
+ 739          ///
+ 740          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+ 741          /// @param  u8Priority    : Priority of interrupt. 0=Low, 1=High.
+ 742          /// @param  u32BaudRate : Baud rate to set.
+ 743          ///           \n The real baud rate is dependent on the MCU frequency. And, The MCU frequency is 
+ 744          ///             determined by HAL_McuPeriClockSet(). Therefore, some baud rate is not supported 
+ 745          ///             on some MCU frequency.
+ 746          ///
+ 747          ///           \n Here is the table which indicates the baud rate supported on each MCU frequency.
+ 748          ///           \n  -----------------------------------------------------------------
+ 749          ///           \n        |       MCU Frequency (Hz)
+ 750          ///           \n                       |----------------------------------------------------
+ 751          ///           \n        | 16M | 8M (Default)  | 4M    | 2M    | 1M    | 500K  |
+ 752          ///           \n  -----------------------------------------------------------------
+ 753          ///           \n  u32BaudRate |
+ 754          ///           \n    300   | O   | O     | O   | O   | O   | O   |
+ 755          ///           \n    600   | O   | O     | O   | O   | O   | O   |
+ 756          ///           \n    1200  | O   | O     | O   | O   | O   | O   |
+ 757          ///           \n    2400  | O   | O     | O   | O   | O   | O   |
+ 758          ///           \n    4800  | O   | O     | O   | O   | O   | O   |
+ 759          ///           \n    9600  | O   | O     | O   | O   | O   | O   |
+ 760          ///           \n    14400 | O   | O     | O   | O   | O   | O   |
+ 761          ///           \n    19200 | O   | O     | O   | O   | O   | O   |
+ 762          ///           \n    38400 | O   | O     | O   | O   | O   | -   |
+ 763          ///           \n    56000 | O   | O     | O   | O   | -   | -   |
+ 764          ///           \n    57600 | O   | O     | O   | O   | -   | -   |
+ 765          ///           \n    115200  | O   | O     | O   | -   | -   | -   |
+ 766          ///           \n    230400  | O   | O     | -   | -   | -   | -   |
+ 767          ///           \n    460800  | O   | -     | -   | -   | -   | -   |
+ 768          ///           \n    576000  | O   | O     | -   | -   | -   | -   |
+ 769          ///           \n    1152000 | O   | -     | -   | -   | -   | -   |
+ 770          ///           \n  -----------------------------------------------------------------
+ 771          /// @param  u8Mode    : UART mode
+ 772          ///           \n  bit[7]  : 1=Disable UART-TX interrupt, 0=Enable.
+ 773          ///           \n  bit[6]  : 1=Disable UART-RX interrupt, 0=Enable.
+ 774          ///           \n  bit[5:3]  : Parity Selection. N=No, O=Odd, E=Even, M=Mark, S=Space.
+ 775          ///           \n    b[5]    b[4]    b[3]
+ 776          ///           \n    1   1   1 : Space(parity bit is '0')
+ 777          ///           \n    1   0   1 : Mark(parity bit is '1')
+ 778          ///           \n    0   1   1 : Even Parity(if the data has an even number of '1', the parity bit is '0')
+ 779          ///           \n    0   0   1 : Odd Parity(if the data has an even number of '1', the parity bit is '1')
+ 780          ///           \n    X   X   0 : No Parity
+ 781          ///           \n  bit[2]  : length of stop bits. 0=1 stop bit. 1=1.5 stop bits(5bit-character) or 2 stop bits(6/7
+             -/8bit-character)
+ 782          ///           \n  bit[1:0]  : bits in each character. 0=5bits, 1=6bits, 2=7bits, 3=8bits
+ 783          ///
+ 784          ///           \n  --------------------------------------------
+ 785          ///           \n    Example for u8Mode (Character-Parity-Stop)
+ 786          ///           \n  --------------------------------------------
+ 787          ///           \n    8N1   8O1   8E1   8M1   8S1
+ 788          ///           \n    0x03  0x0B  0x1B  0x2B  0x3B
+ 789          ///           \n  --------------------------------------------
+ 790          ///           \n    8N2   8O2   8E2   8M2   8S2
+ 791          ///           \n    0x07  0x0F    0x1F    0x2F    0x3F
+ 792          ///           \n  --------------------------------------------
+ 793          ///           \n    7N1   7O1   7E1   7M1   7S1
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 14  
+
+ 794          ///           \n    0x02  0x0A  0x1A  0x2A  0x3A
+ 795          ///           \n  --------------------------------------------
+ 796          ///           \n    7N2   7O2   7E2   7M2   7S2
+ 797          ///           \n    0x06  0x0E  0x1E  0x2E  0x3E
+ 798          ///           \n  --------------------------------------------
+ 799          /// @return UINT8. Status.
+ 800          /// 
+ 801          //////////////////////////////////////////////////////////////////////////////////////////////
+ 802          UINT8 HAL_Uart1IntSet(UINT8 u8IntEna, UINT8 u8Priority, UINT32 u32BaudRate, UINT8 u8Mode) 
+ 803          {
+ 804   1        UINT8 u8EA;
+ 805   1        UINT8 u8HighDiv;
+ 806   1        UINT8 u8LowDiv;
+ 807   1        UINT8 u8XCR;
+ 808   1        UINT8 u8Status;
+ 809   1      
+ 810   1        if(UART1_CLK_STATE == 0)
+ 811   1        {
+ 812   2          assert_error(UART_CODE | RETURN_UART_CLOCK_OFF);
+ 813   2          return RETURN_UART_CLOCK_OFF;
+ 814   2        }
+ 815   1      
+ 816   1        u8Status = RETURN_UART_SUCCESS;
+ 817   1        if(u8IntEna)
+ 818   1        {   
+ 819   2          u8Status = HAL_UartBaudRateParameterGet(u32BaudRate, &u8XCR, &u8HighDiv, &u8LowDiv);
+ 820   2        }
+ 821   1        else
+ 822   1        {
+ 823   2          u8XCR = 0;
+ 824   2          u8HighDiv = 0;
+ 825   2          u8LowDiv = 0;
+ 826   2        }
+ 827   1      
+ 828   1        if(u8Status)
+ 829   1        {
+ 830   2          assert_error(UART_CODE | u8Status);
+ 831   2          return u8Status;
+ 832   2        }
+ 833   1      
+ 834   1        u8EA = EA;
+ 835   1        EA = 0;
+ 836   1      
+ 837   1        xU1_ECR = 0x00;
+ 838   1        xU1_LCR = BIT7;   // bit[7]=1
+ 839   1        xU1_DLL = u8LowDiv;
+ 840   1        xU1_DLM = u8HighDiv;
+ 841   1        xU1_XCR = u8XCR;
+ 842   1        xU1_LCR = 0x00;   // bit[7]=0
+ 843   1        xU1_XCR = 0;
+ 844   1      
+ 845   1        if(u8IntEna)
+ 846   1        {
+ 847   2          xU1_FCR = 0x81;
+ 848   2          xU1_LCR = u8Mode & (BIT5 | BIT4 | BIT3 | BIT2 | BIT1 | BIT0);
+ 849   2          xU1_IER = 0x00;
+ 850   2          if( (u8Mode & BIT6) == 0) xU1_IER |= BIT0;    // Enable Data Available interrupt
+ 851   2          if( (u8Mode & BIT7) == 0) xU1_IER |= BIT1;    // Enable Holding Register interrupt
+ 852   2          
+ 853   2          ES1 = 1;
+ 854   2          PS1 = u8Priority;
+ 855   2        }
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 15  
+
+ 856   1        else
+ 857   1        {
+ 858   2          xU1_IER = 0x00;
+ 859   2          ES1 = 0;
+ 860   2          PS1 = 0;
+ 861   2        }
+ 862   1      
+ 863   1        EA = u8EA;
+ 864   1      
+ 865   1        return RETURN_UART_SUCCESS;
+ 866   1      }
+ 867          
+ 868          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 869          /// 
+ 870          ///   Gets the number of pended bytes in UART1 RX Buffer.
+ 871          ///
+ 872          /// @param  void
+ 873          /// @return UINT16. The number of bytes.
+ 874          /// 
+ 875          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 876          UINT16 SYS_Uart1RxLenGet(void)
+ 877          {
+ 878   1        UINT8 u8ES1;
+ 879   1        UINT8 u8PHYIE;
+ 880   1        UINT16  u16RxLen;
+ 881   1      
+ 882   1        u8PHYIE = PHYIE;
+ 883   1        PHYIE = 0;
+ 884   1        u8ES1 = ES1;
+ 885   1        ES1 = 0;
+ 886   1      
+ 887   1        u16RxLen = (gu16Uart1Rx_WrIdx - gu16Uart1Rx_RdIdx) & (UART1_RXBUF_SIZE - 1);
+ 888   1      
+ 889   1        ES1 = u8ES1;
+ 890   1        PHYIE = u8PHYIE;
+ 891   1      
+ 892   1        return u16RxLen;
+ 893   1      }
+ 894          
+ 895          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 896          /// 
+ 897          ///   Gets the number of pended bytes in UART1 TX Buffer.
+ 898          ///
+ 899          /// @param  void
+ 900          /// @return UINT16. The number of bytes.
+ 901          /// 
+ 902          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 903          UINT16 SYS_Uart1TxLenGet(void)
+ 904          {
+ 905   1        UINT8 u8ES1;
+ 906   1        UINT8 u8PHYIE;
+ 907   1        UINT16  u16TxLen;
+ 908   1      
+ 909   1        u8PHYIE = PHYIE;
+ 910   1        PHYIE = 0;
+ 911   1        u8ES1 = ES1;
+ 912   1        ES1 = 0;
+ 913   1      
+ 914   1        u16TxLen = (gu16Uart1Tx_WrIdx - gu16Uart1Tx_RdIdx) & (UART1_TXBUF_SIZE - 1);
+ 915   1      
+ 916   1        ES1 = u8ES1;
+ 917   1        PHYIE = u8PHYIE;
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 16  
+
+ 918   1      
+ 919   1        return u16TxLen;
+ 920   1      }
+ 921          
+ 922          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 923          /// 
+ 924          ///   Puts a byte to UART1 TX Buffer.
+ 925          ///
+ 926          /// @param  u8Data  : data to put.
+ 927          /// @return void
+ 928          /// 
+ 929          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 930          void SYS_Uart1Put(UINT8 u8Data)
+ 931          {
+ 932   1        UINT8 u8ES1;
+ 933   1        UINT8 u8PHYIE;
+ 934   1        UINT16  u16TxEmptyLen;
+ 935   1      
+ 936   1        while(1)
+ 937   1        {
+ 938   2          u16TxEmptyLen = UART1_TXBUF_SIZE - SYS_Uart1TxLenGet();
+ 939   2          if(u16TxEmptyLen > 3)
+ 940   2          {
+ 941   3            break;
+ 942   3          }
+ 943   2        }
+ 944   1      
+ 945   1        u8PHYIE = PHYIE;
+ 946   1        PHYIE = 0;
+ 947   1        u8ES1 = ES1;
+ 948   1        ES1 = 0;  
+ 949   1      
+ 950   1        if(gu8Uart1Tx_Empty)
+ 951   1        {
+ 952   2          gu8Uart1Tx_Empty = 0;
+ 953   2          EA = 0;
+ 954   2          xU1_THR = u8Data;
+ 955   2          DPH = 0;
+ 956   2          EA = 1;
+ 957   2        }
+ 958   1        else
+ 959   1        {
+ 960   2          gau8Uart1Tx_Buff[gu16Uart1Tx_WrIdx] = u8Data;
+ 961   2          gu16Uart1Tx_WrIdx++; 
+ 962   2          gu16Uart1Tx_WrIdx = gu16Uart1Tx_WrIdx & (UART1_TXBUF_SIZE-1) ;
+ 963   2        }
+ 964   1      
+ 965   1        ES1 = u8ES1;
+ 966   1        PHYIE = u8PHYIE;  
+ 967   1      }
+ 968          
+ 969          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 970          /// 
+ 971          ///   Gets a byte from UART1 RX Buffer.
+ 972          ///
+ 973          /// @param  pu8Data : Pointer to the data to be got.
+ 974          /// @return UINT8. Status. 0=Buffer is empty, 1=Buffer is not empty and data is got.
+ 975          /// 
+ 976          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 977          UINT8 SYS_Uart1Get(UINT8* pu8Data)
+ 978          {
+ 979   1        UINT8 u8ES1;
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 17  
+
+ 980   1        UINT8 u8PHYIE;
+ 981   1        
+ 982   1        if(SYS_Uart1RxLenGet() == 0)
+ 983   1        {
+ 984   2          return 0;
+ 985   2        }
+ 986   1      
+ 987   1        u8PHYIE = PHYIE;
+ 988   1        PHYIE = 0;
+ 989   1        u8ES1 = ES1;
+ 990   1        ES1 = 0;
+ 991   1      
+ 992   1        *pu8Data = gau8Uart1Rx_Buff[gu16Uart1Rx_RdIdx++]; 
+ 993   1        gu16Uart1Rx_RdIdx = gu16Uart1Rx_RdIdx & (UART1_RXBUF_SIZE - 1);
+ 994   1      
+ 995   1        ES1 = u8ES1;
+ 996   1        PHYIE = u8PHYIE;
+ 997   1      
+ 998   1        return 1;
+ 999   1      }
+1000          
+1001          ///////////////////////////////////////////////////////////////////////////////////////////////
+1002          /// 
+1003          ///   Checks whether UART1 is transmitting.
+1004          ///
+1005          /// @param  void
+1006          /// @return UINT8. Status. 0=Not transmitting, 1=Transmitting.
+1007          /// 
+1008          ///////////////////////////////////////////////////////////////////////////////////////////////
+1009          UINT8 SYS_Uart1TxWorking(void)
+1010          {
+1011   1        UINT8 u8Working;
+1012   1      
+1013   1        u8Working = 0;
+1014   1        if(gu8Uart1Tx_Empty == 0)
+1015   1        {
+1016   2          u8Working = 1;
+1017   2        }
+1018   1        if( (xU1_LSR & BIT5) == 0)
+1019   1        {
+1020   2          u8Working = 1;
+1021   2        }
+1022   1      
+1023   1        return  u8Working;
+1024   1      }
+1025          
+1026          ///////////////////////////////////////////////////////////////////////////////////////////////
+1027          /// 
+1028          ///   Puts a byte to UART1 H/W FIFO with non-interrupt
+1029          ///
+1030          /// @param  pu8DataBuff : Pointer to the buffer to be sent.
+1031          /// @param  u8PutLen    : Number of data to be sent. 0 ~ 16.
+1032          /// @return UINT8. Status.
+1033          /// 
+1034          ///////////////////////////////////////////////////////////////////////////////////////////////
+1035          UINT8 SYS_Uart1Put_Poll(UINT8* pu8DataBuff, UINT8 u8PutLen)
+1036          {
+1037   1        UINT8 ib;
+1038   1        UINT8 u8EA;
+1039   1      
+1040   1        if(xU1_IER & BIT1)
+1041   1        {
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 18  
+
+1042   2          return RETURN_UART_INTERRUPT_ENABLED;
+1043   2        }
+1044   1      
+1045   1        if(u8PutLen > 16)
+1046   1        {
+1047   2          return RETURN_UART_FIFO_OVERFLOW;
+1048   2        }
+1049   1        
+1050   1        while(!(xU1_LSR & BIT5));
+1051   1        for(ib=0 ; ib<u8PutLen ; ib++)
+1052   1        {
+1053   2          u8EA = EA;
+1054   2          EA = 0;
+1055   2          xU1_THR = pu8DataBuff[ib];
+1056   2          DPH = 0;
+1057   2          EA = u8EA;
+1058   2        }
+1059   1      
+1060   1        return RETURN_UART_SUCCESS;
+1061   1      }
+1062          
+1063          ///////////////////////////////////////////////////////////////////////////////////////////////
+1064          /// 
+1065          ///   Gets a byte from UART1 H/W FIFO with non-interrupt
+1066          ///
+1067          /// @param  pu8Data : Pointer to the data to be got.
+1068          /// @return UINT8. Status. 0=No received data, 1=Data is received.
+1069          /// 
+1070          ///////////////////////////////////////////////////////////////////////////////////////////////
+1071          UINT8 SYS_Uart1Get_Poll(UINT8* pu8Data)
+1072          {
+1073   1        UINT8 u8EA;
+1074   1      
+1075   1        if(xU1_LSR & 0x01)
+1076   1        {
+1077   2          u8EA = EA;
+1078   2          EA = 0;
+1079   2          *pu8Data = xU1_RBR;
+1080   2          DPH = 0;
+1081   2          EA = u8EA;
+1082   2          return 1;
+1083   2        }
+1084   1        else
+1085   1        {
+1086   2          return 0;
+1087   2        } 
+1088   1      }
+1089          
+1090          INT32 OutData(INT32 data1)
+1091          {
+1092   1        if(data1 < 0)
+1093   1         {
+1094   2          data1 = -data1;
+1095   2          xU1_THR = '-';
+1096   2          while(!(xU1_LSR & BIT5));
+1097   2         }
+1098   1         else
+1099   1           xU1_THR = ' ';
+1100   1         
+1101   1         xU1_THR =(unsigned char)(data1/10000)+'0'; data1%=10000;
+1102   1        while(!(xU1_LSR & BIT5));
+1103   1         xU1_THR = (unsigned char)(data1/1000)+'0'; data1%=1000;
+C51 COMPILER V9.53.0.0   UART                                                              01/28/2020 11:28:55 PAGE 19  
+
+1104   1        while(!(xU1_LSR & BIT5));
+1105   1         xU1_THR = (unsigned char)(data1/100)+'0'; data1%=100;
+1106   1        while(!(xU1_LSR & BIT5));
+1107   1         xU1_THR = (unsigned char)(data1/10)+'0'; data1%=10;
+1108   1        while(!(xU1_LSR & BIT5));
+1109   1         xU1_THR = (unsigned char)(data1)+'0';
+1110   1        while(!(xU1_LSR & BIT5));
+1111   1         xU1_THR = ' ';
+1112   1         
+1113   1        while(!(xU1_LSR & BIT5));
+1114   1        
+1115   1         return 1;
+1116   1      }
+1117          
+1118          #endif  // #ifdef __MG2470_UART1_INCLUDE__
+1119          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1806    ----
+   CONSTANT SIZE    =    288    ----
+   XDATA SIZE       =    274      59
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

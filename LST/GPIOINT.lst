@@ -1,0 +1,489 @@
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE GPIOINT
+OBJECT MODULE PLACED IN .\HEX\GPIOINT.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\GPIOINT.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\I
+                    -nclude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\GP
+                    -IOINT.lst) TABS(2) OBJECT(.\HEX\GPIOINT.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "INCLUDE_MG2470.h"
+  13          #include "gpioint.h"
+  14          
+  15          ///////////////////////////////////////////////////////////////////////////////////////////////
+  16          /// 
+  17          ///   Controls GPIO Interrupt and the priority. 
+  18          /// \n  To use GPIO Interrupt , EIE2[2] should be set by this function.
+  19          ///   And, the corresponding bit of Px_IRQ_EN should be also set by HAL_GpioIntxSet().
+  20          ///
+  21          /// @param  u8IntEna  : 0=Disable, 1=Enable.
+  22          /// @param  u8Priority  : Priority of Interrupt. 0=Low, 1=High.
+  23          /// @return void
+  24          /// @note To enable each GPIO interrupt, refer to HAL_GpioIntxSet().
+  25          /// 
+  26          ///////////////////////////////////////////////////////////////////////////////////////////////
+  27          void HAL_GpioIntModeSet(UINT8 u8IntEna, UINT8 u8Priority)
+  28          {
+  29   1        if(u8Priority)
+  30   1        {
+  31   2          EIP2 |= BIT2;
+  32   2        }
+  33   1        else
+  34   1        {
+  35   2          EIP2 &= ~BIT2;
+  36   2        }
+  37   1      
+  38   1        if(u8IntEna)
+  39   1        {
+  40   2          EIE2 |= BIT2;
+  41   2        }
+  42   1        else
+  43   1        {
+  44   2          EIE2 &= ~BIT2;
+  45   2        }
+  46   1      }
+  47          
+  48          
+  49          
+  50          #ifdef __MG2470_GPIOINT0_INCLUDE__
+  51          
+  52          ///////////////////////////////////////////////////////////////////////////////////////////////
+  53          /// 
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 2   
+
+  54          ///   Global variable which indicates whether GPIO interrupt of GPIO0 is generated.
+  55          /// When GPIO interrupt of GPIO0 is generated, the flag is set to this.
+  56          /// And after processing the interrupt, it should be cleared.
+  57          /// 
+  58          ///////////////////////////////////////////////////////////////////////////////////////////////
+  59          UINT8 gu8GpioInt0Flag = 0x00;
+  60          
+  61          ///////////////////////////////////////////////////////////////////////////////////////////////
+  62          /// 
+  63          ///   Sets clock for GPIO Interrupt of GPIO0.
+  64          ///
+  65          /// @param  u8On  : 0=Off, 1=On
+  66          /// @return void
+  67          /// 
+  68          ///////////////////////////////////////////////////////////////////////////////////////////////
+  69          void HAL_GpioInt0ClockOn(UINT8 u8On)
+  70          {
+  71   1        if(u8On)
+  72   1        {
+  73   2          GPIOINT0_CLK_ON;
+  74   2        }
+  75   1        else
+  76   1        {
+  77   2          GPIOINT0_CLK_OFF; 
+  78   2        }
+  79   1      }
+  80          
+  81          ///////////////////////////////////////////////////////////////////////////////////////////////
+  82          /// 
+  83          ///   Sets GPIO0 port to be used for GPIO Interrupt.
+  84          /// Additionally, it specifies the priority and triggering type of the interrupt.
+  85          /// When an interrupt is generated, GPIO_ISR() is called and P0_IRQ_STS specifies which GPIO causes the in
+             -terrupt.
+  86          /// \n  When this is called with "u8IntEna=1", EIE[2] is also set to enable GPIO Interrupt. 
+  87          ///   In other words, Calling HAL_GpioIntModeSet() is not needed.
+  88          /// \n  But if this is called with "u8IneEna=0", EIE[2] is not cleared. Because, another ports are still us
+             -ed
+  89          ///   for GPIO Interrupt.
+  90          ///
+  91          /// @param  u8Port    : 0~7=Port Number, 0xA=All Ports.
+  92          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+  93          /// @param  u8Priority    : Priority of Interrupt. 0=Low, 1=High.
+  94          /// @param  u8TrigType  : Triggering type of GPIO Interrupt.
+  95          ///               \n 0=Low level.
+  96          ///             \n 1=Falling edge.
+  97          ///             \n 2=High level.
+  98          ///             \n 3=Rising edge.
+  99          /// @return UINT8. Status.
+ 100          /// @note To control EIE[2] independently, use HAL_GpioIntModeSet().
+ 101          /// 
+ 102          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 103          UINT8 HAL_GpioInt0Set(UINT8 u8Port, UINT8 u8IntEna, UINT8 u8Priority, UINT8 u8TrigType)
+ 104          {
+ 105   1        UINT8 u8MaskOR;
+ 106   1        UINT8 u8MaskAND;
+ 107   1        UINT8 u8Status;
+ 108   1      
+ 109   1        if(GPIOINT0_CLK_STATE == 0)
+ 110   1        {
+ 111   2          assert_error(GPIOINT_CODE | RETURN_GPIOINT0_CLOCK_OFF);
+ 112   2          return RETURN_GPIOINT0_CLOCK_OFF;
+ 113   2        }
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 3   
+
+ 114   1      
+ 115   1        if(u8TrigType > 3)
+ 116   1        {   
+ 117   2          assert_error(GPIOINT_CODE | RETURN_GPIOINT0_INVALID_TRIG_TYPE);
+ 118   2          return RETURN_GPIOINT0_INVALID_TRIG_TYPE;
+ 119   2        }
+ 120   1      
+ 121   1        u8Status = RETURN_GPIOINT_SUCCESS;
+ 122   1        switch(u8Port)
+ 123   1        {
+ 124   2          case 0x0  : u8MaskOR = BIT0;  u8MaskAND = ~BIT0;  break;
+ 125   2          case 0x1  : u8MaskOR = BIT1;  u8MaskAND = ~BIT1;  break;
+ 126   2          case 0x2  : u8MaskOR = BIT2;  u8MaskAND = ~BIT2;  break;
+ 127   2          case 0x3  : u8MaskOR = BIT3;  u8MaskAND = ~BIT3;  break;
+ 128   2          case 0x4  : u8MaskOR = BIT4;  u8MaskAND = ~BIT4;  break;
+ 129   2          case 0x5  : u8MaskOR = BIT5;  u8MaskAND = ~BIT5;  break;
+ 130   2          case 0x6  : u8MaskOR = BIT6;  u8MaskAND = ~BIT6;  break;
+ 131   2          case 0x7  : u8MaskOR = BIT7;  u8MaskAND = ~BIT7;  break;
+ 132   2          case 0xA  : u8MaskOR = 0xFF;  u8MaskAND = ~0xFF;  break;
+ 133   2          default : u8Status = RETURN_GPIOINT0_INVALID_PORT;  break;
+ 134   2        }
+ 135   1      
+ 136   1        if(u8Status)
+ 137   1        {
+ 138   2          assert_error(GPIOINT_CODE | u8Status);
+ 139   2          return u8Status;
+ 140   2        } 
+ 141   1      
+ 142   1        if(u8IntEna)
+ 143   1        {
+ 144   2          if(u8TrigType & BIT1)     // TrigType = 2 or 3
+ 145   2          {
+ 146   3            P0_POL |= u8MaskOR;
+ 147   3          }
+ 148   2          else              // TrigType = 0 or 1
+ 149   2          {
+ 150   3            P0_POL &= u8MaskAND;
+ 151   3          }
+ 152   2      
+ 153   2          if(u8TrigType & BIT0)     // TrigType = 1 or 3. Edge
+ 154   2          {
+ 155   3            P0_EDGE |= u8MaskOR;
+ 156   3          }
+ 157   2          else              // TrigType = 0 or 2. Level
+ 158   2          {
+ 159   3            P0_EDGE &= u8MaskAND;
+ 160   3          }
+ 161   2      
+ 162   2          P0_IRQ_EN |= u8MaskOR;
+ 163   2      
+ 164   2          HAL_GpioIntModeSet(1, u8Priority);    
+ 165   2        }
+ 166   1        else
+ 167   1        {
+ 168   2          P0_IRQ_EN &= u8MaskAND;
+ 169   2        }
+ 170   1      
+ 171   1        return RETURN_GPIOINT_SUCCESS;
+ 172   1      }
+ 173          
+ 174          #endif    // __MG2470_GPIOINT0_INCLUDE__
+ 175          
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 4   
+
+ 176          
+ 177          
+ 178          
+ 179          
+ 180          
+ 181          
+ 182          #ifdef __MG2470_GPIOINT1_INCLUDE__
+ 183          
+ 184          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 185          /// 
+ 186          ///   Global variable which indicates whether GPIO interrupt of GPIO1 is generated.
+ 187          /// When GPIO interrupt of GPIO1 is generated, the flag is set to this.
+ 188          /// And after processing the interrupt, it should be cleared.
+ 189          /// 
+ 190          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 191          UINT8 gu8GpioInt1Flag = 0x00;
+ 192          
+ 193          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 194          /// 
+ 195          ///   Sets clock for GPIO Interrupt of GPIO1.
+ 196          ///
+ 197          /// @param  u8On  : 0=Off, 1=On
+ 198          /// @return void
+ 199          /// 
+ 200          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 201          void HAL_GpioInt1ClockOn(UINT8 u8On)
+ 202          {
+ 203   1        if(u8On)
+ 204   1        {
+ 205   2          GPIOINT1_CLK_ON;
+ 206   2        }
+ 207   1        else
+ 208   1        {
+ 209   2          GPIOINT1_CLK_OFF;
+ 210   2        }
+ 211   1      }
+ 212          
+ 213          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 214          /// 
+ 215          ///   Sets GPIO1 port to be used for GPIO Interrupt.
+ 216          /// Additionally, it specifies the priority and triggering type of the interrupt.
+ 217          /// When an interrupt is generated, GPIO_ISR() is called and P1_IRQ_STS specifies which GPIO causes the in
+             -terrupt.
+ 218          /// \n  When this is called with "u8IntEna=1", EIE[2] is also set to enable GPIO Interrupt. 
+ 219          ///   In other words, Calling HAL_GpioIntModeSet() is not needed.
+ 220          /// \n  But if this is called with "u8IneEna=0", EIE[2] is not cleared. Because, another ports are still us
+             -ed
+ 221          ///   for GPIO Interrupt.
+ 222          ///
+ 223          /// @param  u8Port    : 0~7=Port Number, 0xA=All Ports.
+ 224          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+ 225          /// @param  u8Priority    : Priority of Interrupt. 0=Low, 1=High.
+ 226          /// @param  u8TrigType  : Triggering type of GPIO Interrupt.
+ 227          ///               \n 0=Low level.
+ 228          ///             \n 1=Falling edge.
+ 229          ///             \n 2=High level.
+ 230          ///             \n 3=Rising edge.
+ 231          /// @return UINT8. Status.
+ 232          /// @note To control EIE[2] independently, use HAL_GpioIntModeSet().
+ 233          /// 
+ 234          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 235          UINT8 HAL_GpioInt1Set(UINT8 u8Port, UINT8 u8IntEna, UINT8 u8Priority, UINT8 u8TrigType)
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 5   
+
+ 236          {
+ 237   1        UINT8 u8MaskOR;
+ 238   1        UINT8 u8MaskAND;
+ 239   1        UINT8 u8Status;
+ 240   1      
+ 241   1        if(GPIOINT1_CLK_STATE == 0)
+ 242   1        {
+ 243   2          assert_error(GPIOINT_CODE | RETURN_GPIOINT1_CLOCK_OFF);
+ 244   2          return RETURN_GPIOINT1_CLOCK_OFF;
+ 245   2        }
+ 246   1      
+ 247   1        if(u8TrigType > 3)
+ 248   1        {   
+ 249   2          assert_error(GPIOINT_CODE | RETURN_GPIOINT1_INVALID_TRIG_TYPE);
+ 250   2          return RETURN_GPIOINT1_INVALID_TRIG_TYPE;
+ 251   2        }
+ 252   1      
+ 253   1        u8Status = RETURN_GPIOINT_SUCCESS;
+ 254   1        switch(u8Port)
+ 255   1        {
+ 256   2          case 0x0  : u8MaskOR = BIT0;  u8MaskAND = ~BIT0;  break;
+ 257   2          case 0x1  : u8MaskOR = BIT1;  u8MaskAND = ~BIT1;  break;
+ 258   2          case 0x2  : u8MaskOR = BIT2;  u8MaskAND = ~BIT2;  break;
+ 259   2          case 0x3  : u8MaskOR = BIT3;  u8MaskAND = ~BIT3;  break;
+ 260   2          case 0x4  : u8MaskOR = BIT4;  u8MaskAND = ~BIT4;  break;
+ 261   2          case 0x5  : u8MaskOR = BIT5;  u8MaskAND = ~BIT5;  break;
+ 262   2          case 0x6  : u8MaskOR = BIT6;  u8MaskAND = ~BIT6;  break;
+ 263   2          case 0x7  : u8MaskOR = BIT7;  u8MaskAND = ~BIT7;  break;
+ 264   2          case 0xA  : u8MaskOR = 0xFF;  u8MaskAND = ~0xFF;  break;
+ 265   2          default : u8Status = RETURN_GPIOINT1_INVALID_PORT;  break;
+ 266   2        }
+ 267   1      
+ 268   1        if(u8Status)
+ 269   1        {
+ 270   2          assert_error(GPIOINT_CODE | u8Status);
+ 271   2          return u8Status;
+ 272   2        } 
+ 273   1      
+ 274   1        if(u8IntEna)
+ 275   1        {
+ 276   2          if(u8TrigType & BIT1)     // TrigType = 2 or 3
+ 277   2          {
+ 278   3            P1_POL |= u8MaskOR;
+ 279   3          }
+ 280   2          else              // TrigType = 0 or 1
+ 281   2          {
+ 282   3            P1_POL &= u8MaskAND;
+ 283   3          }
+ 284   2      
+ 285   2          if(u8TrigType & BIT0)     // TrigType = 1 or 3. Edge
+ 286   2          {
+ 287   3            P1_EDGE |= u8MaskOR;
+ 288   3          }
+ 289   2          else              // TrigType = 0 or 2. Level
+ 290   2          {
+ 291   3            P1_EDGE &= u8MaskAND;
+ 292   3          }
+ 293   2      
+ 294   2          P1_IRQ_EN |= u8MaskOR;
+ 295   2      
+ 296   2          HAL_GpioIntModeSet(1, u8Priority);    
+ 297   2        }
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 6   
+
+ 298   1        else
+ 299   1        {
+ 300   2          P1_IRQ_EN &= u8MaskAND;
+ 301   2        }
+ 302   1      
+ 303   1        return RETURN_GPIOINT_SUCCESS;
+ 304   1      }
+ 305          
+ 306          #endif    // __MG2470_GPIOINT1_INCLUDE__
+ 307          
+ 308          
+ 309          
+ 310          
+ 311          
+ 312          
+ 313          
+ 314          
+ 315          
+ 316          #ifdef __MG2470_GPIOINT3_INCLUDE__
+ 317          
+ 318          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 319          /// 
+ 320          ///   Global variable which indicates whether GPIO interrupt of GPIO3 is generated.
+ 321          /// When GPIO interrupt of GPIO3 is generated, the flag is set to this.
+ 322          /// And after processing the interrupt, it should be cleared.
+ 323          /// 
+ 324          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 325          UINT8 gu8GpioInt3Flag = 0x00;
+ 326          
+ 327          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 328          /// 
+ 329          ///   Sets clock for GPIO Interrupt of GPIO3.
+ 330          ///
+ 331          /// @param  u8On  : 0=Off, 1=On
+ 332          /// @return void
+ 333          /// 
+ 334          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 335          void HAL_GpioInt3ClockOn(UINT8 u8On)
+ 336          {
+ 337   1        if(u8On)
+ 338   1        {
+ 339   2          GPIOINT3_CLK_ON;
+ 340   2        }
+ 341   1        else
+ 342   1        {
+ 343   2          GPIOINT3_CLK_OFF;
+ 344   2        }
+ 345   1      }
+ 346          
+ 347          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 348          /// 
+ 349          ///   Sets GPIO3 port to be used for GPIO Interrupt.
+ 350          /// Additionally, it specifies the priority and triggering type of the interrupt.
+ 351          /// When an interrupt is generated, GPIO_ISR() is called and P3_IRQ_STS specifies which GPIO causes the in
+             -terrupt.
+ 352          /// \n  When this is called with "u8IntEna=1", EIE[2] is also set to enable GPIO Interrupt. 
+ 353          ///   In other words, Calling HAL_GpioIntModeSet() is not needed.
+ 354          /// \n  But if this is called with "u8IneEna=0", EIE[2] is not cleared. Because, another ports are still us
+             -ed
+ 355          ///   for GPIO Interrupt.
+ 356          ///
+ 357          /// @param  u8Port    : 0~1, 4~7=Port Number, 0xA=All Ports except P3.2 and P3.3
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 7   
+
+ 358          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+ 359          /// @param  u8Priority    : Priority of Interrupt. 0=Low, 1=High.
+ 360          /// @param  u8TrigType  : Triggering type of GPIO Interrupt.
+ 361          ///               \n 0=Low level.
+ 362          ///             \n 1=Falling edge.
+ 363          ///             \n 2=High level.
+ 364          ///             \n 3=Rising edge.
+ 365          /// @return UINT8. Status.
+ 366          /// @note To control EIE[2] independently, use HAL_GpioIntModeSet().
+ 367          /// 
+ 368          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 369          UINT8 HAL_GpioInt3Set(UINT8 u8Port, UINT8 u8IntEna, UINT8 u8Priority, UINT8 u8TrigType)
+ 370          {
+ 371   1        UINT8 u8MaskOR;
+ 372   1        UINT8 u8MaskAND;
+ 373   1        UINT8 u8Status;
+ 374   1      
+ 375   1        if(GPIOINT3_CLK_STATE == 0)
+ 376   1        {
+ 377   2          assert_error(GPIOINT_CODE | RETURN_GPIOINT3_CLOCK_OFF);
+ 378   2          return RETURN_GPIOINT3_CLOCK_OFF;
+ 379   2        }
+ 380   1      
+ 381   1        if(u8TrigType > 3)
+ 382   1        {   
+ 383   2          assert_error(GPIOINT_CODE | RETURN_GPIOINT3_INVALID_TRIG_TYPE);
+ 384   2          return RETURN_GPIOINT3_INVALID_TRIG_TYPE;
+ 385   2        }
+ 386   1      
+ 387   1        u8Status = RETURN_GPIOINT_SUCCESS;
+ 388   1        switch(u8Port)
+ 389   1        {
+ 390   2          case 0x0  : u8MaskOR = BIT0;  u8MaskAND = ~BIT0;  break;
+ 391   2          case 0x1  : u8MaskOR = BIT1;  u8MaskAND = ~BIT1;  break;
+ 392   2          //case 0x2  : 
+ 393   2          //case 0x3  : 
+ 394   2          case 0x4  : u8MaskOR = BIT4;  u8MaskAND = ~BIT4;  break;
+ 395   2          case 0x5  : u8MaskOR = BIT5;  u8MaskAND = ~BIT5;  break;
+ 396   2          case 0x6  : u8MaskOR = BIT6;  u8MaskAND = ~BIT6;  break;
+ 397   2          case 0x7  : u8MaskOR = BIT7;  u8MaskAND = ~BIT7;  break;
+ 398   2          case 0xA  : u8MaskOR = 0xFF;  u8MaskAND = ~0xFF;  break;
+ 399   2          default : u8Status = RETURN_GPIOINT3_INVALID_PORT;  break;
+ 400   2        }
+ 401   1      
+ 402   1        if(u8Status)
+ 403   1        {
+ 404   2          assert_error(GPIOINT_CODE | u8Status);
+ 405   2          return u8Status;
+ 406   2        } 
+ 407   1      
+ 408   1        if(u8IntEna)
+ 409   1        {
+ 410   2          if(u8TrigType & BIT1)     // TrigType = 2 or 3
+ 411   2          {
+ 412   3            P3_POL |= u8MaskOR;
+ 413   3          }
+ 414   2          else              // TrigType = 0 or 1
+ 415   2          {
+ 416   3            P3_POL &= u8MaskAND;
+ 417   3          }
+ 418   2      
+ 419   2          if(u8TrigType & BIT0)     // TrigType = 1 or 3. Edge
+C51 COMPILER V9.53.0.0   GPIOINT                                                           01/28/2020 11:28:53 PAGE 8   
+
+ 420   2          {
+ 421   3            P3_EDGE |= u8MaskOR;
+ 422   3          }
+ 423   2          else              // TrigType = 0 or 2. Level
+ 424   2          {
+ 425   3            P3_EDGE &= u8MaskAND;
+ 426   3          }
+ 427   2      
+ 428   2          P3_IRQ_EN |= u8MaskOR;
+ 429   2      
+ 430   2          HAL_GpioIntModeSet(1, u8Priority);    
+ 431   2        }
+ 432   1        else
+ 433   1        {
+ 434   2          P3_IRQ_EN &= u8MaskAND;
+ 435   2        }
+ 436   1      
+ 437   1        return RETURN_GPIOINT_SUCCESS;
+ 438   1      }
+ 439          
+ 440          #endif    // __MG2470_GPIOINT3_INCLUDE__
+ 441          
+ 442          
+ 443          
+ 444          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    577    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      3      12
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

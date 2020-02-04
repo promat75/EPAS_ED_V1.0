@@ -1,0 +1,756 @@
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE IB_UART
+OBJECT MODULE PLACED IN .\HEX\ib_uart.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Sample\EVB\ib_uart.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inc
+                    -lude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ib_u
+                    -art.lst) TABS(2) OBJECT(.\HEX\ib_uart.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2011.
+   5            - Date    : 2016-10-10
+   6            - Version   : V2.6
+   7          
+   8            - File      : ib_uart.c
+   9          *******************************************************************************/
+  10          
+  11          #include <stdlib.h>
+  12          
+  13          #include "ib_main_sen.h"
+  14          #include "ib_uart.h"
+  15          
+  16          
+  17          tSerialMessageFormat    gtHost2RF4CEIn;   //Uart In
+  18          //tSerialMessageFormat    gtRF4CE2HostOut;  //Uart Out
+  19          
+  20          float Current_Cal=0;
+  21          char strTmp[256];
+  22          
+  23          UINT8 Sensor_Mode=0;
+  24          
+  25          UINT8 CurCal_DataBuff[512]={0};
+  26          UINT8 SRCID_DataBuff[512]={0};
+  27          
+  28          UINT32 Calcul_X=267;
+  29          
+  30          //2 --- Interface-------
+  31          void ZAPP_CommandInterface(void)    //2----Main call----
+  32          {
+  33   1        UINT8 u8SysCommand;
+  34   1        UINT16  iw;
+  35   1        UINT8*  u8Ptr;
+  36   1        
+  37   1        
+  38   1        
+  39   1        // ???????
+  40   1        //  ZAPP_HostUartParser() ¿¡¼­ ÇÁ·ÎÅäÄÝÀÌ Áß°£¿¡ ±ú¾îÁö°Å³ª ÀüÃ¼°¡ ´Ù µé¾î¿ÀÁö ¸øÇßÀ»¶§ µ¿ÀÛ È®ÀÎ ???
+  41   1        // !!!!!!!!!!!
+  42   1        
+  43   1        if(ZAPP_HostUartParser())
+  44   1        {
+  45   2          u8SysCommand = gtHost2RF4CEIn.u8MessageBody[0];
+  46   2          switch(u8SysCommand)
+  47   2          {
+  48   3            //---------------------------------------------------------------------------
+  49   3            // test command
+  50   3            case 0x00 :
+  51   3              // DATA ---- u8MessageBody[1] ~
+  52   3              // FF AC 04 00 3E 02 00 EF 0D 0A : 03(length) 00(cmd:body[0] 3E(body[1])
+  53   3              // FF AC 02 00 01 AE 0D 0A  => works OK
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 2   
+
+  54   3              //zPrintf(1, "\n cs v1 read temp");
+  55   3                
+  56   3              for (iw=1; iw < gtHost2RF4CEIn.u8MessageBodySize; iw++) {
+  57   4                SYS_Uart0Put(gtHost2RF4CEIn.u8MessageBody[iw]);
+  58   4                //AppLib_Delay(3);  // ms delay
+  59   4      
+  60   4                SYS_Uart1Put(gtHost2RF4CEIn.u8MessageBody[iw]);
+  61   4                SYS_Uart1Put('\n');
+  62   4      
+  63   4              } 
+  64   3      
+  65   3      
+  66   3              break;        
+  67   3            //---------------------------------------------------------------------------
+  68   3            
+  69   3            case GET_COMMAND_ID_1:
+  70   3              // DATA ---- u8MessageBody[1] ~
+  71   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x01)
+  72   3              {
+  73   4                SYS_Uart1Put(0xBB);         
+  74   4              }
+  75   3              else if(gtHost2RF4CEIn.u8MessageBody[1]==0x02)
+  76   3              {
+  77   4                SYS_Uart1Put(0xBC);         
+  78   4              }       
+  79   3              else if(gtHost2RF4CEIn.u8MessageBody[1]==0x03)//FF AC 02 01 03 B1 0D 0A
+  80   3              {
+  81   4                zPrintf(1, "\n >> HELP");
+  82   4                zPrintf(1, "\n #########################################");
+  83   4                zPrintf(1, "\n End Device : FF AC 02(Len) ~");
+  84   4                zPrintf(1, "\n #########################################");
+  85   4                zPrintf(1, "\n 01 03               : HELP\n");
+  86   4                zPrintf(1, "\n 03 00              : ID Flash Read");      // Flash Read : FF AC 02 03 00 B0 0D 0A
+  87   4                zPrintf(1, "\n 04 00              : ID Flash Erase");     // Flash Erase : FF AC 02 04 00 B0 0D 0A
+  88   4                zPrintf(1, "\n 05 00              : Syetem Reset");     // SYSTEM RESET : FF AC 02 05 00 B2 0D 0A
+  89   4                zPrintf(1, "\n");
+  90   4                
+  91   4                zPrintf(1, "\n A2 ID              : Sensor Manual Pairing" ); // pairing : FF AC 02 A2 [01] 50 0D 0A
+  92   4                
+  93   4                zPrintf(1, "\n B0 [00,01,02] : SENSOR UART [STOP, ASCII, HEX]");
+  94   4                zPrintf(1, "\n");
+  95   4                
+  96   4                zPrintf(1, "\n C2 [d0 ... d8] : Set Option ");        //FF AC 0A C2 d0 d1 d2 d3 d4 d5 d6 d7 d8 00 0D 0A  
+             -(d4 d5 d6 d7 MSB first)
+  97   4                zPrintf(1, "\n  - d0: option bit [b6:No DIP sw, b7;Use option value]");     
+  98   4                zPrintf(1, "\n  - d1: PID_CH, d2:tx time, d3:sl time, d4-7:op1,op2, d8:rsv");     
+  99   4                
+ 100   4                //zPrintf(1, "\n                          d4-5: op1, d6-7: op2,  d8: rsv");           
+ 101   4                zPrintf(1, "\n C3 [sec]           : Change TX Time : sec");   // FF AC 02 C3 msg1 00 0D 0A        
+ 102   4                // Thermistor adc offset : u16Option1 ¿¡ °ªÀ» ÀúÀå 
+ 103   4                zPrintf(1, "\n C4 d0 d2        : Set Offset");        //FF AC 03 C4 d0 d1 00 0D 0A  : MSB first   
+ 104   4                // Zener ADC start and revcovery value 
+ 105   4                zPrintf(1, "\n C5 00         : Get current Zener ADC value"); //FF AC 02 C5 00 00 0D 0A   
+ 106   4                // Zener ADC start and revcovery value 
+ 107   4                zPrintf(1, "\n C6 d0 d1        : Set Zener ADC Start/Recovery");  //FF AC 03 C6 d0(start ADC) d1(Recov
+             -ery ADC) 00 0D 0A   
+ 108   4                      
+ 109   4                zPrintf(1, "\n");         
+ 110   4                zPrintf(1, "\n #########################################");   
+ 111   4                
+ 112   4                
+ 113   4                u8AppRFSq = SQ_RF_TX_INIT;  // ¾à°£ÀÇ delay ¸¦ À§ÇØ 
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 3   
+
+ 114   4              }       
+ 115   3              break;        
+ 116   3            case GET_COMMAND_ID_2:      // Flash Write(No Pair) : FF AC 02 02 00 AF 0D 0A //FF AC 02 02 01 B0 0D 0A
+ 117   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00)
+ 118   3              {
+ 119   4              }
+ 120   3              else
+ 121   3              {
+ 122   4                zPrintf(1, "\n >> ----- ID Flash Write(No Pair) ----- ");
+ 123   4                zPrintf(1, "\n");
+ 124   4              
+ 125   4                //PairTable_Init();
+ 126   4                //ZUSER_PIB_SAVE();
+ 127   4                //Set_PIB_SRCID(gtHost2RF4CEIn.u8MessageBody[1], 0x00); // 0x00 : no join mode
+ 128   4                gtPIB.PairInfo.SrcID = gtHost2RF4CEIn.u8MessageBody[1];
+ 129   4                
+ 130   4              #if 0 
+                        SRCID_DataBuff[0] = gtHost2RF4CEIn.u8MessageBody[1];
+                        SRCID_DataBuff[1] = 0x00;   // SRCID Info : No Pair
+                        HAL_FlashWriteUnprotected();
+                        HAL_FlashPageWrite(CODE_ADDRESS_USER0, SRCID_DataBuff, 0);
+                        HAL_FlashWriteProtected();
+                        AppLib_Delay(10);
+                        AppLib_Delay(10);
+                        SYS_WdtReset(0);                    
+                      #endif
+ 140   4                
+ 141   4              } 
+ 142   3              //SYS_Uart1Put(0xDE);
+ 143   3              break;        
+ 144   3            
+ 145   3            case GET_COMMAND_ID_3: // Flash Read : FF AC 02 03 00 B0 0D 0A
+ 146   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00)
+ 147   3              {
+ 148   4                zPrintf(1, "\n >> ----- ID Flash Read ----- ");
+ 149   4                zPrintf(1, "\n");
+ 150   4                
+ 151   4                   //IR Flash read 1byte
+ 152   4                    HAL_FlashRead(CODE_ADDRESS_USER0, SRCID_DataBuff, 2); //0x1600
+ 153   4                zPrintf(1, ">> Flash Read SRC ID & INFO = 0x%02x(%02x) ",
+ 154   4                (short)(SRCID_DataBuff[0]),(short)(SRCID_DataBuff[1]));
+ 155   4                zPrintf(1, "\n");
+ 156   4              } 
+ 157   3              
+ 158   3              break;        
+ 159   3            case GET_COMMAND_ID_4: // Flash Erase : FF AC 02 04 00 B1 0D 0A
+ 160   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00)
+ 161   3              {
+ 162   4                HAL_FlashWriteUnprotected();
+ 163   4                SRCID_DataBuff[0]=0xFF;
+ 164   4                SRCID_DataBuff[1]=0xFF;
+ 165   4                HAL_FlashPageWrite(CODE_ADDRESS_USER0, SRCID_DataBuff, 0);
+ 166   4                HAL_FlashWriteProtected();
+ 167   4                xRTINT1=0;
+ 168   4                AppLib_Delay(10);
+ 169   4                SYS_WdtReset(0);
+ 170   4              }       
+ 171   3              break;              
+ 172   3            case GET_COMMAND_ID_5: // SYSTEM RESET : FF AC 02 05 00 B2 0D 0A
+ 173   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00)
+ 174   3              {
+ 175   4                zPrintf(1, "\n >> ----- SYSTEM RESET ----- ");
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 4   
+
+ 176   4                zPrintf(1, "\n");
+ 177   4                AppLib_Delay(10);     
+ 178   4                SYS_WdtReset(0);
+ 179   4              } 
+ 180   3              break;  
+ 181   3            case GET_COMMAND_ID_6: // PER TEST : FF AC 02 06 00 B3 0D 0A
+ 182   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00)
+ 183   3              {
+ 184   4                zPrintf(1, "\n >> ----- PER TEST ----- ");
+ 185   4                zPrintf(1, "\n");
+ 186   4                AppLib_Delay(10);     
+ 187   4                
+ 188   4                //PER Test Start Response
+ 189   4                SYS_Uart1Put(0xFF);//STX1
+ 190   4                SYS_Uart1Put(0xCA);//STX2
+ 191   4                SYS_Uart1Put(0x02);//Length
+ 192   4                SYS_Uart1Put(0x02);//CMD1
+ 193   4                SYS_Uart1Put(0x03);//CMD2
+ 194   4                SYS_Uart1Put(0xD0);//CheckSum
+ 195   4                SYS_Uart1Put(0x0D);//ETX1
+ 196   4                SYS_Uart1Put(0x0A);//EXT2       
+ 197   4      
+ 198   4                u8AppRFSq = SQ_RF_TX_PER;   //SQ_RF_Status=1; // NoJoin(Destination) Mode               
+ 199   4                u16RfPacketCount=0;
+ 200   4                RED_LED = LED_ON;   //RED  LED ON         
+ 201   4              } 
+ 202   3              break;  
+ 203   3                      
+ 204   3            case GET_COMMAND_ID_A0: // SCALEFACTOR : FF AC 02 A0 00 4D 0D 0A
+ 205   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00)//FF AC 02 A0 00 4D 0D 0A
+ 206   3              {       
+ 207   4                zPrintf(1, "\n >> ----- SCALEFACTOR Flash Write ----- ");
+ 208   4                zPrintf(1, "\n");
+ 209   4                AccelerationSensor_ScalBuff[0]=AccelerationSensor_ScalData[1];            
+ 210   4                AccelerationSensor_ScalBuff[1]=AccelerationSensor_ScalData[3];            
+ 211   4                AccelerationSensor_ScalBuff[2]=AccelerationSensor_ScalData[5];          
+ 212   4                HAL_FlashWriteUnprotected();
+ 213   4                HAL_FlashPageWrite(CODE_ADDRESS_USER1, AccelerationSensor_ScalBuff, 0);
+ 214   4                HAL_FlashWriteProtected();
+ 215   4                AppLib_Delay(10);         
+ 216   4                AppLib_Delay(10);     
+ 217   4                SYS_WdtReset(0);
+ 218   4              }
+ 219   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x01)//FF AC 02 A0 01 4E 0D 0A
+ 220   3              {
+ 221   4                zPrintf(1, "\n >> ----- SCALEFACTOR Flash Read ----- ");
+ 222   4                zPrintf(1, "\n");       
+ 223   4                    HAL_FlashRead(CODE_ADDRESS_USER1, AccelerationSensor_ScalBuff, 511); //0x1400 
+ 224   4                zPrintf(1, ">> SCALEFACTOR Flash Read X=0x%02x Y=0x%02x Z=0x%02x ",
+ 225   4                (short)(AccelerationSensor_ScalBuff[0]),(short)(AccelerationSensor_ScalBuff[1]),
+ 226   4                (short)(AccelerationSensor_ScalBuff[2]));
+ 227   4      
+ 228   4                    AccelerationSensor_getData[1]=AccelerationSensor_ScalBuff[0];
+ 229   4                  AccelerationSensor_getData[3]=AccelerationSensor_ScalBuff[1];
+ 230   4                    AccelerationSensor_getData[5]=AccelerationSensor_ScalBuff[2];
+ 231   4                    Accelero_OUTPUT_DATA();     
+ 232   4                    OutData(AX_data*18);//X 
+ 233   4                    OutData(AY_data*18);//Y
+ 234   4                    OutData(AZ_data*18);//Z
+ 235   4              }
+ 236   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x02)//FF AC 02 A0 02 4F 0D 0A
+ 237   3              {
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 5   
+
+ 238   4                for(iw = 0 ; iw < 511 ; iw++)
+ 239   4                {           
+ 240   5                  AccelerationSensor_ScalBuff[iw]=0xFF;
+ 241   5                }
+ 242   4                
+ 243   4                HAL_FlashWriteUnprotected();
+ 244   4                HAL_FlashPageWrite(CODE_ADDRESS_USER1, AccelerationSensor_ScalBuff, 0);
+ 245   4                HAL_FlashWriteProtected();
+ 246   4                xRTINT1=1;
+ 247   4                AppLib_Delay(10);
+ 248   4                zPrintf(1, "\n >> ----- SCALEFACTOR Flash Erase ----- ");
+ 249   4                zPrintf(1, "\n");
+ 250   4                AppLib_Delay(10);         
+ 251   4                SYS_WdtReset(0);
+ 252   4                                        
+ 253   4              }                 
+ 254   3              break;  
+ 255   3      
+ 256   3            //--------------------------------------------------------------------------- 
+ 257   3            // ¼¾¼­ ID¸¦ ¼öµ¿ ÇÒ´ç ÇÏ¿© »óÀ§¿Í Æä¾î¸µ ÁøÇà ¸í·É
+ 258   3            //--------------------------------------------------------------------------- 
+ 259   3            case GET_COMMAND_ID_A2:      // Flash Write(Pair) : FF AC 02 A2 00 4F 0D 0A //FF AC 02 A2 01 50 0D 0A
+ 260   3              if((gtHost2RF4CEIn.u8MessageBody[1]==0x00)||(gtHost2RF4CEIn.u8MessageBody[1]>MAX_END_DEVICE))
+ 261   3              {
+ 262   4                zPrintf(1, "\n SRCID Fail(1 ~ %02d) = %02d !",(short)MAX_END_DEVICE, (short)gtHost2RF4CEIn.u8MessageB
+             -ody[1]);    
+ 263   4              }
+ 264   3              else
+ 265   3              {                 
+ 266   4                zPrintf(1, "\n >> ----- ID Flash Write(Pair) ----- ");
+ 267   4                // set Sensor ID           
+ 268   4                gtPIB.PairInfo.SrcID = gtHost2RF4CEIn.u8MessageBody[1];
+ 269   4      
+ 270   4                Pairing_Init();
+ 271   4                // button pairing °ú ±¸ºÐ
+ 272   4                u8AutoPairSrcID = 0;
+ 273   4                //u8Task_pairing = PAIRING_SEND;    
+ 274   4                u8AppRFSq = SQ_PAIR_WAIT_ST;      
+ 275   4              }
+ 276   3              break;        
+ 277   3            //--------------------------------------------------------------------------- 
+ 278   3      
+ 279   3            case GET_COMMAND_ID_B0: // SENSOR UART MODE
+ 280   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00) //FF AC 02 B0 00 5D 0D 0A
+ 281   3              {
+ 282   4                zPrintf(1, "\n >> ----- SENSOR UART MODE STOP----- ");
+ 283   4                zPrintf(1, "\n");
+ 284   4                u8AppRFSq = 0xAA; GP36 = 1; //BLUE LED OFF
+ 285   4              }
+ 286   3              else if(gtHost2RF4CEIn.u8MessageBody[1]==0x01)  //FF AC 02 B0 01 5E 0D 0A
+ 287   3              {
+ 288   4                zPrintf(1, "\n >> ----- SENSOR UART(ASCII) MODE START----- ");
+ 289   4                zPrintf(1, "\n");
+ 290   4                u8AppRFSq = SQ_RF_TX_INIT; //SQ_RF_Status=1;    // NoJoin(Destination) Mode
+ 291   4                Sensor_Mode=1;
+ 292   4                //Cycle_Flag=1;
+ 293   4              }         
+ 294   3              else if(gtHost2RF4CEIn.u8MessageBody[1]==0x02)  //FF AC 02 B0 02 5F 0D 0A
+ 295   3              {
+ 296   4                zPrintf(1, "\n >> ----- SENSOR UART(HEX) MODE START----- ");
+ 297   4                zPrintf(1, "\n");
+ 298   4                u8AppRFSq = SQ_RF_TX_INIT; //SQ_RF_Status=1; // NoJoin(Destination) Mode
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 6   
+
+ 299   4                Sensor_Mode=2;
+ 300   4                //Cycle_Flag=1;
+ 301   4              } 
+ 302   3                      
+ 303   3              break;  
+ 304   3      
+ 305   3            case GET_COMMAND_ID_C0: // CURRENT CAL MODE 
+ 306   3              //FF AC 12 C0 01 11 00 22 33 44 55 66 77 88 99 AA BB CC DD EE FF 76 0D 0A  
+ 307   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x01)
+ 308   3              {
+ 309   4              
+ 310   4                HAL_FlashRead(CODE_ADDRESS_USER2, CurCal_DataBuff, 511);
+ 311   4                
+ 312   4                for(iw = 0 ; iw < 16 ; iw++)
+ 313   4                {           
+ 314   5                  CurCal_DataBuff[iw]=gtHost2RF4CEIn.u8MessageBody[iw+2];
+ 315   5                }
+ 316   4                ////Check sum data 1byte
+ 317   4                CurCal_DataBuff[16]=0; 
+ 318   4                for(iw=0;iw<16;iw++)
+ 319   4                {
+ 320   5                  CurCal_DataBuff[16] += CurCal_DataBuff[iw];
+ 321   5                } 
+ 322   4                
+ 323   4                
+ 324   4                HAL_FlashWriteUnprotected();
+ 325   4                HAL_FlashPageWrite(CODE_ADDRESS_USER2, CurCal_DataBuff, 0);
+ 326   4                HAL_FlashWriteProtected();      
+ 327   4                
+ 328   4                zPrintf(1, "\n >> ----- CURRENT CAL DATA Flash Write ----- ");
+ 329   4                zPrintf(1, "\n"); 
+ 330   4                AppLib_Delay(10);
+ 331   4                AppLib_Delay(10);
+ 332   4                SYS_WdtReset(0);                  
+ 333   4              } 
+ 334   3              break;  
+ 335   3            case GET_COMMAND_ID_C1: // CURRENT CAL READ
+ 336   3              //FF AC 12 C1 00 FF 11 22 33 44 55 66 77 88 99 AA BB CC DD EE 00 76 0D 0A
+ 337   3              if(gtHost2RF4CEIn.u8MessageBody[1]==0x00)//FF AC 02 C1 00 6E 0D 0A
+ 338   3              {       
+ 339   4                HAL_FlashRead(CODE_ADDRESS_USER2, CurCal_DataBuff, 511);  
+ 340   4                zPrintf(1, "\n >> ----- CURRENT CAL DATA Flash Read ----- ");     
+ 341   4                zPrintf(1,"\n");
+ 342   4                
+ 343   4                for(iw = 0 ; iw < 511 ; iw++)
+ 344   4                { 
+ 345   5                  zPrintf(1," %02x",(short)CurCal_DataBuff[iw]);
+ 346   5                }
+ 347   4              }
+ 348   3              else if(gtHost2RF4CEIn.u8MessageBody[1]==0x01)//FF AC 02 C1 01 6F 0D 0A 
+ 349   3              {
+ 350   4                for(iw = 0 ; iw < 511 ; iw++)
+ 351   4                { 
+ 352   5                  CurCal_DataBuff[iw]=0xFF;
+ 353   5                }       
+ 354   4                HAL_FlashWriteUnprotected();
+ 355   4                HAL_FlashPageWrite(CODE_ADDRESS_USER2, CurCal_DataBuff, 0);
+ 356   4                HAL_FlashWriteProtected();
+ 357   4                zPrintf(1,"\n >> DATA Flash Erase");
+ 358   4                AppLib_Delay(10);     
+ 359   4                SYS_WdtReset(0);          
+ 360   4              }
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 7   
+
+ 361   3              else if(gtHost2RF4CEIn.u8MessageBody[1]==0x02)//FF AC 02 C1 02 70 0D 0A 
+ 362   3              {
+ 363   4      
+ 364   4                Test_int32= 0xc1072928;
+ 365   4                Test_uint32= 0xc1072928;
+ 366   4                zPrintf(1,"\n");
+ 367   4                zPrintf(1," >> %f",*((float*)&Test_int32));
+ 368   4                
+ 369   4                zPrintf(1,"\n");
+ 370   4                zPrintf(1," >> %f",*((float*)&Test_uint32));
+ 371   4                Current_Cal = *((float*)&Test_int32);
+ 372   4                zPrintf(1," >> %f ",(float)Current_Cal);
+ 373   4              }                             
+ 374   3              else if(gtHost2RF4CEIn.u8MessageBody[1]==0x03)//FF AC 02 C1 03 71 0D 0A 
+ 375   3              {
+ 376   4      
+ 377   4                HAL_FlashRead(CODE_ADDRESS_USER2, CurCal_DataBuff, 511);
+ 378   4                zPrintf(1, "\n >> ----- CURRENT CAL DATA Flash Read ----- ");     
+ 379   4                zPrintf(1,"\n");
+ 380   4                
+ 381   4                for(iw = 0 ; iw < 511 ; iw++)
+ 382   4                { 
+ 383   5                  zPrintf(1," %02x",(short)CurCal_DataBuff[iw]);
+ 384   5                }
+ 385   4                memcpy(&Test_int32, &CurCal_DataBuff, 4);
+ 386   4                Inver_A = *((float*)&Test_int32);
+ 387   4                
+ 388   4                memcpy(&Test_int32, &CurCal_DataBuff[4], 4);
+ 389   4                Inver_B = *((float*)&Test_int32);
+ 390   4                
+ 391   4                memcpy(&Test_int32, &CurCal_DataBuff[8], 4);
+ 392   4                Inver_C = *((float*)&Test_int32);
+ 393   4      
+ 394   4                memcpy(&Test_int32, &CurCal_DataBuff[12], 4);
+ 395   4                Inver_D = *((float*)&Test_int32);
+ 396   4          
+ 397   4                
+ 398   4                zPrintf(1,"\n");
+ 399   4                zPrintf(1," >> %f",Inver_A);          
+ 400   4                zPrintf(1,"\n");
+ 401   4                zPrintf(1," >> %f",Inver_B);          
+ 402   4                zPrintf(1,"\n");
+ 403   4                zPrintf(1," >> %f",Inver_C);          
+ 404   4                zPrintf(1,"\n");
+ 405   4                zPrintf(1," >> %f",Inver_D);
+ 406   4                
+ 407   4                Current_Val=(Inver_A*(Calcul_X*Calcul_X*Calcul_X))+
+ 408   4                        (Inver_B*(Calcul_X*Calcul_X))+
+ 409   4                        (Inver_C*Calcul_X)+
+ 410   4                        Inver_D;
+ 411   4                
+ 412   4                Test_uint16=(UINT16)(Current_Val*100);
+ 413   4                
+ 414   4                zPrintf(1,"\n");
+ 415   4                zPrintf(1," >> %f",Current_Val);          
+ 416   4                zPrintf(1,"\n");
+ 417   4                zPrintf(1," >> %d",(short)Test_uint16);         
+ 418   4                                          
+ 419   4              }
+ 420   3              break;  
+ 421   3                
+ 422   3            case GET_COMMAND_ID_C2:   //  set option  : 0 ÀÌ¸é ±âÁ¸°ªÀ» ±×´ë·Î ÀúÀå, °ªÀÌ ÀÖ´Â ¹ÙÀÌÆ®¸¸ º¯°æ ÀúÀå 
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 8   
+
+ 423   3              //FF AC 0A C2 d0 d1 d2 d3 d4 d5 d6 d7 d8 00 0D 0A   
+ 424   3              // d0 : u8ProductMode,  d1 : u8Pid_Chan , d2 : u8Option3(tx time), d3 : u8Option4(sleep time),   
+ 425   3              // d4-5 : u16Option1, d6-7 :  u16Option2, d8 : reserved (0x00)   -   MSB first   
+ 426   3              u8Ptr = &gtPIB.Option.u8ProductMode;
+ 427   3              for (iw=0; iw < 5; iw++) {
+ 428   4                if(gtHost2RF4CEIn.u8MessageBody[1+ iw] != 0) {  
+ 429   5                  *u8Ptr =  gtHost2RF4CEIn.u8MessageBody[1+iw];
+ 430   5                }
+ 431   4                
+ 432   4                u8Ptr++;
+ 433   4              }
+ 434   3              
+ 435   3              iw = (UINT16)gtHost2RF4CEIn.u8MessageBody[5] << 8 | gtHost2RF4CEIn.u8MessageBody[6];
+ 436   3              if(iw != 0)   gtPIB.Option.u16Option1 = iw;
+ 437   3      
+ 438   3              iw = (UINT16)gtHost2RF4CEIn.u8MessageBody[7] << 8 | gtHost2RF4CEIn.u8MessageBody[8];
+ 439   3              if(iw != 0)   gtPIB.Option.u16Option2 = iw;
+ 440   3              
+ 441   3              // d10 ÀÌ 0xff ÀÌ¸é flash ¿µ¿ªÀ» ÃÊ±âÈ­ ÇÏ´Â ¹æ¹ý : Æä¾î¸µÀ» »õ·Î ÇØ¾ßµÊ 
+ 442   3              // ÇØ´ç º¯¼ö¸¸ 0xff ³ª ±âÁ¸ °ªÀ¸·Î ÃÊ±âÈ­ ÇÏ´Â ¹æ¹ý  : d2, d3 ´Â ±âÁ¸ °ªÀ¸·Î , d4 ; 0xff ·Î ÃÊ±âÈ­ ÇÏ¸
+             -éµÊ  
+ 443   3              SetOptionData();    // d4 = 0xff  : dip switch °ªÀ¸·Î ¼³Á¤À» ÀúÀå 
+ 444   3      
+ 445   3              zPrintf(1, " \n mode=%x   pid(7~4)_chan(3~0)=%x   opt3=%x  opt4=%x ", (short)gtPIB.Option.u8ProductMod
+             -e,  (short)gtPIB.Option.u8Pid_Chan, (short)gtPIB.Option.u8Option3, (short)gtPIB.Option.u8Option4);  
+ 446   3              zPrintf(1, " \n u16opt1=%x   u16opt2=%x  \n", gtPIB.Option.u16Option1,  gtPIB.Option.u16Option2); 
+ 447   3      
+ 448   3              u8AppRFSq = SQ_RF_TX_INIT;  // ¾à°£ÀÇ delay ¸¦ À§ÇØ 
+ 449   3                          
+ 450   3              break;  
+ 451   3            
+ 452   3            case GET_COMMAND_ID_C3:   // change TX time period   : FF AC 02 C3 msg1 00 0D 0A
+ 453   3              if (gtHost2RF4CEIn.u8MessageBody[1] !=0) {
+ 454   4                if (Porduct_Mode & PM_SLEEP_MODE) {
+ 455   5                  u8_SLEEP_TIME = gtHost2RF4CEIn.u8MessageBody[1];
+ 456   5                  zPrintf(1, "\n >> ----- Changed  Sleep time  : %d", (short)u8_SLEEP_TIME);      
+ 457   5                }
+ 458   4                else  {
+ 459   5                  TxTimePeriod = gtHost2RF4CEIn.u8MessageBody[1];
+ 460   5                  zPrintf(1, "\n >> ----- Changed  TX time  : %d", (short)TxTimePeriod);      
+ 461   5                } 
+ 462   4              }
+ 463   3              else
+ 464   3                zPrintf(1, "\n >> ----- Change  TX time  vlaue Error ");      
+ 465   3                
+ 466   3              break;    
+ 467   3      
+ 468   3            case GET_COMMAND_ID_C4:   //  Set offset : ½á¹Ì½ºÅÍ adc offset ( 0xC2 option1 ÀÇ °ª¸¸ ´Üµ¶ ¼³Á¤ ÇÏ´Â ¸í·
+             -É  ) 
+ 469   3              //FF AC 03 C4 d0 d1 00 0D 0A   : MSB first   
+ 470   3              
+ 471   3              u16TempOffset = (UINT16)gtHost2RF4CEIn.u8MessageBody[1] << 8 | gtHost2RF4CEIn.u8MessageBody[2];
+ 472   3              gtPIB.Option.u16Option1 = u16TempOffset;      // 0 ÀÔ·Â °¡´É   
+ 473   3      
+ 474   3              SetOptionData();    
+ 475   3              zPrintf(1, " \n Set Temp Offset =%x \n", gtPIB.Option.u16Option1);  
+ 476   3      
+ 477   3              zPrintf(1, " \n Cal Temp Offset =%x \n", (short)(0x1745 + u16TempOffset) ); 
+ 478   3      
+ 479   3              u8AppRFSq = SQ_RF_TX_INIT;  // ¾à°£ÀÇ delay ¸¦ À§ÇØ 
+ 480   3                          
+ 481   3              break;  
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 9   
+
+ 482   3            case GET_COMMAND_ID_C5:   //  Get current zener ADC data : ÇöÀç ADC ¸ð´ÏÅÍ value
+ 483   3              //FF AC 02 C5 00 00 0D 0A   : wake up mode ·Î µ¿ÀÛ ÇÏ¹Ç·Î Àü·ù °ªÀÌ Æ²·ÁÁ®¼­ »ç¿ë ¸øÇÔ x
+ 484   3              
+ 485   3              zPrintf(1,">> Zener ADC  Value = 0x%x \n",  (short)u16ADC_OverCurrentValue);
+ 486   3                          
+ 487   3              break;  
+ 488   3              
+ 489   3            case GET_COMMAND_ID_C6:   //  Set zener adc start/recovery  data
+ 490   3              //FF AC 03 C6 d0(start ADC) d1(Recovery ADC) 00 0D 0A   :   start ADC > Recovery ADC
+ 491   3      
+ 492   3              if ((gtHost2RF4CEIn.u8MessageBody[1] !=0xFF) && (gtHost2RF4CEIn.u8MessageBody[2] !=0xFF)){
+ 493   4                if (gtHost2RF4CEIn.u8MessageBody[1] > gtHost2RF4CEIn.u8MessageBody[2]) {
+ 494   5                  u8StartZenorADC = gtHost2RF4CEIn.u8MessageBody[1];
+ 495   5                  u8RecoveryZenorADC = gtHost2RF4CEIn.u8MessageBody[2];
+ 496   5                  
+ 497   5                  CurCal_DataBuff[0] = u8StartZenorADC;
+ 498   5                  CurCal_DataBuff[1] = u8RecoveryZenorADC;
+ 499   5                    
+ 500   5                  HAL_FlashWriteUnprotected();
+ 501   5                  HAL_FlashPageWrite(CODE_ADDRESS_USER2,  CurCal_DataBuff, 0);
+ 502   5                  HAL_FlashWriteProtected();
+ 503   5                  AppLib_Delay(10);         
+ 504   5      
+ 505   5                  zPrintf(1," Zener ADC Start / Recovery Value : 0x%02x   0x%02x \n",  (short)u8StartZenorADC, (short)
+             -u8RecoveryZenorADC);
+ 506   5                } 
+ 507   4                else {
+ 508   5                  zPrintf(1," Data Error  !! :  Zener ADC Start Value> Recovery Value. \n");
+ 509   5                } 
+ 510   4              }
+ 511   3              else {
+ 512   4                CurCal_DataBuff[0] = 0xFF;
+ 513   4                CurCal_DataBuff[1] = 0xFF;
+ 514   4                  
+ 515   4                u8StartZenorADC = ADCV_OVER_CURR;
+ 516   4                u8RecoveryZenorADC = ADCV_RECV_CURR;
+ 517   4                  
+ 518   4                HAL_FlashWriteUnprotected();
+ 519   4                HAL_FlashPageWrite(CODE_ADDRESS_USER2,  CurCal_DataBuff, 0);
+ 520   4                HAL_FlashWriteProtected();
+ 521   4                
+ 522   4                zPrintf(1," Flash initialized for  ADC Start / Recovery Value !! \n");
+ 523   4              } 
+ 524   3                            
+ 525   3              break;  
+ 526   3                  
+ 527   3          }
+ 528   2        }
+ 529   1      }
+ 530          
+ 531          
+ 532          UINT8 ZAPP_HostUartParser() //Host to Front Parser(Uart Parser)
+ 533          {
+ 534   1        static  UINT8 State = 0;
+ 535   1        static  UINT8 *pDst;
+ 536   1        static  UINT8 BufCnt;
+ 537   1        
+ 538   1        UINT8 u8KeyIn;
+ 539   1        UINT8 ParseOK;
+ 540   1      
+ 541   1        if(SYS_Uart1Get(&u8KeyIn) == 0)   
+ 542   1          return  0;
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 10  
+
+ 543   1      
+ 544   1        ParseOK = 0;
+ 545   1        
+ 546   1        switch(State)
+ 547   1        {
+ 548   2          case 0 :    //SYNC  
+ 549   2            gtHost2RF4CEIn.u8CheckSum = 0;    
+ 550   2            if(u8KeyIn == SYNC_BYTE)    //0xFF
+ 551   2            {
+ 552   3              State = 1;  //Sync. Byte
+ 553   3              gtHost2RF4CEIn.u8CheckSum += u8KeyIn;
+ 554   3            }
+ 555   2            break;
+ 556   2            
+ 557   2          case 1 :    //HEADER
+ 558   2            if(u8KeyIn == HEADER_PC_TO_ZIGBEE)    //0xAC
+ 559   2            {
+ 560   3              gtHost2RF4CEIn.u8MessageHeader = u8KeyIn;
+ 561   3              gtHost2RF4CEIn.u8CheckSum += u8KeyIn;
+ 562   3              // Header Parser
+ 563   3              State = 2;
+ 564   3            }
+ 565   2            else
+ 566   2            {
+ 567   3              State = 0;
+ 568   3            } 
+ 569   2            break;
+ 570   2            
+ 571   2          case 2 :
+ 572   2            gtHost2RF4CEIn.u8MessageBodySize = u8KeyIn;
+ 573   2            gtHost2RF4CEIn.u8CheckSum += u8KeyIn;
+ 574   2      
+ 575   2            pDst = (UINT8 *)&gtHost2RF4CEIn.u8MessageBody;
+ 576   2      
+ 577   2            BufCnt = 0;
+ 578   2            State = 3;
+ 579   2            break;
+ 580   2            
+ 581   2          case 3 :  
+ 582   2            *pDst = u8KeyIn;
+ 583   2            pDst++;
+ 584   2            gtHost2RF4CEIn.u8CheckSum += u8KeyIn;     
+ 585   2            BufCnt++;
+ 586   2            if(BufCnt == gtHost2RF4CEIn.u8MessageBodySize)
+ 587   2            {
+ 588   3              State = 4;
+ 589   3            }
+ 590   2            break;
+ 591   2            
+ 592   2          case 4:
+ 593   2            if( (u8KeyIn==0) || (u8KeyIn== gtHost2RF4CEIn.u8CheckSum) )
+ 594   2            {
+ 595   3              State = 5;
+ 596   3            }
+ 597   2            else  
+ 598   2            {
+ 599   3              State = 0;
+ 600   3            }
+ 601   2      
+ 602   2            break;
+ 603   2      
+ 604   2          case 5:
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 11  
+
+ 605   2            if(u8KeyIn== ZIGBEE_ETX1)
+ 606   2            {
+ 607   3              State = 6;
+ 608   3            }
+ 609   2            else  
+ 610   2            {
+ 611   3              State = 0;
+ 612   3            }
+ 613   2            break;
+ 614   2            
+ 615   2          case 6:
+ 616   2            if(u8KeyIn== ZIGBEE_ETX2)
+ 617   2            {
+ 618   3              ParseOK = 1;
+ 619   3            }
+ 620   2            else  
+ 621   2            {
+ 622   3      
+ 623   3            }
+ 624   2            State = 0;
+ 625   2            break;
+ 626   2                  
+ 627   2          default : 
+ 628   2            State = 0;
+ 629   2            break;  
+ 630   2        }
+ 631   1      
+ 632   1        return  ParseOK;
+ 633   1        
+ 634   1      }
+ 635          
+ 636          
+ 637          
+ 638          //----------------------------------------------------------------------------------------------
+ 639          // Àû¿Ü¼± ¼¾¼­ CS LT »ç¿ë½Ã
+ 640          #define CSLT_SYNC   0xAA
+ 641          
+ 642          // 
+ 643          UINT8 CSLT_State = 0;
+ 644          
+ 645          // AA AA xx xx xx xx : ¿Âµµ ¼¾¼­ µ¥ÀÌÅ¸°¡ 4¹ÙÀÌÆ®°¡ ¿Àµµ·Ï ¼³Á¤ ÇØ¾ßµÊ
+ 646          UINT8 ZAPP_HostUart0Parser(void)  //Host to Front Parser(Uart Parser)
+ 647          {
+ 648   1        UINT8 u8KeyIn;
+ 649   1        
+ 650   1        
+ 651   1        if(SYS_Uart0Get(&u8KeyIn) == 0)   
+ 652   1          return  0;
+ 653   1      
+ 654   1        //SYS_Uart1Put(u8KeyIn);
+ 655   1        
+ 656   1        switch (CSLT_State) {
+ 657   2          case 0 : 
+ 658   2            if ( u8KeyIn == CSLT_SYNC)
+ 659   2              CSLT_State = 1;
+ 660   2            break;
+ 661   2          case 1 : 
+ 662   2            if ( u8KeyIn == CSLT_SYNC)
+ 663   2              CSLT_State = 2;     // ¿¬¼Ó 2È¸ AA °¡ µé¾î ¿À¸é ±×´ÙÀ½ µ¥ÀÌÅ¸ ¹ÙÀÌÆ®
+ 664   2            else
+ 665   2              CSLT_State = 0; 
+ 666   2            break;
+C51 COMPILER V9.53.0.0   IB_UART                                                           01/28/2020 11:28:57 PAGE 12  
+
+ 667   2          case 2 : 
+ 668   2            i16ReadTemp = (INT16)u8KeyIn << 8;        // first high byte
+ 669   2            CSLT_State = 3; 
+ 670   2            break;
+ 671   2          case 3 : 
+ 672   2            i16ReadTemp |= u8KeyIn;   // second low byte  
+ 673   2            
+ 674   2            //ÇÏµ¿ 2È¸ Æò±Õ : AvgReadTempValue();
+ 675   2            // µ¿ÇØ : Æò±Õ ¹æ¹ý º¯°æ => Ç×»ó ´©Àû Æò±Õ(20È¸ : 1ÃÊ2¹ø read ÇÏ¹Ç·Î ¾à 10ÃÊ Á¤µµ ¼Ò¿ä)
+ 676   2            MovingAverage(i16ReadTemp, &gtTempAvg );
+ 677   2            u8TempSenErrCount = 0;      // ir sensor read error ¹ß»ýÀ» Ã¼Å© ÇÏ±â À§ÇÑ Ä«¿îÅÍ
+ 678   2            
+ 679   2            // 4,5 ¹øÂ° µ¥ÀÌÅ¸°¡ AA °¡ ¿Ã¼ö°¡ ÀÖ¾î ¸¶Áö¸· µ¥ÀÌÅ¸±îÁö ¼ö½Å ÇÏµµ·Ï Á¶Á¤ : AA AA ½ÌÅ©¸¦ ÇÑ¹ø Ã£À¸¸é ±×
+             -´ÙÀ½Àº Á¤»óÀûÀÎ ¼ö½ÅÀÌ °¡´É ??
+ 680   2            //CSLT_State = 0; 
+ 681   2            CSLT_State = 4; 
+ 682   2            break;
+ 683   2          case 4 : 
+ 684   2            CSLT_State = 5; 
+ 685   2            break;
+ 686   2          case 5 : 
+ 687   2            CSLT_State = 0; 
+ 688   2            break;
+ 689   2          default :
+ 690   2            CSLT_State = 0;     
+ 691   2            break;
+ 692   2        }   
+ 693   1        
+ 694   1        return 1;
+ 695   1        
+ 696   1      }
+ 697          
+ 698          
+ 699          
+ 700          
+ 701          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2976    ----
+   CONSTANT SIZE    =   1786    ----
+   XDATA SIZE       =   1371       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,241 @@
+C51 COMPILER V9.53.0.0   IRTX_NEC                                                          01/28/2020 11:28:56 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE IRTX_NEC
+OBJECT MODULE PLACED IN .\HEX\irtx_NEC.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\irtx_NEC.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\
+                    -Include\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\i
+                    -rtx_NEC.lst) TABS(2) OBJECT(.\HEX\irtx_NEC.obj)
+
+line level    source
+
+   1          /*******************************************************************************
+   2            - Chip    : MG2470B
+   3            - Vendor    : RadioPulse Inc, 2012.
+   4            - Date    : 2013-12-20
+   5            - Version   : V2.1
+   6          
+   7            [2013-12-20] V2.1
+   8            - HAL_IRTxNecTxData() : corrected.
+   9            - HAL_IRTxNecTxCont() : corrected.
+  10          
+  11            [2012-04-25] V2.0
+  12            - Initial Version
+  13          *******************************************************************************/
+  14          
+  15          #include "INCLUDE_MG2470.h"
+  16          #include "irtx_NEC.h"
+  17          
+  18          ///////////////////////////////////////////////////////////////////////////////////////////////
+  19          /// 
+  20          ///   Global variable which indicates whether IR-Tx interrupt is generated.
+  21          /// 
+  22          ///////////////////////////////////////////////////////////////////////////////////////////////
+  23          UINT8 gu8IRTxIntFlag = 0;
+  24          
+  25          
+  26          
+  27          
+  28          
+  29          
+  30          ///////////////////////////////////////////////////////////////////////////////////////////////
+  31          /// 
+  32          ///   Sets clock for IR-Tx.
+  33          ///
+  34          /// @param  u8On  : 0=Off, 1=On
+  35          /// @return void
+  36          /// 
+  37          ///////////////////////////////////////////////////////////////////////////////////////////////
+  38          void HAL_IRTxClockOn(UINT8 u8On)
+  39          {
+  40   1        if(u8On)
+  41   1        {
+  42   2          IRTX_CLK_ON;
+  43   2        }
+  44   1        else
+  45   1        {
+  46   2          IRTX_CLK_OFF;
+  47   2        }
+  48   1      }
+  49          
+  50          ///////////////////////////////////////////////////////////////////////////////////////////////
+  51          /// 
+  52          ///   Sets IR-Tx interrupt.
+  53          ///
+C51 COMPILER V9.53.0.0   IRTX_NEC                                                          01/28/2020 11:28:56 PAGE 2   
+
+  54          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+  55          /// @param  u8Priority    : Priority of interrupt. 0=Low, 1=High.
+  56          /// @param  u8CarrEna : Carrier Enable. 0=Disable, 1=Enable.
+  57          /// @param  u8CustomCode: Customer code
+  58          /// @return void
+  59          /// 
+  60          ///////////////////////////////////////////////////////////////////////////////////////////////
+  61          UINT8 HAL_IRTxNecIntSet(UINT8 u8IntEna, UINT8 u8Priority, UINT8 u8CarrEna, UINT8 u8CustomCode)
+  62          {
+  63   1        if(IRTX_CLK_STATE == 0)
+  64   1        {
+  65   2          assert_error(IRTX_NEC_ERROR_CODE | RETURN_IRTX_NEC_CLOCK_OFF);
+  66   2          return RETURN_IRTX_NEC_CLOCK_OFF;
+  67   2        }
+  68   1      
+  69   1        gu8IRTxIntFlag = 0;
+  70   1      
+  71   1        // carrier freq: xTCCNTx = 8.0e6/38.0e3 = 210.5263 = 0x00D3
+  72   1        xPPM_TCCNT1 = 0x01;
+  73   1        xPPM_TCCNT0 = 0xA5;
+  74   1      
+  75   1        // carrier duty: xHCCNTx = (1/3)*8.0e6/38.0e3 = 70.1754 = 0x0046
+  76   1        if (u8CarrEna)
+  77   1        {
+  78   2          xPPM_HCCNT1 = 0x00;
+  79   2          xPPM_HCCNT0 = 0x8C;
+  80   2        }
+  81   1        else
+  82   1        {
+  83   2          xPPM_HCCNT1 = xPPM_TCCNT1;
+  84   2          xPPM_HCCNT0 = xPPM_TCCNT0;
+  85   2        }
+  86   1      
+  87   1        // xPPM_T1CNT = 4.0 * xPPM_H1CNT = 4.0 * xPPM_H0CNT
+  88   1        xPPM_CDIV1 = 0x00;
+  89   1        xPPM_CDIV0 = 0x64;
+  90   1        xPPM_H0CNT = 0x5A;
+  91   1        xPPM_H1CNT = 0xB4;  
+  92   1        xPPM_T0CNT = 0xB4;
+  93   1        xPPM_T1CNT = 0x5A;
+  94   1      
+  95   1        xPPM_CCODE = u8CustomCode;
+  96   1        xPPM_CTL = 0x2F;
+  97   1      
+  98   1        if (u8Priority)
+  99   1        {
+ 100   2          EIP2 |=  BIT0;
+ 101   2        }
+ 102   1        else
+ 103   1        {
+ 104   2          EIP2 &= ~BIT0;
+ 105   2        }
+ 106   1      
+ 107   1        if (u8IntEna)
+ 108   1        {
+ 109   2          EIE2 |=  BIT0;
+ 110   2        }
+ 111   1        else
+ 112   1        {
+ 113   2          EIE2 &= ~BIT0;
+ 114   2        }
+ 115   1      
+C51 COMPILER V9.53.0.0   IRTX_NEC                                                          01/28/2020 11:28:56 PAGE 3   
+
+ 116   1        return  RETURN_IRTX_NEC_SUCCESS;
+ 117   1      }
+ 118          
+ 119          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 120          /// 
+ 121          ///   Sends an IR-Tx data.
+ 122          ///
+ 123          /// @param  u8DataCode  : Data code to send
+ 124          /// @return UINT8. Status
+ 125          /// 
+ 126          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 127          UINT8 HAL_IRTxNecTxData(UINT8 u8DataCode)
+ 128          {
+ 129   1        UINT16  iw;
+ 130   1        UINT8 u8Status;
+ 131   1      
+ 132   1        if(IRTX_CLK_STATE == 0)
+ 133   1        {
+ 134   2          assert_error(IRTX_NEC_ERROR_CODE | RETURN_IRTX_NEC_CLOCK_OFF);
+ 135   2          return RETURN_IRTX_NEC_CLOCK_OFF;   
+ 136   2        }
+ 137   1      
+ 138   1        xPPM_DCODE = u8DataCode;
+ 139   1      
+ 140   1        xPPM_POSST = 8;
+ 141   1        xPPM_POSSP = 41;
+ 142   1        EA = 0;
+ 143   1        xPPM_CTL |= BIT7;
+ 144   1        DPH = 0;
+ 145   1        EA = 1;
+ 146   1        gu8IRTxIntFlag = 0;
+ 147   1      
+ 148   1        u8Status = RETURN_IRTX_NEC_DATA_ERROR;
+ 149   1        for(iw=0 ; iw<30000 ; iw++)
+ 150   1        {
+ 151   2          if(gu8IRTxIntFlag)
+ 152   2          {
+ 153   3            u8Status = RETURN_IRTX_NEC_SUCCESS;
+ 154   3            break;
+ 155   3          }
+ 156   2        }
+ 157   1      
+ 158   1        if(u8Status)
+ 159   1        {
+ 160   2          assert_error(IRTX_NEC_ERROR_CODE | u8Status);
+ 161   2        } 
+ 162   1      
+ 163   1        return  u8Status;
+ 164   1      }
+ 165          
+ 166          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 167          /// 
+ 168          ///   
+ 169          ///
+ 170          /// @param  void
+ 171          /// @return UINT8. Status
+ 172          /// 
+ 173          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 174          UINT8 HAL_IRTxNecTxCont(void)
+ 175          {
+ 176   1        UINT16  iw;
+ 177   1        UINT8 u8Status;
+C51 COMPILER V9.53.0.0   IRTX_NEC                                                          01/28/2020 11:28:56 PAGE 4   
+
+ 178   1      
+ 179   1        if(IRTX_CLK_STATE == 0)
+ 180   1        {
+ 181   2          assert_error(IRTX_NEC_ERROR_CODE | RETURN_IRTX_NEC_CLOCK_OFF);
+ 182   2          return RETURN_IRTX_NEC_CLOCK_OFF;   
+ 183   2        }
+ 184   1      
+ 185   1        xPPM_POSST = 6;
+ 186   1        xPPM_POSSP = 7;
+ 187   1        EA = 0;
+ 188   1        xPPM_CTL |= BIT7;
+ 189   1        DPH = 0;
+ 190   1        EA = 1;
+ 191   1        gu8IRTxIntFlag = 0;
+ 192   1      
+ 193   1        u8Status = RETURN_IRTX_NEC_CONT_ERROR;
+ 194   1        for(iw=0 ; iw<30000 ; iw++)
+ 195   1        {
+ 196   2          if(gu8IRTxIntFlag)
+ 197   2          {
+ 198   3            u8Status = RETURN_IRTX_NEC_SUCCESS;
+ 199   3            break;
+ 200   3          }
+ 201   2        } 
+ 202   1      
+ 203   1        if(u8Status)
+ 204   1        {
+ 205   2          assert_error(IRTX_NEC_ERROR_CODE | u8Status);
+ 206   2        }
+ 207   1      
+ 208   1        return  u8Status;
+ 209   1      }
+ 210          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    262    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

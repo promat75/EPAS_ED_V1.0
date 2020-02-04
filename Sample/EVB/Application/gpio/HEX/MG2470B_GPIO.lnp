@@ -1,0 +1,30 @@
+".\HEX\L51_BANK_RP_MG2470.obj",
+".\HEX\rpmemcpy.obj",
+".\HEX\STARTUP_BANK_RP_MG2470.obj",
+".\HEX\adc.obj",
+".\HEX\clock.obj",
+".\HEX\exti.obj",
+".\HEX\flash.obj",
+".\HEX\gpio.obj",
+".\HEX\gpioint.obj",
+".\HEX\hmac.obj",
+".\HEX\phy.obj",
+".\HEX\power.obj",
+".\HEX\pwm.obj",
+".\HEX\security.obj",
+".\HEX\spi.obj",
+".\HEX\timer.obj",
+".\HEX\uart.obj",
+".\HEX\wdt.obj",
+".\HEX\HIB.obj",
+".\HEX\i2c.obj",
+".\HEX\irtx_NEC.obj",
+"..\..\..\..\Platform\Library\MG2470_LIB_V25.LIB",
+".\HEX\UTIL_APP.obj",
+".\HEX\UTIL_SYS.obj",
+".\HEX\main_gpio.obj" 
+TO ".\HEX\MG2470B_GPIO" 
+PRINT(".\LST\MG2470B_GPIO.m51") NOLINES, NOSYMBOLS, NOPUBLICS 
+DISABLEWARNING (16) 
+CODE( 0X0000-0XFFFF )
+XDATA( 0X0000-0X17FF )

@@ -1,0 +1,126 @@
+C51 COMPILER V9.53.0.0   IB_IR_SEN                                                         01/28/2020 11:28:58 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE IB_IR_SEN
+OBJECT MODULE PLACED IN .\HEX\ib_ir_sen.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Sample\EVB\ib_ir_sen.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\I
+                    -nclude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ib
+                    -_ir_sen.lst) TABS(2) OBJECT(.\HEX\ib_ir_sen.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2011.
+   5            - Date    : 2016-11-15
+   6            - Version   : V2.6
+   7          
+   8            - File      : ib_ir_sen.c
+   9            -                       : 적외선 온도센서 TMP007 제어 코드
+  10          *******************************************************************************/
+  11          
+  12          
+  13          #include "ib_main_sen.h"
+  14          //#include "ib_ir_sen.h"
+  15          
+  16          INT16 IR_Temp;
+  17          
+  18          // Acceleration Sensor Init//
+  19          void TMP007_Init(void)
+  20          {
+  21   1        UINT16 u16read_data;
+  22   1        
+  23   1        u8I2CSenStatus = 0;
+  24   1        // 0x02, 0x1940
+  25   1        u8I2CSenStatus = I2C_uInt16Write(TMP007_I2CADDR, TMP007_CONFIG, 
+  26   1                                                               (TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_
+             -CFG_TRANSC | TMP007_CFG_1SAMPLE));
+  27   1        // 0x05,  0xC000                                                   
+  28   1        u8I2CSenStatus = I2C_uInt16Write(TMP007_I2CADDR, TMP007_STATMASK, 
+  29   1                                                               (TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN));
+  30   1        
+  31   1        u8I2CSenStatus= I2C_uInt16Read(TMP007_I2CADDR, TMP007_DEVID, &u16read_data);
+  32   1          if (u16read_data != 0x78) 
+  33   1          zPrintf(1, "\n >> TMP007 I2C Initializse Fail !!!");
+  34   1      
+  35   1        #if _ACCEL_USE
+                if (u8I2CSenStatus & 0x80) {
+                  zPrintf(1, "\n >> TMP007  I2C function Fail !!!");
+                  ACCELSEN_RESET = RST_ON;
+                  AppLib_Delay(100);      // 100ms ; 핀연결이 되어 있지 않음
+                  ACCELSEN_RESET = RST_OFF;
+                }   
+                #endif
+  43   1          
+  44   1          IR_Temp= ReadIRSensor(TMP007_TOBJ);
+  45   1            zPrintf(1, "\n >> IR_Temp = %3.1f", (float)IR_Temp/2);
+  46   1        
+  47   1            IR_Temp= ReadIRSensor(TMP007_TDIE);
+  48   1          zPrintf(1, "\n >> IR_Temp = %3.1f", (float)IR_Temp/2);
+  49   1            
+  50   1      }
+  51          
+  52          
+C51 COMPILER V9.53.0.0   IB_IR_SEN                                                         01/28/2020 11:28:58 PAGE 2   
+
+  53          INT16 ReadIRSensor(UINT8 u8cmd)
+  54          {
+  55   1        UINT16 u16read_data;
+  56   1        float fcelsius = 0.5f;
+  57   1      
+  58   1          u8I2CSenStatus= I2C_uInt16Read(TMP007_I2CADDR, u8cmd, &u16read_data);
+  59   1        
+  60   1        if (u16read_data & 0x8000) {
+  61   2          // negatvie temp
+  62   2                 u16read_data = u16read_data ^ 0x7FFF + 0x02; // 2's compliments를 위해 +1온도값을  +2배 온도값으
+             -로 
+  63   2                    //temp_c_shift  = ((temp_c_2s)>>2);
+  64   2                    fcelsius = -0.5f;               // 2배 온도값으로 
+  65   2              }     
+  66   1                    
+  67   1              fcelsius = ((float)u16read_data * fcelsius) * 0.03125f;   // 2배 온도값으로 
+  68   1      
+  69   1        return ((INT16)fcelsius);
+  70   1      }
+  71          
+  72          
+  73          UINT8 I2C_uInt16Write(UINT8 addr, UINT8 u8cmd, UINT16 word_data)
+  74          {
+  75   1        UINT8 u8buffer[2];
+  76   1          
+  77   1        u8buffer[0] = (UINT8)(word_data >> 8);                // MSB first       
+  78   1        u8buffer[1] = (UINT8)word_data;               // LSB
+  79   1        
+  80   1        return (HAL_I2CMaster_RandomWrite(addr, u8cmd, u8buffer, 2));  
+  81   1      
+  82   1      } 
+  83          
+  84          
+  85          UINT8 I2C_uInt16Read(UINT8 addr, UINT8 u8cmd, UINT16* u16read_data)
+  86          {
+  87   1        UINT8 u8buffer[2];
+  88   1        UINT8 u8status;
+  89   1      
+  90   1        u8status = HAL_I2CMaster_RandomRead(addr, u8cmd, u8buffer, 0x02); 
+  91   1        
+  92   1        *u16read_data = (UINT16)u8buffer[0] << 8 | u8buffer[1];                // MSB first       
+  93   1        
+  94   1        return u8status;
+  95   1      } 
+  96          
+  97          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    334    ----
+   CONSTANT SIZE    =     58    ----
+   XDATA SIZE       =      2      16
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

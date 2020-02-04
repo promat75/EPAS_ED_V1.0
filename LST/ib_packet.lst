@@ -1,0 +1,414 @@
+C51 COMPILER V9.53.0.0   IB_PACKET                                                         01/28/2020 11:28:57 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE IB_PACKET
+OBJECT MODULE PLACED IN .\HEX\ib_packet.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Sample\EVB\ib_packet.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\I
+                    -nclude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ib
+                    -_packet.lst) TABS(2) OBJECT(.\HEX\ib_packet.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2011.
+   5            - Date    : 2016-10-10
+   6            - Version   : V2.6
+   7          
+   8            - File      : ib_packet.c
+   9          *******************************************************************************/
+  10          
+  11          #include "ib_main_sen.h"
+  12          #include "ib_packet.h"
+  13          
+  14          
+  15          tPER_PARAMETER    tPER;
+  16          tRF_PACKET_FORMAT   gtRF_MsgBody;
+  17          
+  18          UINT8 u8BoardStatus = 0;            // ¿À·ù ¹ß»ý½Ã »óÅÂ ¸Þ¼¼Áö Àü¼Û  : default = 0xFF  
+  19          
+  20          
+  21          void  Init_PER(tPER_PARAMETER *tpPER)
+  22          {
+  23   1      
+  24   1        //Initialize structure variable for PER parameter
+  25   1        tpPER->u8AckReq = 1;
+  26   1        tpPER->u16ResultChanFail = 0;
+  27   1        tpPER->u16ResultNoAck = 0;
+  28   1        tpPER->u16ResultOK = 0;
+  29   1        tpPER->u16ResultTxNum = 0;  
+  30   1        tpPER->u8PacketLen = 20;
+  31   1        tpPER->u16Interval = 10;
+  32   1        tpPER->u16MissCount = 0;
+  33   1        tpPER->u16NumToTx = 1000;
+  34   1        tpPER->u16Retry1st = 0;
+  35   1        tpPER->u16Retry2nd = 0;
+  36   1        tpPER->u16Retry3rd = 0;
+  37   1        tpPER->u16RxCount = 0;
+  38   1        tpPER->u8DisplayPktInfo = 0;
+  39   1        tpPER->u8PacketPattern = 1;
+  40   1        
+  41   1      }
+  42            
+  43          
+  44          void PER_Packet(UINT8* data_buff)
+  45          {
+  46   1        
+  47   1        UINT8 RFPC=0;
+  48   1        UINT16  RFPacketChecksum=0;
+  49   1        UINT8 iw = 0;
+  50   1        
+  51   1        // Frame control //
+  52   1            data_buff[iw++] = 0x02;
+  53   1            data_buff[iw++] = RF_PER_PACKET_LENGTH;     // PacketLength = 0x10     //gtMIB.au8IEEEAddr[1];
+C51 COMPILER V9.53.0.0   IB_PACKET                                                         01/28/2020 11:28:57 PAGE 2   
+
+  54   1            
+  55   1            
+  56   1            if(u16RfPacketCount ==(PER_PACKET_COUNT - 1))     // 999, Áï ¸¶Áö¸· Àü¼Û
+  57   1              data_buff[iw++] = 0x01;             // CMD = 01 : end , 03 : start
+  58   1             else
+  59   1                data_buff[iw++] = 0x03;             // CMD = 01 : end , 03 : start
+  60   1              
+  61   1         
+  62   1        data_buff[iw++] =  tPER.u8DisplayPktInfo;
+  63   1              
+  64   1          data_buff[iw++] = u16RfPacketCount & 0x00FF;     //DEST : 1000È¸ º¸³»±â·Î ¾à¼ÓÀÌ µÇ¾î ÀÖÀ¸¹Ç·Î ÀüÃ¼ Ä«¿î
+             -Æ®¸¦ º¸³¾ ÇÊ¿ä´Â ¾øÀ½
+  65   1          
+  66   1            data_buff[iw++] = (short)(tPER.u16Retry1st&0x00FF);
+  67   1            data_buff[iw++] = (short)(tPER.u16Retry1st&0xFF00)>>8;
+  68   1            data_buff[iw++] = (short)(tPER.u16Retry2nd&0x00FF);
+  69   1            data_buff[iw++] = (short)(tPER.u16Retry2nd&0xFF00)>>8;
+  70   1            data_buff[iw++] = (short)(tPER.u16Retry3rd&0x00FF);
+  71   1            data_buff[iw++] = (short)(tPER.u16Retry3rd&0xFF00)>>8;
+  72   1      
+  73   1           ////Check sum data 1byte 
+  74   1            ////Check sum data 1byte 
+  75   1        for(RFPC=2; RFPC<RF_PER_PACKET_LENGTH -2; RFPC++)
+  76   1        {
+  77   2          RFPacketChecksum += data_buff[RFPC];
+  78   2        } 
+  79   1        
+  80   1            data_buff[RF_PER_PACKET_LENGTH-2] = RFPacketChecksum & 0x00FF;
+  81   1        data_buff[RF_PER_PACKET_LENGTH-1] = END_BYTE;
+  82   1        
+  83   1      }
+  84          
+  85             
+  86          UINT8 SendDataPacket(UINT8* u8Data)
+  87          {
+  88   1        UINT8 status = 0xAA;
+  89   1          
+  90   1        if(Sensor_Mode==0)
+  91   1        {
+  92   2          u8Sendstatus = App_Data_Transmit(RF_DATA_PACKET_LENGTH, u8Data);  //App_Data_Transmit(20,u8Data); 
+  93   2          //if (_IS_PM_DBG_MODE) SensorOut(); 
+  94   2        }
+  95   1        else if(Sensor_Mode==1)
+  96   1        {
+  97   2          u8Sendstatus = SensorOut();                   //UART ASCII : RF ¸¦ ¼Û½Å ÇÏÁö ¾Ê´õ¶óµµ Àü¼ÛÈÄ ±ôºýÀÓ µ¿ÀÛ ÇÏµµ·Ï
+  98   2        }
+  99   1        else if(Sensor_Mode==2)
+ 100   1        {
+ 101   2          u8Sendstatus = DataOut(u8Data);                 //UART HEX 
+ 102   2        }
+ 103   1        else
+ 104   1        {}
+ 105   1        
+ 106   1        return u8Sendstatus;
+ 107   1        
+ 108   1      }
+ 109          
+ 110          
+ 111          
+ 112          
+ 113          // [0~2] : STX  CMD  LEN  u8Data[0]
+ 114          //                                      u8Data[0] =>  02     10    FF     34    0D    01    FF     FF     
+C51 COMPILER V9.53.0.0   IB_PACKET                                                         01/28/2020 11:28:57 PAGE 3   
+
+             -  FF 03    00 FC      CC 07 10    03      0D 0A  
+ 115          //                                                           sync  len   cmd   pan   ch     id     src   d
+             -est    temp     current      vib           end 
+ 116          UINT8 App_Data_Transmit(UINT8 length ,UINT8 *u8Data)
+ 117          {
+ 118   1        tMAC_DATA_REQ   tMacDataReq;
+ 119   1        UINT8 au8MSDU[127];
+ 120   1        UINT8 iw; 
+ 121   1        UINT8 u8Status;
+ 122   1      
+ 123   1        UINT8 u8CipherLen;
+ 124   1      
+ 125   1        gtRF_MsgBody.u8Checksum = 0;
+ 126   1        
+ 127   1        gtRF_MsgBody.u8STX = STX;             // STX(0) : 0xA0
+ 128   1        gtRF_MsgBody.u8CMD = CMD_DATA_REQUEST;      // CMD(1) : 0xA0
+ 129   1        gtRF_MsgBody.u8Checksum += gtRF_MsgBody.u8CMD;
+ 130   1        gtRF_MsgBody.u8Size = length;           // LEN(2) 
+ 131   1        gtRF_MsgBody.u8Checksum += gtRF_MsgBody.u8Size;
+ 132   1      
+ 133   1        for(iw =0; iw < gtRF_MsgBody.u8Size ; iw++)
+ 134   1        {
+ 135   2          gtRF_MsgBody.u8Data[iw] = u8Data[iw];
+ 136   2          gtRF_MsgBody.u8Checksum += gtRF_MsgBody.u8Data[iw];
+ 137   2        }   
+ 138   1      
+ 139   1        gtRF_MsgBody.u8ETX = ETX;
+ 140   1      
+ 141   1        au8MSDU[0]= gtRF_MsgBody.u8STX; 
+ 142   1        au8MSDU[1]= gtRF_MsgBody.u8CMD; 
+ 143   1        au8MSDU[2]= gtRF_MsgBody.u8Size;
+ 144   1        for(iw =0; iw < gtRF_MsgBody.u8Size ; iw++)
+ 145   1        {
+ 146   2          au8MSDU[iw+3]= gtRF_MsgBody.u8Data[iw];
+ 147   2        }
+ 148   1        
+ 149   1        au8MSDU[ gtRF_MsgBody.u8Size+3]= gtRF_MsgBody.u8Checksum;
+ 150   1        au8MSDU[ gtRF_MsgBody.u8Size+4]= gtRF_MsgBody.u8ETX;
+ 151   1      
+ 152   1        
+ 153   1        tMacDataReq.u16DstPanID = gtMIB.u16DstPanID;
+ 154   1      
+ 155   1        //-------------------------------------------------------------------------------------------
+ 156   1        #if 0
+                tMacDataReq.u8DstMode = maccAddrMode_64bit; // 8byte addre mode »ç¿ë
+                rpmemcpy(&tMacDataReq.uDstAddr.au8Ext[0], &gtMIB.au8DstIEEEAddr[0], 8);
+              
+                tMacDataReq.u8SrcMode = maccAddrMode_64bit; // 8byte addre mode »ç¿ë
+                #else
+ 162   1        tMacDataReq.uDstAddr.u16Short = gtMIB.u16DstShortAddr;
+ 163   1        tMacDataReq.u8DstMode = maccAddrMode_16bit;   // 2byte addre mode »ç¿ë
+ 164   1      
+ 165   1        tMacDataReq.u8SrcMode = maccAddrMode_16bit;   // 2byte addre mode »ç¿ë, gtMIB.u16ShortAddr¸¦ ±×´ë·Î »ç¿ë
+ 166   1        #endif
+ 167   1        
+ 168   1        
+ 169   1        
+ 170   1        //-------------------------------------------------------------------------------------------
+ 171   1        
+ 172   1        tMacDataReq.u8TxOption = 1 & 0x01;
+ 173   1        tMacDataReq.u8MsduLen = gtRF_MsgBody.u8Size + PKT_HEADER_TAIL_LENGTH;
+ 174   1        tMacDataReq.pu8Msdu = au8MSDU;
+C51 COMPILER V9.53.0.0   IB_PACKET                                                         01/28/2020 11:28:57 PAGE 4   
+
+ 175   1      
+ 176   1        // Security Processing
+ 177   1        u8Status = HAL_SecEncryptionCCM32(tMacDataReq.pu8Msdu, tMacDataReq.u8MsduLen, u32FrameCounter, u8KeySeqNu
+             -m, &u8CipherLen);
+ 178   1        tMacDataReq.u8MsduLen = u8CipherLen;
+ 179   1                  
+ 180   1        u8Status = AppLib_MacDataRequest(&tMacDataReq);
+ 181   1      
+ 182   1        return u8Status;
+ 183   1      }
+ 184          
+ 185          
+ 186          
+ 187          //pairing request packet Transmit (Broadcast)
+ 188          UINT8 Broadcast_Request(void)
+ 189          {
+ 190   1        tMAC_DATA_REQ   tMacDataReq;
+ 191   1        tDATA_MESSAGE*    ptMsgFormat;
+ 192   1        
+ 193   1        UINT8 au8MSDU[127];
+ 194   1        UINT8 iw;
+ 195   1        UINT8 u8Status;
+ 196   1      
+ 197   1        UINT8 u8CipherLen;
+ 198   1      
+ 199   1      
+ 200   1        ptMsgFormat = (tDATA_MESSAGE*)gtRF_MsgBody.u8Data;
+ 201   1        
+ 202   1        gtRF_MsgBody.u8STX = STX;             // 0xA0
+ 203   1        gtRF_MsgBody.u8CMD = CMD_PAIRING_REQUEST;     // 0xF0
+ 204   1        gtRF_MsgBody.u8Size = RF_DATA_PACKET_LENGTH;    // 0x10
+ 205   1        
+ 206   1        UserCtrl_Packet((UINT8*)ptMsgFormat);
+ 207   1        
+ 208   1        #if (NO_RPT_MODE) 
+ 209   1        ptMsgFormat->u8DataMsgBody.u8DataMsgChannel = Porduct_Mode;
+ 210   1        #else 
+                ptMsgFormat->u8DataMsgBody.u8DataMsgChannel = Porduct_Mode  & PM_RPT_MODE;
+                #endif
+ 213   1        ptMsgFormat->u8DataMsgBody.u8DataMsgSrcID = gtPIB.PairInfo.SrcID;       // 0x01;   coordi ¿¡¼­ ¼¾¼­ ID ·Î »ç¿
+             -ë
+ 214   1        rpmemcpy(&ptMsgFormat->u8DataMsgBody.u8DataMsgDestID, gtMIB.au8IEEEAddr, 8);  // src IEEE addr 8 byte
+ 215   1      
+ 216   1        u8Status = CalcCheckSum(&gtRF_MsgBody.u8CMD, RF_DATA_PACKET_LENGTH + 2);  // +cmd + size
+ 217   1        gtRF_MsgBody.u8Checksum = u8Status;         // checksum : u8CMD ~ u8Data[u8Size]
+ 218   1        gtRF_MsgBody.u8ETX = ETX;             //  0xAF(ETX)
+ 219   1        
+ 220   1        au8MSDU[0]= gtRF_MsgBody.u8STX; 
+ 221   1        au8MSDU[1]= gtRF_MsgBody.u8CMD; 
+ 222   1        au8MSDU[2]= gtRF_MsgBody.u8Size;
+ 223   1        for(iw =0; iw < gtRF_MsgBody.u8Size ; iw++)
+ 224   1        {
+ 225   2          au8MSDU[iw+3]= gtRF_MsgBody.u8Data[iw];
+ 226   2        }
+ 227   1        au8MSDU[ gtRF_MsgBody.u8Size+3]= gtRF_MsgBody.u8Checksum;
+ 228   1        au8MSDU[ gtRF_MsgBody.u8Size+4]= gtRF_MsgBody.u8ETX;
+ 229   1      
+ 230   1        tMacDataReq.u8DstMode = maccAddrMode_16bit;   // maccAddrMode_16bit = 2 => pairing½Ã´Â broadcase addr 0xff
+             -ff 2byte Àü¼Û
+ 231   1        tMacDataReq.u16DstPanID = gtMIB.u16DstPanID;  // panid ´Â µö½ºÀ§Ä¡¿¡ ÀÇÇØ Coodi ¿Í End °¡ ¼­·Î ÀÏÄ¡ µÇ°í À
+             -ÖÀ½(pan id ¸¦ 0xffff ·Î Àü¼Û ÇÒÇÊ¿ä¾øÀ½)
+ 232   1        tMacDataReq.uDstAddr.u16Short = maccBroadcast;
+C51 COMPILER V9.53.0.0   IB_PACKET                                                         01/28/2020 11:28:57 PAGE 5   
+
+ 233   1        tMacDataReq.u8SrcMode = maccAddrMode_64bit;   // maccAddrMode_64bit = 3
+ 234   1        tMacDataReq.u8TxOption = 0x00;          // Ack Request bit : App_Data_Transmit() ¿Í ´Ù¸§ data Àü¼Û½Ã´Â Ack ¸¦ 
+             -¿äÃ»
+ 235   1        tMacDataReq.u8MsduLen =  gtRF_MsgBody.u8Size + PKT_HEADER_TAIL_LENGTH;
+ 236   1        tMacDataReq.pu8Msdu = au8MSDU;
+ 237   1      
+ 238   1        //--- Security Processing...
+ 239   1        u8Status = HAL_SecEncryptionCCM32(tMacDataReq.pu8Msdu, tMacDataReq.u8MsduLen, u32FrameCounter, u8KeySeqNu
+             -m, &u8CipherLen);
+ 240   1        tMacDataReq.u8MsduLen = u8CipherLen;
+ 241   1        u8Status = AppLib_MacDataRequest(&tMacDataReq);
+ 242   1        
+ 243   1        return u8Status;
+ 244   1      }
+ 245          
+ 246          
+ 247          /*********************************************************************************************************
+             -/
+ 248          // Name : UserCtrl_Packet
+ 249          // parameter : UINT8* data_buff
+ 250          // Description :RF Transmission Packet Make
+ 251          // 02 10 FF    34 0D   01    FF    FF FF    03 00    FC CC 07    10     03   
+ 252          /*********************************************************************************************************
+             -/
+ 253          UINT8 UserCtrl_Packet(UINT8* data_buff)
+ 254          {
+ 255   1        
+ 256   1        UINT8 ii = 0;
+ 257   1        UINT16  checksum=0;
+ 258   1        UINT8 status = 0;
+ 259   1        
+ 260   1        
+ 261   1        // Frame control //
+ 262   1            data_buff[0] = 0x02;
+ 263   1            data_buff[1] = RF_DATA_PACKET_LENGTH; // gtMIB.au8IEEEAddr[1];
+ 264   1            data_buff[2] = CMD_DEFUALT;       // 0xFF
+ 265   1            
+ 266   1            data_buff[3] = gtMIB.u16PanID;      //0x35,  PANID °ªÀ» Àü¼Û
+ 267   1            data_buff[4] = gtMIB.u8Channel;     //channel 
+ 268   1            
+ 269   1            data_buff[5] = gtPIB.PairInfo.SrcID;      //IEEEID_SRC; //0x01
+ 270   1            data_buff[6] = 0xFF;          //DEST =>  ¼ö½Å±â¿¡¼­ RSSI·Î »ç¿ë 
+ 271   1      
+ 272   1        
+ 273   1        if (Porduct_Mode & PM_TRX_TEST_MODE) {
+ 274   2          //--------------------------------------------------------------------------
+ 275   2          // test code Ãß°¡  : ¼¾¼­ÀÇ ¼Û½Å µ¥ÀÌÅ¸°¹¼ö, ack ¼ö½Å °¹¼ö, ÀçÀü¼Û °¹¼ö °ªÀ» ÄÚµð¿¡¼­ º¼¼ö ÀÖµµ·Ï
+ 276   2          
+ 277   2              ////Temperature data 2byte    
+ 278   2              data_buff[7] = (short)(TempData&0x00FF);      // LSB first
+ 279   2            
+ 280   2          data_buff[9] = (UINT8)(u16RfPacketCountH & 0x00FF);
+ 281   2              data_buff[8] = (UINT8)(u16RfPacketCountH >> 8);
+ 282   2          data_buff[11] = (UINT8)(u16RfPacketCount & 0x00FF);
+ 283   2              data_buff[10] = (UINT8)(u16RfPacketCount >> 8);
+ 284   2          
+ 285   2              data_buff[13] = (UINT8)(u16NoAckCount & 0x00FF);
+ 286   2              data_buff[12] = (UINT8)(u16NoAckCount >> 8);
+ 287   2      
+ 288   2          //--------------------------------------------------------------------------
+ 289   2        }
+ 290   1        else {
+C51 COMPILER V9.53.0.0   IB_PACKET                                                         01/28/2020 11:28:57 PAGE 6   
+
+ 291   2              //////////////////////////////////////////    
+ 292   2              ////Temperature data 2byte    
+ 293   2            #if 1 // org  
+ 294   2              data_buff[7] = (short)(TempData&0x00FF);    // LSB first
+ 295   2              data_buff[8] = (short)(TempData&0xFF00)>>8;   // MSB 
+ 296   2            #else 
+                      data_buff[7] = (short)(u16ADC_OverCurrentValue&0x00FF);   // LSB first
+                      data_buff[8] = (short)(u16ADC_OverCurrentValue&0xFF00)>>8;    // MSB 
+                    #endif  
+ 300   2              
+ 301   2            //////////////////////////////////////////    
+ 302   2            ////Current data 2byte    
+ 303   2            #if (PWR_ST_ID == PWR_ST_HADONG)
+                    data_buff[9] = (short)(u16RfPacketCount&0x00FF);
+                  data_buff[10] = (short)(u16RfPacketCount&0xFF00)>>8;
+                    #else
+ 307   2            data_buff[9] = (short)(ADC_Voltage&0x00FF);
+ 308   2          data_buff[10] = (short)(ADC_Voltage&0x3F00)>>8;   // »óÀ§ 2ºñÆ®´Â flag·Î »ç¿ë  
+ 309   2            
+ 310   2            data_buff[10] |= u8BoardStatus;           // Flag bit
+ 311   2            #endif
+ 312   2      
+ 313   2            ////////////////////////////////////////// 
+ 314   2            ////Acceleration data 6byte     
+ 315   2            // 3¹øÂ° Max °ªÀ» Áøµ¿ µ¥ÀÌÅ¸·Î »ç¿ë : °£È¤ ±úÁø µ¥ÀÌÅ¸¸¦ read  
+ 316   2          data_buff[11] = AccelerationSensor_ThirdMaxData[1]-AccelerationSensor_Scalefactor[0];
+ 317   2          data_buff[12] = AccelerationSensor_ThirdMaxData[3]-AccelerationSensor_Scalefactor[1];
+ 318   2          data_buff[13] = AccelerationSensor_ThirdMaxData[5]-AccelerationSensor_Scalefactor[2]; 
+ 319   2              
+ 320   2          AX_data = data_buff[11];
+ 321   2            AY_data = data_buff[12];
+ 322   2          AZ_data = data_buff[13];
+ 323   2              
+ 324   2          #if _ACCEL_USE
+                  if ((AX_data == 0) && (AY_data == 0) && (AZ_data == 0)) {
+                    status = 1;     // ¿À·ù flag  
+                    AccelSensor_Init(); // Áøµ¿ ¼¾¼­ ÃÊ±âÈ­ 
+                  }
+                  #endif
+ 330   2              
+ 331   2            // Third max data °ü·Ã º¯¼ö ÃÊ±âÈ­   
+ 332   2            SetThirdMaxValueInit(1);
+ 333   2            SetThirdMaxValueInit(3);
+ 334   2            SetThirdMaxValueInit(5);
+ 335   2            
+ 336   2            //////////////////////////////////////////    
+ 337   2              
+ 338   2        }     
+ 339   1              
+ 340   1            
+ 341   1            ////Check sum data 1byte 
+ 342   1        for(ii = 2; ii < RF_DATA_PACKET_LENGTH-2; ii++)
+ 343   1        {
+ 344   2          checksum += data_buff[ii];
+ 345   2        } 
+ 346   1        
+ 347   1            data_buff[14] = checksum & 0x00FF;
+ 348   1        data_buff[15] = END_BYTE;
+ 349   1        
+ 350   1        return status;
+ 351   1        
+ 352   1      }
+C51 COMPILER V9.53.0.0   IB_PACKET                                                         01/28/2020 11:28:57 PAGE 7   
+
+ 353          
+ 354          
+ 355          UINT8 CalcCheckSum(UINT8* data_buff, UINT8 length)
+ 356          {
+ 357   1        UINT8 ii;
+ 358   1        UINT8 checksum = 0;
+ 359   1        
+ 360   1        for(ii = 0; ii < length; ii++) 
+ 361   1          checksum += (UINT8)data_buff[ii];
+ 362   1          
+ 363   1        return checksum;
+ 364   1      
+ 365   1      } 
+ 366          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1451    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     50     315
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

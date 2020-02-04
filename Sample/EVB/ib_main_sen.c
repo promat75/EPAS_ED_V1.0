@@ -88,9 +88,8 @@ UINT8	code gcau8BufferFlash1[512]	_at_ CODE_ADDRESS_USER1;
 UINT8	code gcau8BufferFlash2[512]	_at_ CODE_ADDRESS_USER2;
 
 // mem 할당에 여유가 없으면 data 가 정상 적으로 저장 되지 못함, 이상동작함 ( 현재는 +6 만큼 여유를가져감)
-#if ( _EPAS_MODE == 0 )
 xdata UINT16 malloc_mem[AVG_CURR_BUFF_SIZE + AVG_TEMP_BUFF_SIZE + 6];	
-#endif
+
 	
 void 	Init_ExtAmp(void)
 {
@@ -489,6 +488,7 @@ void Init_HIB(void)
 
 
 // Flash에 저장된 HIB 를 가져와 MIB 를 set
+// Kong.sh --> ZIGBEE PHY SETUP
 void	Init_MIB(void)
 {
 
@@ -498,7 +498,10 @@ void	Init_MIB(void)
 	gtMIB.u8NoAckRetry = 3;
 	#endif
 	
-	// 0 =9dBm, ... 9=0, 10=-1, ... 18=-10dBm, 19=-23dBm, 20=-27dBm
+	///	@param	u8PowerLevel	: level of transmitting power
+	///	\n	0 = 9.0 dBm.   1 = 8.0 dBm.		2 = 8.0 dBm.		3 = 8.0 dBm....		9 = 0.0 dBm.
+	///	\n	10 = -1 dBm....				18 = -10 dBm.
+	///	\n	19 = -23 dBm.	 20 = -27 dBm.	21 = -33 dBm.		22 = -64 dBm.
 	gtMIB.u8TxPowerLevel = RF_TX_POWERLEVEL;		// power level 고정  
 
 	//Initialize MIB : default value
@@ -509,7 +512,7 @@ void	Init_MIB(void)
 	gtMIB.u16PanID = maccBroadcast;				// maccBroadcast = 0xFFFF
 	gtMIB.u16ShortAddr = maccBroadcast;			// maccBroadcast = 0xFFFF
 	#if _EPAS_MODE
-	gtMIB.u8BackoffRetry = 3;
+	gtMIB.u8BackoffRetry = 5;
 	#else
 	gtMIB.u8BackoffRetry = 10;
 	#endif
@@ -850,11 +853,11 @@ void Init_FlashDefault(void)
 		gtPIB.u16PanID = (gtMIB.u16PanID & 0xFF00) | ((gtPIB.Option.u8Pid_Chan >> 4) & 0x0F); // pan id 
 		gtPIB.u8Channel = (gtPIB.Option.u8Pid_Chan  & 0x0F) + 11;						   // channel 
 
-		#if _EPAS_MODE		
-		gtMIB.u16PanID = gtPIB.u16PanID;
-		gtMIB.u16DstPanID=gtMIB.u16PanID;	
-		gtMIB.u8Channel = gtPIB.u8Channel; 
-		#endif
+		//#if _EPAS_MODE		
+		//gtMIB.u16PanID = gtPIB.u16PanID;
+		//gtMIB.u16DstPanID=gtMIB.u16PanID;	
+		//gtMIB.u8Channel = gtPIB.u8Channel; 
+		//#endif
 		
 		Set_ChannelPanID();		// 저장된 pan id, channel 사용 
 		
@@ -1212,9 +1215,7 @@ void main(void)
 	SYS_WdtSet(0);
 	
 	Init_SysConfig();
-	#if ( _EPAS_MODE == 0 )
 	init_mempool(&malloc_mem, sizeof(malloc_mem));
-	#endif
 
 	#if !_EPAS_MODE
 	SYS_WdtSet(2000);

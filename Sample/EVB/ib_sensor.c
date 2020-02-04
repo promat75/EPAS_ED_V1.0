@@ -512,9 +512,6 @@ void SensorReadingProcess(void)
 
 				if (i16ADC_VccValue < ADCV_MIN_VCC) {
 					if (Porduct_Mode & PM_SLEEP_MODE) {
-						#if _UARTDEBUG_MODE
-						zPrintf(1,"SEN_INIT_TEMP MODE..\n");
-						#endif
 						//HAL_PowerdownGpio1WakeupSourceSet(4, 1, 0);		// wakeup interrupt pin : p1.4 (pairing button)   
 						#if _POWERDOWN_USE
 						HAL_PowerdownMode1(5, 0, 0, 0);					//  5 sec  : wiat for normal power 
@@ -581,11 +578,7 @@ void SensorReadingProcess(void)
 			//zPrintf(1, "i16ADC_OverCurrentValue = %d : ", (short)i16ADC_OverCurrentValue );
 			#endif 
 			
-			#if _EPAS_MODE
 			SET_BOARD_VCC_STS(i16ADC_VccValue);	
-			#else
-			SET_BOARD_VCC_STS(i16ADC_VccValue);	
-			#endif
 			
 			#if (TEMP_SEN_MODE == THERM_SEN)
 			CalcTemperature(); 

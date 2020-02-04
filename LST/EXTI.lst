@@ -1,0 +1,177 @@
+C51 COMPILER V9.53.0.0   EXTI                                                              01/28/2020 11:28:52 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE EXTI
+OBJECT MODULE PLACED IN .\HEX\EXTI.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\EXTI.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Incl
+                    -ude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\EXTI.
+                    -lst) TABS(2) OBJECT(.\HEX\EXTI.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "INCLUDE_MG2470.h"
+  13          #include "exti.h"
+  14          
+  15          #ifdef __MG2470_EXTI0_INCLUDE_
+  16          ///////////////////////////////////////////////////////////////////////////////////////////////
+  17          /// 
+  18          ///   Global variable which indicates whether EXT0(External 0) interrupt is generated.
+  19          /// When EXT0 interrupt is generated, it is set to 1.
+  20          /// And after processing the interrupt, it should be cleared.
+  21          /// 
+  22          ///////////////////////////////////////////////////////////////////////////////////////////////
+  23          UINT8 gu8Ext0IntFlag = 0;
+  24          
+  25          ///////////////////////////////////////////////////////////////////////////////////////////////
+  26          /// 
+  27          ///   Controls EXT0(External 0) Interrupt.
+  28          /// Additionally, it specifies the priority and triggering type of EXT0.
+  29          ///
+  30          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+  31          /// @param  u8Priority    : Priority of Interrupt. 0=Low, 1=High.
+  32          /// @param  u8TrigType  : Triggering type of EXT0.
+  33          ///               \n 0=Low level.
+  34          ///             \n 1=Falling edge.
+  35          ///             \n 2=High level.
+  36          ///             \n 3=Rising edge.
+  37          /// @return void
+  38          /// @note The state of P3.2 should be input mode.
+  39          /// 
+  40          ///////////////////////////////////////////////////////////////////////////////////////////////
+  41          UINT8 HAL_Ext0IntSet(UINT8 u8IntEna, UINT8 u8Priority, UINT8 u8TrigType)
+  42          {
+  43   1        UINT8 u8EA;
+  44   1      
+  45   1        if( (P3OEN & BIT2) == 0)
+  46   1        {
+  47   2          assert_error(EXTI_CODE | RETURN_EXTI_P32_OUTPUT_STATE);
+  48   2          return RETURN_EXTI_P32_OUTPUT_STATE;
+  49   2        }
+  50   1      
+  51   1        u8EA = EA;
+  52   1        EA = 0;
+  53   1      
+C51 COMPILER V9.53.0.0   EXTI                                                              01/28/2020 11:28:52 PAGE 2   
+
+  54   1        if(u8TrigType & BIT1)   // reverse polarity
+  55   1        {
+  56   2          xGPIOPOL3 |= BIT2;
+  57   2        }
+  58   1        else
+  59   1        {
+  60   2          xGPIOPOL3 &= ~BIT2;
+  61   2        }
+  62   1        
+  63   1        IT0 = (u8TrigType & BIT0)? 1 : 0;
+  64   1        PX0 = u8Priority;
+  65   1        EX0 = u8IntEna;
+  66   1      
+  67   1        if(EX0)
+  68   1        {
+  69   2          xGPIOMSK3 |= BIT2;
+  70   2        }
+  71   1        else
+  72   1        {
+  73   2          xGPIOMSK3 &= ~BIT2;
+  74   2        }
+  75   1      
+  76   1        EA = u8EA;
+  77   1      
+  78   1        return RETURN_EXTI_SUCCESS;
+  79   1      }
+  80          #endif    // #ifdef __MG2470_EXTI0_INCLUDE_
+  81          
+  82          
+  83          #ifdef __MG2470_EXTI1_INCLUDE_
+  84          ///////////////////////////////////////////////////////////////////////////////////////////////
+  85          /// 
+  86          ///   Global variable which indicates whether EXT1(External 1) interrupt is generated.
+  87          /// When EXT1 interrupt is generated, it is set to 1.
+  88          /// And after processing the interrupt, it should be cleared.
+  89          /// 
+  90          ///////////////////////////////////////////////////////////////////////////////////////////////
+  91          UINT8 gu8Ext1IntFlag = 0;
+  92          
+  93          ///////////////////////////////////////////////////////////////////////////////////////////////
+  94          /// 
+  95          ///   Controls EXT1(External 1) Interrupt.
+  96          /// Additionally, it specifies the priority and triggering type of EXT1.
+  97          ///
+  98          /// @param  u8IntEna    : 0=Disable, 1=Enable.
+  99          /// @param  u8Priority    : Priority of Interrupt. 0=Low, 1=High.
+ 100          /// @param  u8TrigType  : Triggering type of EXT1.
+ 101          ///               \n 0=Low level.
+ 102          ///             \n 1=Falling edge.
+ 103          ///             \n 2=High level.
+ 104          ///             \n 3=Rising edge.
+ 105          /// @return void
+ 106          /// @note The state of P3.3 should be input mode.
+ 107          /// 
+ 108          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 109          UINT8 HAL_Ext1IntSet(UINT8 u8IntEna, UINT8 u8Priority, UINT8 u8TrigType)
+ 110          {
+ 111   1        UINT8 u8EA;
+ 112   1      
+ 113   1        if( (P3OEN & BIT3) == 0)
+ 114   1        {
+ 115   2          assert_error(EXTI_CODE | RETURN_EXTI_P33_OUTPUT_STATE);
+C51 COMPILER V9.53.0.0   EXTI                                                              01/28/2020 11:28:52 PAGE 3   
+
+ 116   2          return RETURN_EXTI_P33_OUTPUT_STATE;
+ 117   2        }
+ 118   1      
+ 119   1        u8EA = EA;
+ 120   1        EA = 0; 
+ 121   1      
+ 122   1        if(u8TrigType & BIT1)   // reverse polarity
+ 123   1        {
+ 124   2          xGPIOPOL3 |= BIT3;
+ 125   2        }
+ 126   1        else
+ 127   1        {
+ 128   2          xGPIOPOL3 &= ~BIT3;
+ 129   2        }
+ 130   1      
+ 131   1        IT1 = (u8TrigType & BIT0)? 1 : 0;
+ 132   1        PX1 = u8Priority;
+ 133   1        EX1 = u8IntEna;
+ 134   1      
+ 135   1        if(EX1)
+ 136   1        {
+ 137   2          xGPIOMSK3 |= BIT3;
+ 138   2        }
+ 139   1        else
+ 140   1        {
+ 141   2          xGPIOMSK3 &= ~BIT3;
+ 142   2        }
+ 143   1        
+ 144   1        EA = u8EA;
+ 145   1      
+ 146   1        return RETURN_EXTI_SUCCESS;
+ 147   1      }
+ 148          #endif    // #ifdef __MG2470_EXTI1_INCLUDE_
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    150    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      2    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

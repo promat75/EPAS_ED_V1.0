@@ -1,0 +1,1190 @@
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE IB_ZIGBEE
+OBJECT MODULE PLACED IN .\HEX\ib_zigbee.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Sample\EVB\ib_zigbee.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\I
+                    -nclude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ib
+                    -_zigbee.lst) TABS(2) OBJECT(.\HEX\ib_zigbee.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2011.
+   5            - Date    : 2016-10-10
+   6            - Version   : V2.6
+   7          
+   8            - File      : ib_zigbee.c
+   9          *******************************************************************************/
+  10          
+  11          #include <stdlib.h>
+  12          
+  13          #include "ib_main_sen.h"
+  14          #include "ib_zigbee.h"
+  15          
+  16          
+  17          UINT8   u8AppRFSq;
+  18          UINT8 u8Sendstatus;
+  19          
+  20          UINT8   Retry_count=0;
+  21          UINT16  u16RfPacketCount=0, u16RfPacketCountH=0;
+  22          UINT16  u16NoAckCount=0;
+  23          UINT16  u16DelayTime = 0;
+  24          
+  25          
+  26          UINT8 u8Task_pairing = 0;
+  27          UINT8   u8AppPairCount = 0;
+  28          UINT8 u8AutoPairSrcID = 0;
+  29          
+  30          UINT8   TX_WaitState = TX_WAIT_IDLE;      // ´Ù¸¥ ÇÔ¼ö¿¡¼­´Â º¯°æ ÇÏÁö ¾Êµµ·Ï , extern À» ¸¸µéÁö ¸»°Í !!!! 
+  31          
+  32          UINT8 TxTimePeriod;
+  33          
+  34          PairTable   gtPIB;
+  35          
+  36          
+  37          
+  38          //----------------------------------------------------------------------------------------------
+  39          // Pairing °ü·Ã 
+  40          
+  41          //-- RETURN
+  42          //  1 : Success. HIB is valid.
+  43          //  0 : Failed. HIB is not valid.
+  44          UINT8 Pair_PIB_COPY(UINT8 *pBuf)
+  45          {
+  46   1        UINT8 i;
+  47   1        UINT8 code *pCodeBuf;
+  48   1        UINT8 SUM;
+  49   1      
+  50   1        pCodeBuf = CODE_ADDRESS_USER0;
+  51   1        SUM = 0;
+  52   1        for(i=0 ; i< sizeof(gtPIB); i++)    // sizeof(gtPIB) ÇÔ¼ö  : ¿øÇÏ´Â »çÀÌÁî¸¦ °¡Á®¿ÀÁö ¸øÇÔ ??? => ÇÏÁö¸¸ ÀÏ
+             -Á¤ÇÑ size¸¦ °¡Á® ¿À¹Ç·Î °ªÀ» ÀÏÄ¡ÇÒµí
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 2   
+
+  53   1        {
+  54   2          SUM += pCodeBuf[i];
+  55   2          pBuf[i] = pCodeBuf[i];
+  56   2          //xU1_THR = pCodeBuf[i];
+  57   2        }
+  58   1        
+  59   1        if(SUM == 0)  return  1;
+  60   1        else      return  0;  
+  61   1      }
+  62          
+  63          
+  64          void Pair_PIB_SAVE()
+  65          {
+  66   1        UINT8 ib;
+  67   1        UINT8 *pu8Buf;
+  68   1      
+  69   1        pu8Buf = (UINT8*)&gtPIB;
+  70   1      
+  71   1        gtPIB.u8Sum = 0;
+  72   1        for(ib = 0; ib < (sizeof(gtPIB)- 1); ib++)
+  73   1        {
+  74   2          gtPIB.u8Sum += pu8Buf[ib];  
+  75   2        }
+  76   1      
+  77   1        gtPIB.u8Sum = (~gtPIB.u8Sum) + 1;
+  78   1      
+  79   1        HAL_FlashWriteUnprotected();
+  80   1        HAL_FlashPageWrite(CODE_ADDRESS_USER0, (UINT8 *)&gtPIB, 0);
+  81   1        HAL_FlashWriteProtected();
+  82   1      
+  83   1        #ifdef __DEBUG
+  84   1        zPrintf(1, "PairTable saved \r");         // ? °¡ Ãâ·ÂµÇ¸é ¿¡·¯
+  85   1        #endif
+  86   1      }
+  87          
+  88          
+  89          //Table save
+  90          // ÄÚµð³×ÀÌÅÍ Broadcast_Response() ¿¡¼­ u8Num Àº 1·Î set ÇÏ¿© Àü¼Û
+  91          UINT8 Pair_Table_Save(UINT8 u8SenID, UINT8 *pu8DstIEEEAddr)
+  92          {
+  93   1        UINT8 u8Status = 0;
+  94   1        
+  95   1        if (gtPIB.PairInfo.SrcID == AUTO_PAIR_ID) { // button ¿¡ ÀÇÇÑ auto pairing
+  96   2          if((u8SenID > 0x00) && (u8SenID <= MAX_END_DEVICE))
+  97   2            gtPIB.PairInfo.SrcID = u8SenID;
+  98   2        }
+  99   1          
+ 100   1        if (gtPIB.PairInfo.SrcID == u8SenID) {
+ 101   2          u8Task_pairing = PAIRING_OK;
+ 102   2          gtPIB.uPairCount = 1;
+ 103   2          //gtPIB.Option.u8ProductMode = Porduct_Mode & PM_SAVE_MASK; // »óÀ§ 4ºñÆ®¸¸ ÀúÀå  
+ 104   2          gtPIB.u8Channel = gtMIB.u8Channel;
+ 105   2          gtPIB.u16PanID = gtMIB.u16PanID;
+ 106   2        
+ 107   2          rpmemcpy(&gtPIB.PairInfo.au8IEEEaddr[0],&pu8DstIEEEAddr[0],8);
+ 108   2          Pair_PIB_SAVE();
+ 109   2            
+ 110   2          // temp for test
+ 111   2          Pair_Display_table();
+ 112   2          u8Status = 1;
+ 113   2        }
+ 114   1        else
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 3   
+
+ 115   1          zPrintf(1, "\n Fail !   Responsed Sensor ID = %02d ",(short)u8SenID);   
+ 116   1          
+ 117   1        return  u8Status;
+ 118   1      }
+ 119          
+ 120          
+ 121          // table debug
+ 122          void Pair_Display_table(void)
+ 123          {
+ 124   1        UINT8 iw;
+ 125   1        UINT8*  ptu8;
+ 126   1        
+ 127   1        if (_IS_NO_SLEEP_MODE == 0) return;
+ 128   1          
+ 129   1        zPrintf(1,"\r [Pair Info]");
+ 130   1        //zPrintf(1,"\r Paired = %02x",(short)gtPIB.uPairCount);
+ 131   1        zPrintf(1,"\r Pair SRC ID = 0x%02x, ",(short)gtPIB.PairInfo.SrcID);
+ 132   1        zPrintf(1,"   PAN ID = 0x%02x,",(short)gtPIB.u16PanID);
+ 133   1        zPrintf(1,"   Channel = %02d",(short)gtPIB.u8Channel);
+ 134   1        
+ 135   1        zPrintf(1,"\r Pair DstIEEE = ");
+ 136   1        
+ 137   1        for(iw = 0 ; iw < 8 ; iw++)
+ 138   1        {
+ 139   2          zPrintf(1," 0x%02x",(short)gtPIB.PairInfo.au8IEEEaddr[7-iw]);
+ 140   2        }
+ 141   1        
+ 142   1        zPrintf(1, "\n Sensor ID Addr=0x%02x (Procuct  Mode : 0x%02x) ",(short)gtPIB.PairInfo.SrcID, (short)Pordu
+             -ct_Mode);    
+ 143   1      
+ 144   1      
+ 145   1        Display_MIB(&gtMIB);
+ 146   1        
+ 147   1        // option value 
+ 148   1        ptu8 = (UINT8*)&gtPIB.Option;
+ 149   1        zPrintf(1,"\r Option Value : ");
+ 150   1        for(iw = 0 ; iw < 8 ; iw++)
+ 151   1        {
+ 152   2          zPrintf(1," 0x%02x ",(short)*ptu8++);
+ 153   2        }
+ 154   1        
+ 155   1        zPrintf(1,"\r ");
+ 156   1        if (_IS_NO_DIP_SWITCH)
+ 157   1          zPrintf(1,"0x40 : No DIP Switch, ");
+ 158   1        
+ 159   1      }
+ 160          
+ 161            
+ 162          void Pairing_Init(void)
+ 163          {
+ 164   1      
+ 165   1        zPrintf(1, "\n Pairing Start");
+ 166   1        gtPIB.uPairCount = 0;
+ 167   1        u8AppPairCount = 0;
+ 168   1        
+ 169   1        // Æä¾î¸µ µ¿ÀÛ½Ã red, blue ±³´ë ±ôºýÀÓ  
+ 170   1              AppLib_VirtualTimerSet(COMON_TIMER, PAIRING_LED_STANBY_TIME);   // 5000ms
+ 171   1       
+ 172   1          u8Task_pairing = PAIRING_STANBY;
+ 173   1        u8LedState = LED_PAIRING_STS;
+ 174   1      
+ 175   1      } 
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 4   
+
+ 176          
+ 177          
+ 178          //==============================================================================
+ 179          //  Function : PAIRING_OK - 
+ 180          //==============================================================================
+ 181          
+ 182          void Pairing_OK(void)
+ 183          {
+ 184   1        u8LedState = LED_PAIRED_STS;
+ 185   1        u8Task_pairing = PAIRING_EXIT;
+ 186   1        
+ 187   1        AppLib_VirtualTimerSet(SQ_WAIT_TIMER, TIME_1SEC); // TxTick 1000 : 1000ms
+ 188   1        xRTINT1=1;  
+ 189   1      }
+ 190          
+ 191          
+ 192          //==============================================================================
+ 193          //  Function : PAIRING_FAIL - 
+ 194          //==============================================================================
+ 195          void Pairing_Fail(void)
+ 196          {
+ 197   1        
+ 198   1        zPrintf(1, "\r  Pairing failed, Try Restart  Power !!"); 
+ 199   1        u8LedState = LED_NO_PAIRED_STS;
+ 200   1        u8Task_pairing = PAIRING_EXIT;
+ 201   1        
+ 202   1        // u8AppRFSq = SQ_WAIT;
+ 203   1        
+ 204   1      }
+ 205          
+ 206          
+ 207          //==============================================================================
+ 208          //  Function : PAIRING_RETRY
+ 209          //==============================================================================
+ 210          void Pairing_Retry(void)
+ 211          {
+ 212   1        if (AppLib_VirtualTimerGet(COMON_TIMER) == 0) // Æä¾î¸µ ½Ãµµ ·çÆ¾ : 0,5s¿¡ ÇÑ¹ø¾¿ °è¼Ó Æä¾î¸µ µ¥ÀÌÅ¸¸¦ Àü
+             -¼Û ÇÏ°í ÀÖÀ½
+ 213   1        {
+ 214   2          u8Task_pairing = PAIRING_SEND;    
+ 215   2          u8AppPairCount++;   
+ 216   2        }
+ 217   1        
+ 218   1        // 10È¸ 5ÃÊ Á¤µµ Æä¾î¸µ ÁøÇàÈÄ ½ÇÆÐ½Ã ´ë±â »óÅÂ(µ¿ÀÛ ¸ØÃã)
+ 219   1        if (u8AppPairCount >= PAIR_RETRY_COUNT) {
+ 220   2          u8Task_pairing = PAIRING_FAIL;
+ 221   2      
+ 222   2        } 
+ 223   1        
+ 224   1      }
+ 225          
+ 226          //==============================================================================
+ 227          //  Function : PAIRING_SEND
+ 228          //==============================================================================
+ 229          void Pairing_Send(void)
+ 230          {
+ 231   1        
+ 232   1        SYS_Uart1Put('+');
+ 233   1        
+ 234   1        Broadcast_Request();
+ 235   1        AppLib_VirtualTimerSet(COMON_TIMER, PAIRING_RETRY_TIME);
+ 236   1      
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 5   
+
+ 237   1        u8Task_pairing = PAIRING_RETRY;
+ 238   1      }
+ 239          
+ 240          //==============================================================================
+ 241          //  Function : PAIRING_START
+ 242          //==============================================================================
+ 243          void Pairing_Start(void)
+ 244          {
+ 245   1         if(PAIRING_BUTTON)
+ 246   1        {
+ 247   2              u8Task_pairing = PAIRING_EXIT;
+ 248   2        }
+ 249   1            else if(AppLib_VirtualTimerGet(COMON_TIMER) == 0)
+ 250   1            { 
+ 251   2              Pairing_Init();
+ 252   2      
+ 253   2              // ¹öÆ°À¸·Î Æä¾î¸µ ½Ãµµ½Ã ID¸¦ ÀÚµ¿ ID ÇÒ´ç °ªÀ¸·Î º¯°æ
+ 254   2          if ( gtMIB.au8IEEEAddr[0] > 0 && gtMIB.au8IEEEAddr[0] <= MAX_END_DEVICE) {
+ 255   3            gtPIB.PairInfo.SrcID = gtMIB.au8IEEEAddr[0] ;
+ 256   3            u8AutoPairSrcID = 0;    
+ 257   3          } 
+ 258   2          else  {
+ 259   3                u8AutoPairSrcID = AUTO_PAIR_ID;
+ 260   3                gtPIB.PairInfo.SrcID = u8AutoPairSrcID;
+ 261   3              } 
+ 262   2            }
+ 263   1      }
+ 264          
+ 265          
+ 266          //==============================================================================
+ 267          //  Function : PAIRING_CHECK
+ 268          //==============================================================================
+ 269          void Pairing_Check(void)
+ 270          {
+ 271   1            if(!PAIRING_BUTTON)
+ 272   1            {
+ 273   2                AppLib_VirtualTimerSet(COMON_TIMER, PAIRING_BUTTON_CHECK_TIME);   // 3sec
+ 274   2                u8Task_pairing = PAIRING_START;
+ 275   2            }
+ 276   1        else
+ 277   1        {
+ 278   2                u8Task_pairing = PAIRING_EXIT;
+ 279   2        }
+ 280   1      }
+ 281          
+ 282          
+ 283          //==============================================================================
+ 284          //  Function : Pairing Countinuate
+ 285          //==============================================================================
+ 286          #if ( _EPAS_MODE == 0 )
+              void ZAPP_PairingProcess(void)
+              {
+                // extern UINT8   TX_WaitState;
+                
+                switch(u8Task_pairing)
+                {
+                  case PAIRING_WAIT:  // PAIRING_STEP0:
+                    //PairingSeq0();
+                       if(!PAIRING_BUTTON) {
+                            u8Task_pairing = PAIRING_CHECK;
+                            TX_WaitState = TX_WAIT_IDLE;
+                            u8AppRFSq = SQ_PAIR_WAIT_ST;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 6   
+
+                      }             
+                    break;
+                  case PAIRING_CHECK: // PAIRING_STEP1:
+                    Pairing_Check();
+                    break;
+                  case PAIRING_START: // PAIRING_STEP2:
+                    Pairing_Start();
+                    break;
+                  case PAIRING_STANBY: // 
+                    // LED Ç¥½Ã·Î Æä¾î¸µ ½ÃÀÛÀ» ¾Ë¸®±â À§ÇØ 5ÃÊ Á¤µµ ±â´Ù¸°ÈÄ Æä¾î¸µ ÁøÇà
+                    if(AppLib_VirtualTimerGet(COMON_TIMER) == 0) {
+                      u8Task_pairing = PAIRING_SEND;
+                    } 
+                    break;
+                  case PAIRING_SEND: // PAIRING_STEP3:
+                    Pairing_Send();
+                    break;
+                  case PAIRING_RETRY: // PAIRING_STEP4
+                    Pairing_Retry();
+                    break;
+                  case PAIRING_FAIL: // PAIRING_STEP5
+                    Pairing_Fail();
+                    break;
+                  case PAIRING_OK:
+                    Pairing_OK();
+                    break;
+                  case  PAIRING_EXIT :
+                          if ( u8LedState == LED_PAIRED_STS)
+                            u8AppRFSq = SQ_RF_TX_INIT;    // Æä¾î¸µ ½ÇÆÐ°¡ ¾Æ´Ï¸é Æä¾î¸µ º¹±Í½Ã rf sq ¸¦ Ã³À½ ºÎÅÍ µ¿ÀÛ ÇÏµµ·
+             -Ï 
+                    
+                    u8Task_pairing = PAIRING_WAIT;    
+                    break;
+                  default:
+                    u8Task_pairing = PAIRING_WAIT;
+                    break;
+                } 
+                
+              }
+              #endif
+ 338          
+ 339          void PER_RespProcess(void)
+ 340          {
+ 341   1        UINT8 u8Data[30];
+ 342   1        UINT8 u8status;
+ 343   1      
+ 344   1      
+ 345   1        BLUE_LED ^= 1; //BLUE LED toggle : 100ms        
+ 346   1        PER_Packet(u8Data);   
+ 347   1        
+ 348   1        u8status = App_Data_Transmit(RF_PER_PACKET_LENGTH, u8Data);//App_Data_Transmit(20,u8Data);
+ 349   1        
+ 350   1        if (u16RfPacketCount == PER_PACKET_COUNT - 1){    // recevied END command
+ 351   2          u8AppRFSq = SQ_RF_TX_INIT;
+ 352   2          u16RfPacketCount = 0;
+ 353   2          SYS_Uart1Put('>');
+ 354   2        } 
+ 355   1        else  {
+ 356   2          SYS_Uart1Put('*');
+ 357   2          u8AppRFSq = SQ_WAIT;        // 1È¸ ÀÀ´ä 
+ 358   2          TX_WaitState = TX_WAIT_IDLE;
+ 359   2        }   
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 7   
+
+ 360   1      
+ 361   1      } 
+ 362          
+ 363          
+ 364          void SetTxInitWaitTime(void)
+ 365          {
+ 366   1        UINT16  init_wait_time;
+ 367   1      
+ 368   1        init_wait_time = App_Get2ByteRandWait();
+ 369   1        init_wait_time %=100;
+ 370   1        init_wait_time += TIME_INIT_TX_DELAY; 
+ 371   1                
+ 372   1        zPrintf(1, "\n\n  Init Wait[ %d msec ]... \n", init_wait_time); 
+ 373   1        AppLib_VirtualTimerSet(SQ_WAIT_TIMER, init_wait_time);  
+ 374   1      }
+ 375          
+ 376          
+ 377          void SleepStart(void)
+ 378          {
+ 379   1        BLUE_LED = LED_OFF;
+ 380   1        RED_LED = LED_OFF;
+ 381   1        
+ 382   1        #if _POWERDOWN_USE
+ 383   1          #if _UARTDEBUG_MODE
+                  zPrintf(1,"Sleep Start()\n");
+                  #endif
+ 386   1          AppLib_Delay(3);
+ 387   1          //HAL_PowerdownGpio1WakeupSourceSet(4, 1, 0);   // button wakeup ¼³Á¤  
+ 388   1          #if (_POWERDOWN_MODE==1)
+ 389   1          HAL_PowerdownMode1(u8_SLEEP_TIME, 0, 0, 0);     // sec timer 
+ 390   1          #elif (_POWERDOWN_MODE==2)
+                  HAL_PowerdownMode2(u8_SLEEP_TIME, 0, 0, 0);     // sec timer 
+                  #elif (_POWERDOWN_MODE==3)
+                  HAL_PowerdownMode3(0);                // Wakeup --> Only EXT Int
+                  #endif
+ 395   1        #endif
+ 396   1      
+ 397   1        TX_WaitState = TX_WAKEUP_STS;
+ 398   1      } 
+ 399          
+ 400          // sleep mode »óÅÂ¿¡¼­ ±ú¾î³¯¶§  :  Á¤»ó wakeup, button wakeup 
+ 401          void WakeupSet(void)
+ 402          {
+ 403   1        HAL_RFAnalogSleep(POWER_RF_SLEEP_ADC_ON); 
+ 404   1      
+ 405   1        #if _EPAS_MODE
+ 406   1          SYS_AdcSet(ENABLE, 0, ADC_CHAN_3);        // !! sleep mode ÁøÀÔÇÏ°í adc set À» ÇØÁÖÁö ¾ÊÀ¸¸é °ªÀ» ÀÐ¾î ¿ÀÁö 
+             -¸øÇÔ
+ 407   1        #else
+                  SYS_AdcSet(ENABLE, 0, ADC_CHAN_0);        // !! sleep mode ÁøÀÔÇÏ°í adc set À» ÇØÁÖÁö ¾ÊÀ¸¸é °ªÀ» ÀÐ¾î ¿ÀÁö 
+             -¸øÇÔ
+                #endif
+ 410   1      
+ 411   1            
+ 412   1        // pair burron ¿¡ ÀÇÇÑ wakeup Ã³¸®½Ã Æä¾î¸µ µ¿ÀÛÀ¸·Î ³Ñ¾î °¡µµ·Ï 
+ 413   1        if(PAIRING_BUTTON == BTN_ON)  {
+ 414   2          u8AppRFSq = SQ_PAIR_WAIT_ST;        // pairingÀÌ µÈ »óÅÂ¿¡¼­¸¸  µ¿ÀÛ ÇÏµµ·Ï 
+ 415   2          TX_WaitState = TX_WAIT_IDLE;
+ 416   2          HAL_RFAnalogWakeup();
+ 417   2        }
+ 418   1        else      // if (TX_WaitState != SQ_PAIR_WAIT_ST)     // pairing »óÅÂ°¡  ÀÌ ³¡³¯¶§ ±îÁö ´ë±â  
+ 419   1          TX_WaitState = TX_WAIT_INIT;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 8   
+
+ 420   1        
+ 421   1      }
+ 422          
+ 423          // ÇÑ¹ø sleep mode µ¿ÀÛ½Ã´Â ÃÖ¼Ò 5È¸(5ÃÊ) ÀÌ»ó È¸º¹ ½ÅÈ£°¡ À¯Áö µÉ¶§ º¹±Í 
+ 424          UINT8 u8RecoveryCount = 0;
+ 425           
+ 426          void CheckOverCurrent(void)
+ 427          {
+ 428   1        // Overcurrent ÇØÁ¦     
+ 429   1        if (OVER_CURRENT_CHECK == I_PORT_OFF) {
+ 430   2          if (u8RecoveryCount++ >= 5) {
+ 431   3        
+ 432   3            //zPrintf(1, "SLEEP_TIME = %d  %d ", (short)u8_SLEEP_TIME, (short)u8_SLEEP_TIME_Prev );
+ 433   3            CLR_OVER_CURR_STS();
+ 434   3        
+ 435   3            //Porduct_Mode &= ~PM_OVER_CURR_MODE;
+ 436   3            u8_SLEEP_TIME = u8_SLEEP_TIME_Prev;
+ 437   3          } 
+ 438   2        }
+ 439   1        else
+ 440   1          u8RecoveryCount = 0;
+ 441   1      
+ 442   1      }
+ 443          
+ 444          void InitSleepWait(void)
+ 445          {
+ 446   1        #if _POWERDOWN_USE
+ 447   1          //HAL_PowerdownGpio1WakeupSourceSet(4, 1, 0);   // wakeup interrupt pin : p1.4 (pairing button)   
+ 448   1      
+ 449   1          //zPrintf(1,"Init Sleep Wait()\n");
+ 450   1          //#if (_POWERDOWN_MODE==1)
+ 451   1          //HAL_PowerdownMode1(POWER_DOWN_TIME_INIT, 0, 0, 0);          //  5 sec  : wiat for normal power 
+ 452   1          //#elif (_POWERDOWN_MODE==2)
+ 453   1          //HAL_PowerdownMode2(POWER_DOWN_TIME_INIT, 0, 0, 0);          //  5 sec  : wiat for normal power 
+ 454   1          //#elif (_POWERDOWN_MODE==3)
+ 455   1          //HAL_PowerdownMode3(0);          //  5 sec  : wiat for normal power 
+ 456   1          //#endif
+ 457   1        #endif
+ 458   1          
+ 459   1        Init_SetHAL();        
+ 460   1        Init_ExtAmp();      
+ 461   1        
+ 462   1        SleepStart();
+ 463   1        WakeupSet();
+ 464   1      }
+ 465            
+ 466          void RF_Init_Wait(void)
+ 467          {
+ 468   1      
+ 469   1        if (Porduct_Mode & PM_SLEEP_MODE) {
+ 470   2          // No wait Sleep mode  
+ 471   2          if ((Porduct_Mode & PM_OVER_CURR_MODE) ||  (Porduct_Mode & PM_UART_DBG_MODE)) {
+ 472   3            Init_SetHAL();        
+ 473   3            Init_ExtAmp();      
+ 474   3          }
+ 475   2          else  
+ 476   2            // Sleep mode Normal µ¿ÀÛ : sleep wait 
+ 477   2            InitSleepWait();
+ 478   2        } 
+ 479   1        else {  
+ 480   2          
+ 481   2          // PM_UART_DBG_MODE µµ PM_SLEEP_MODE ·Î µ¿ÀÛÇÔ : ¾Æ·¡ ·çÆ¾Àº µ¿ÀÛ ÇÏÁö ¾ÊÀ½  !!! 
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 9   
+
+ 482   2          // if (Porduct_Mode & PM_UART_DBG_MODE){
+ 483   2          //  Init_SetHAL();        
+ 484   2          //  Init_ExtAmp();      
+ 485   2          //}    
+ 486   2          
+ 487   2          SetTxInitWaitTime();
+ 488   2          
+ 489   2          // init wait before TX 
+ 490   2          while (AppLib_VirtualTimerGet(SQ_WAIT_TIMER) == 0);
+ 491   2        
+ 492   2          zPrintf(1, "\n -- START -- " ); 
+ 493   2        }
+ 494   1          
+ 495   1      } 
+ 496          
+ 497          void SetTxWaitStatus(void)
+ 498          {
+ 499   1        if (Porduct_Mode &  PM_SLEEP_MODE )  
+ 500   1        {
+ 501   2          TX_WaitState = TX_SLEEP_SEN_READ_STS;   // sleep mode tx   
+ 502   2          #if _UARTDEBUG_MODE
+                  zPrintf(1, "TX_SLEEP_SEN_READ_STS\n" ); 
+                  #endif
+ 505   2        }
+ 506   1        else
+ 507   1        {
+ 508   2          TX_WaitState = TX_WAIT_SEN_END_READ_STS;  // NO sleep moe tx   
+ 509   2          #if _UARTDEBUG_MODE
+                  zPrintf(1, "TX_WAIT_SEN_END_READ_STS\n" );  
+                  #endif
+ 512   2        }
+ 513   1      }
+ 514          
+ 515          
+ 516          // RF_TX Process() ¾Õ¿¡¼­  ¼Û½Å ÁÖ±â¸¦ ¸¸µê 
+ 517          void TX_Wait_Process(void)
+ 518          {
+ 519   1        static  UINT8   TxTimeCount = 0;
+ 520   1        extern UINT16 u16DelayTime;
+ 521   1      
+ 522   1        switch(TX_WaitState) {
+ 523   2          case TX_WAIT_IDLE :
+ 524   2            break;
+ 525   2            
+ 526   2          //---------------------------------------------------------------------------------------
+ 527   2          // wakeup mode wait  
+ 528   2          //---------------------------------------------------------------------------------------
+ 529   2          case TX_WAIT_INIT :
+ 530   2            //AppLib_VirtualTimerSet(SQ_WAIT_TIMER,  SEN_READ_TIME);   
+ 531   2            SenReadState = SEN_READ_WAIT;
+ 532   2            TX_WaitState = TX_WAIT_SEN_READ_STS;
+ 533   2            
+ 534   2            //if (Porduct_Mode &  PM_SLEEP_MODE )  
+ 535   2            //  TX_WaitState = TX_SLEEP_SEN_READ_STS;
+ 536   2            //else
+ 537   2            //  TX_WaitState = TX_WAIT_SEN_READ_STS;
+ 538   2              
+ 539   2            break;
+ 540   2          case TX_WAIT_SEN_READ_STS :
+ 541   2            // wait for end of sensor reading status : SEN_CALC_DATA
+ 542   2            
+ 543   2            break;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 10  
+
+ 544   2          case TX_WAIT_SEN_END_READ_STS :   
+ 545   2            // sensor reading wiat  : ÁÖ¾îÁø ½Ã°£ µ¿¾È sensor reading ÀÛ¾÷ÀÌ ¿Ï·á µÉ¶§±îÁö ±â´Ù¸²  
+ 546   2            //if (AppLib_VirtualTimerGet(SQ_WAIT_TIMER) == 0)   {  
+ 547   2              TX_WaitState = TX_WAIT_STS;
+ 548   2              AppLib_VirtualTimerSet(SQ_WAIT_TIMER,  u16_TX_TIME+u16DelayTime);  
+ 549   2            //}     
+ 550   2            break;
+ 551   2          
+ 552   2          case TX_WAIT_STS :                  // TX time wait   : ¼Û½Å ÁÖ±â ÃÖ¼Ò 1ÃÊ ¶Ç´Â ±×ÀÌ»óÀ» ±â´Ù¸²         
+ 553   2            if (AppLib_VirtualTimerGet(SQ_WAIT_TIMER) == 0) { // 1sec ¸¦ ±â´Ù¸² :    1sec ¿¡¼­  SEN_READ_TIME À» »«
+             -°ªÀ» ¼³Á¤ ÇÏµµ·Ï 
+ 554   3              if (++TxTimeCount >= TxTimePeriod) {      // data ¼Û½Å ÁÖ±â Ã¼Å©  
+ 555   4                TxTimeCount = 0;
+ 556   4                u8AppRFSq = SQ_RF_TX_START; 
+ 557   4                TX_WaitState = TX_WAIT_TIME_SET_STS;
+ 558   4              }
+ 559   3              else
+ 560   3                TX_WaitState = TX_WAIT_INIT;
+ 561   3            }
+ 562   2              
+ 563   2            break;
+ 564   2          case TX_WAIT_TIME_SET_STS :             // ¼Û½ÅÈÄ °á°ú¸¦ ±â´Ù¸² 
+ 565   2            // send status Ã¼Å© ???? 
+ 566   2            if (u8AppRFSq == SQ_WAIT) {           // check send finished 
+ 567   3              SetTxWaitTimer();
+ 568   3              TX_WaitState = TX_WAIT_INIT;
+ 569   3            }   
+ 570   2            break;
+ 571   2        
+ 572   2          //---------------------------------------------------------------------------------------
+ 573   2          // Sleep mode wait  : ¼¾¼­ rading time ¼³Á¤Àº wakeup°ú  °°Àº ·çÆ¾ »ç¿ë 
+ 574   2          //---------------------------------------------------------------------------------------
+ 575   2          case TX_SLEEP_SEN_READ_STS :
+ 576   2            // sensor reading wiat : SQ_WAIT_TIMER check °¡ ÇÊ¿ä ¾øÀ½, ¼¾¼­ µ¥ÀÌÅ¸ Ã³¸®(SEN_CALC_DATA) ¿Ï·áÈÄ ¿©±â¼
+             -­ ¼öÇà ÇÏµµ·Ï µÇ¾î ÀÖÀ½
+ 577   2            //if (AppLib_VirtualTimerGet(SQ_WAIT_TIMER) == 0) {   // SEN_READ_TIMER  :  senor data ¸¦ ÀÐ±â À§ÇØ ÁÖ¾î
+             -Áø ½Ã°£ ( tx time ÁÖ±âÀÎ 1sec º¸´Ù ÀÛ¾Æ¾ßµÊ) 
+ 578   2              u8AppRFSq = SQ_RF_TX_START;       // tx send state 
+ 579   2              TX_WaitState = TX_SLEEP_STS;
+ 580   2              
+ 581   2              HAL_RFAnalogWakeup();           
+ 582   2              AppLib_VirtualTimerSet(SQ_WAIT_TIMER,  5);    //  wait for tx complete before  sleeping 
+ 583   2            //} 
+ 584   2            break;
+ 585   2      
+ 586   2          case TX_SLEEP_STS :
+ 587   2            if (AppLib_VirtualTimerGet(SQ_WAIT_TIMER) == 0) { //  wait for tx completed   
+ 588   3              if (Porduct_Mode & PM_OVER_CURR_MODE)   CheckOverCurrent();
+ 589   3              SleepStart();                 // Kong - Sleep mode ÁøÀÔ
+ 590   3              SetTxWaitTimer();             // Kong - Sleep mode ´Â  wakeup ÈÄ¿¡ ¼Û½ÅÈÄ °á°ú Ã³¸® (¼Û½Å¿¡·¯ÀÏ °æ¿ì ¹Ì¼¼ de
+             -lay Ãß°¡ ) 
+ 591   3            }
+ 592   2            
+ 593   2            break;
+ 594   2       
+ 595   2          case TX_WAKEUP_STS :
+ 596   2            WakeupSet();                  // SleepStart()¿¡¼­ wakeup ÈÄ µ¿ÀÛ   
+ 597   2            
+ 598   2            break;
+ 599   2          //--------------------------------------------------------------------------------------- 
+ 600   2        
+ 601   2          default :
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 11  
+
+ 602   2            break;
+ 603   2          
+ 604   2        }
+ 605   1      } 
+ 606          
+ 607          
+ 608          #define OVER_CURR_STAY_TIME       300   // 300ms
+ 609          #define OVER_CURR_CHK_WAIT_TIME     1000  // 1000ms
+ 610          
+ 611          void App_RF_TxProcess(void)
+ 612          {
+ 613   1        UINT8 u8Data[30];
+ 614   1        
+ 615   1        switch (u8AppRFSq)
+ 616   1        {   
+ 617   2          case SQ_WAIT:
+ 618   2      
+ 619   2            break;
+ 620   2          case SQ_INIT_OVER_CHK:
+ 621   2            
+ 622   2            if (AppLib_VirtualTimerGet(SQ_WAIT_TIMER) == 0)       // ÃÖÃÊ 200ms µ¿¾È wiat : Over Current ½ÅÈ£ ¹ß»ý ¿©º
+             -Î¸¦ ±â´Ù¸²  
+ 623   2              u8AppRFSq = SQ_RF_TX_INIT;
+ 624   2            
+ 625   2            // 100ms ¾È¿¡ ÇÑ¹øÀÌ¶óµµ OVER_CURRENT_CHECK ¹ß»ý½Ã 1 ~2ÃÊ µ¿¾È °è¼Ó À¯Áö ¿©ºÎ Ã¼Å© ÁøÇà
+ 626   2            if (OVER_CURRENT_CHECK == I_PORT_ON) {
+ 627   3              u8AppRFSq = SQ_INIT_OVER_WAIT;
+ 628   3              AppLib_VirtualTimerSet(SQ_WAIT_TIMER,  OVER_CURR_STAY_TIME);    // 300ms µ¿¾È over current »óÅÂ¸¦  À¯Áö
+             - ÇØ¾ßµÊ 
+ 629   3              AppLib_VirtualTimerSet(COMON_TIMER,  OVER_CURR_CHK_WAIT_TIME);  // 1ÃÊ µ¿¾È over current »óÅÂ Ã¼Å© 
+ 630   3            }
+ 631   2            break;
+ 632   2            
+ 633   2          case SQ_INIT_OVER_WAIT:
+ 634   2            if (OVER_CURRENT_CHECK == I_PORT_ON) {
+ 635   3              if (AppLib_VirtualTimerGet(SQ_WAIT_TIMER) == 0) { 
+ 636   4                //Porduct_Mode |= PM_OVER_CURR_MODE;      // over current »óÅÂ¸¦ 2ÃÊ ±â´Ù¸®´Â µ¿¾È 400ms µ¿¾È À¯Áö : PM
+             -_OVER_CURR_MODE 
+ 637   4                SET_OVER_CURR_STS();            // // over current »óÅÂ¸¦ 1ÃÊ ±â´Ù¸®´Â µ¿¾È 300ms µ¿¾È À¯Áö : PM_OVER_CURR_
+             -MODE 
+ 638   4                u8_SLEEP_TIME = 1;              // overcurrent »óÅÂÀÌ¸é 1ÃÊ¿¡ ÇÑ¹ø¾¿ µ¿ÀÛ ÇÏµµ·Ï ¼öÁ¤   
+ 639   4                u8AppRFSq = SQ_RF_TX_INIT;          // PM_OVER_CURR_MODE´Â PM_UART_DBG_MODE ¿Í °°Àº µ¿ÀÛÀ» ¼öÇà 
+ 640   4              } 
+ 641   3            }    
+ 642   2            else  
+ 643   2              AppLib_VirtualTimerSet(SQ_WAIT_TIMER,  OVER_CURR_STAY_TIME);    // over current »óÅÂ¸¦ 2ÃÊ ±â´Ù¸®´Â µ¿¾
+             -È 400ms µ¿¾È À¯Áö ÇÏÁö ¸øÇÏ¸é reset 
+ 644   2            
+ 645   2            if (AppLib_VirtualTimerGet(COMON_TIMER) == 0)   
+ 646   2              u8AppRFSq = SQ_RF_TX_INIT;
+ 647   2      
+ 648   2            break;
+ 649   2          
+ 650   2          case SQ_RF_TX_INIT :  
+ 651   2            RF_Init_Wait();
+ 652   2            
+ 653   2            #if ( _EPAS_MODE == 0 )
+                    GetSensor_TempData(); // reset temp sensor  by init reading : ÃÊ±â ¿Âµµ¼¾¼­ ¾²·¹±â °ª ÀÐ¾î ¿À´Â Çö»ó Á¦
+             -°Å À§ÇØ Ãß°¡  
+                    #endif
+ 656   2      
+ 657   2            //SenReadState = SEN_READ_WAIT;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 12  
+
+ 658   2            u8AppRFSq = SQ_WAIT;      
+ 659   2            TX_WaitState = TX_WAIT_INIT;          // start sensor read timer 
+ 660   2          
+ 661   2            break;
+ 662   2          
+ 663   2          case SQ_RF_TX_START:
+ 664   2            if (UserCtrl_Packet(u8Data))          //  make RF payload frame : data ¿À·ù Ã¼Å© ¿À·ù°¡ ÀÖÀ¸¸é RF Àü¼ÛÀ» ÇÏÁ
+             -ö ¾ÊÀ½
+ 665   2              u8Sendstatus = 0xFF;            // RETURN_PHY_SUCCESS = 0x00  
+ 666   2            else  
+ 667   2              u8Sendstatus = SendDataPacket(u8Data);    //  RF, uart ascii, uart hex mode Áß ¼±ÅÃ,  1È¸(1ÃÊ)¿¡ ÇÑ¹ø¾¿ 
+             -Àü¼Û
+ 668   2            
+ 669   2            u8LedState = LED_TX_STS;
+ 670   2            u8AppRFSq = SQ_WAIT;          
+ 671   2            
+ 672   2            break;
+ 673   2          case SQ_PAIR_WAIT_ST :
+ 674   2            // Æä¾î¸µ µ¿ÀÛÀÌ ³¡³ª¸é 1È¸ ¼Û½ÅÈÄ sleep mode ·Î °¡µµ·Ï  
+ 675   2            // Æä¾î¸µ Áß¿¡´Â ´Ù¸¥ ÀÛ¾÷À» ÇÏÁö ¾ÊÀ½ 
+ 676   2            if ((u8Task_pairing == PAIRING_WAIT) &&  (gtPIB.uPairCount)) {  // Æä¾î¸µ ½ÇÆÐ½Ã¿¡µµ °è¼Ó ´ë±â  
+ 677   3              u8AppRFSq = SQ_RF_TX_INIT;        // Æä¾î¸µ ÇÁ·¯¼¼½º°¡ ³¡³ª¸é ÃÊ±â µ¿ÀÛ ºÎÅÍ 
+ 678   3            } 
+ 679   2              
+ 680   2            break;
+ 681   2      
+ 682   2          case SQ_RF_TX_PER:
+ 683   2            PER_RespProcess();
+ 684   2          
+ 685   2            break;  
+ 686   2                    
+ 687   2          default :
+ 688   2            break;      
+ 689   2        }
+ 690   1      
+ 691   1        //----------------------------------------------------------------------------------------
+ 692   1        // ¹«¼± ¼ö½Å µ¥ÀÌÅ¸ Ã³¸® ·çÆ¾
+ 693   1        App_RF_RxProcess();
+ 694   1        //----------------------------------------------------------------------------------------
+ 695   1        
+ 696   1      }
+ 697          
+ 698          // ¼Û½Å ¿À·ù½Ã delay Ãß°¡ : ´©ÀûÀº ÇÏÁö ¾ÊÀ½    
+ 699          void SetTxWaitTimer(void)
+ 700          {
+ 701   1      
+ 702   1        if (u16RfPacketCount++ == 0xffff) u16RfPacketCountH++;  // packet count¸¦  4¹ÙÀÌÆ® »ç¿ëÇÏ±â À§ÇØ 
+ 703   1        u8TempSenErrCount++;                // Àû¿Ü¼± ¼¾¼­ read error count : normal read clear 
+ 704   1        
+ 705   1        if (u8Sendstatus == RETURN_PHY_SUCCESS)
+ 706   1        {
+ 707   2          u8LedState = LED_TX_OK_STS;
+ 708   2          if (Porduct_Mode &  PM_SLEEP_MODE)  SYS_Uart1Put('~');
+ 709   2          else                SYS_Uart1Put('.');
+ 710   2        }
+ 711   1        else
+ 712   1        {
+ 713   2          u8LedState = LED_TX_FAIL_STS;
+ 714   2          
+ 715   2          // ´ÙÀ½ 1ÃÊÈÄ ÀçÀü¼Û ½Ã°£À» º¯°æ 
+ 716   2          u16DelayTime = rand() & TX_RANDTIME_MASK;   // rand() : 2 byte int type randum number
+ 717   2          u16NoAckCount++;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 13  
+
+ 718   2        }
+ 719   1        
+ 720   1        AppLib_VirtualTimerSet(SQ_WAIT_TIMER, u16_TX_TIME + u16DelayTime);  //  ¼Û½Å delay ´Â ¼Û½Å error °¡ ¹ß»ý Ç
+             -ÏÁö ¾ÊÀ¸¸é °°Àº °ªÀ» °è¼Ó »ç¿ë 
+ 721   1          
+ 722   1      }
+ 723          
+ 724          
+ 725          // ¹«¼± ¼ö½Å(RX) µ¥ÀÌÅ¸ Ã³¸®  
+ 726          // STX CMD LEN   |   cmd sen_id dat2 dat3 dat4   |   chk  ETX  
+ 727          // A0    A0    07         03      0       0      0      0          xx    AF
+ 728          // CMD : CMD_PAIRING_RESPONSE(0xF1), CMD_DATA_REQUEST(0xA0), CMD_DATA_ALLRESET(0xB0) 
+ 729          // cmd  : per _test(0x03)
+ 730          // PER test cmd format : A0 A0 05 03 id 0 0 0 chk AF  
+ 731          
+ 732          UINT8 u8PlainLen;
+ 733          
+ 734          void App_RF_RxProcess(void)
+ 735          {
+ 736   1        tPACKET_INFO*     ptRxPacket;
+ 737   1        tMAC_INFO       tMacInfo;
+ 738   1      
+ 739   1        tRF_RT_PACKET_FORMAT*   ptMsgBody;
+ 740   1        tDATA_MESSAGE*      ptMsgFormat;
+ 741   1      
+ 742   1        UINT8 u8Status;
+ 743   1        //UINT16  iw;
+ 744   1          
+ 745   1        ptRxPacket = SYS_RxQueueCheck();
+ 746   1        if(ptRxPacket)    // A packet is received
+ 747   1        {
+ 748   2          u8Status = SYS_RxQueueParse(ptRxPacket, &tMacInfo);
+ 749   2          if(!u8Status)
+ 750   2          {
+ 751   3            //u8LedCounter_Rx = (u8LedCounter_Rx + 1) & 0x07;
+ 752   3            //1 Security Processing
+ 753   3            u8Status = HAL_SecDecryptionCCM32(tMacInfo.pu8MacPayload, tMacInfo.u8MacPayLen, u32FrameCounter, u8KeyS
+             -eqNum, &u8PlainLen);          
+ 754   3            tMacInfo.u8MacPayLen = u8PlainLen;
+ 755   3            
+ 756   3            //SYS_Uart1Put(tMacInfo.pu8MacPayload[4]);
+ 757   3            //SYS_Uart1Put(tMacInfo.pu8MacPayload[5]);
+ 758   3              
+ 759   3            ptMsgBody = (tRF_RT_PACKET_FORMAT*)tMacInfo.pu8MacPayload;
+ 760   3            ptMsgFormat =  (tDATA_MESSAGE*)ptMsgBody->u8Data;       
+ 761   3            
+ 762   3            // **************************
+ 763   3            // Test code
+ 764   3            //Display_Buffer(tMacInfo.pu8MacPayload, ptMsgBody->u8Size+PKT_HEADER_TAIL_LENGTH, ptMsgBody->u8Size+PK
+             -T_HEADER_TAIL_LENGTH);
+ 765   3            //zPrintf(1, "\n ptMsgBody->u8CMD = %x,   sen id = %x", (short)ptMsgBody->u8CMD,  (short)ptMsgFormat->u
+             -8DataMsgBody.u8DataMsgSrcID);
+ 766   3            // **************************
+ 767   3      
+ 768   3            // ÀÚ±â ÇÑÅ× ¿Â ¸í·É¸¸ Ã³¸® ÇÏµµ·Ï
+ 769   3            if (ptMsgBody->u8STX == STX)  {
+ 770   4              
+ 771   4              // º»ÀÎ ID ¸í·É¸¸ ¼öÇà, pairing ÀÏ¶§´Â ID °¡ ´Þ¶óµµ ÁøÇà 
+ 772   4              if (     (ptMsgBody->u8CMD == CMD_PAIRING_RESPONSE)
+ 773   4                    ||  (ptMsgFormat->u8DataMsgBody.u8DataMsgSrcID == gtPIB.PairInfo.SrcID)
+ 774   4                    ||  (ptMsgFormat->u8DataMsgBody.u8DataMsgSrcID == 0xFF))  // 0xFF : all sensor ID 
+ 775   4              { 
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 14  
+
+ 776   5              
+ 777   5              switch(ptMsgBody->u8CMD)
+ 778   5              {
+ 779   6                case CMD_PAIRING_RESPONSE:    // CMD_PAIRING_RESPONSE : 0xF1
+ 780   6                  BLUE_LED = LED_ON;      
+ 781   6                  RED_LED = LED_ON;
+ 782   6                  
+ 783   6                  //Display_Buffer(&ptMsgFormat->u8DataMsgBody.u8DataMsgPanID, ptMsgBody->u8Size+PKT_HEADER_TAIL_LENGT
+             -H, ptMsgBody->u8Size+PKT_HEADER_TAIL_LENGTH);
+ 784   6                  //zPrintf(1, "\n ptMsgFormat->u8DataMsgCMD = %x ", (short)ptMsgFormat->u8DataMsgCMD); 
+ 785   6                  
+ 786   6                  
+ 787   6                  if(ptMsgFormat->u8DataMsgCMD == GET_UART_CMD_PAIR) {
+ 788   7                    gtPIB.PairInfo.SrcID = AUTO_PAIR_ID;      // Pair_Table_Save  ¿¡¼­ ÀÚµ¿ Ã³¸® ÇÏ±â À§ÇØ 
+ 789   7                  } 
+ 790   6                  
+ 791   6                  SetDestIEEEAddress(tMacInfo.uSrcAddr.au8Ext);
+ 792   6                  Pair_Table_Save(ptMsgFormat->u8DataMsgBody.u8DataMsgSrcID, tMacInfo.uSrcAddr.au8Ext);
+ 793   6                  
+ 794   6                  
+ 795   6                  break;
+ 796   6                case CMD_DATA_REQUEST:
+ 797   6      
+ 798   6                  if(ptMsgFormat->u8DataMsgCMD == CMD_ID_RF_DATA_START)
+ 799   6                  {
+ 800   7                    zPrintf(1, "\n >> ----- START ----- ");
+ 801   7                    zPrintf(1, "\n");
+ 802   7                    // per test END comnand ·Î °°ÀÌ »ç¿ë 
+ 803   7                    u8AppRFSq = SQ_RF_TX_PER;       // SQ_RF_TX_PER ·çÆ¾¿¡¼­ status ¸¦ SQ_TX_DELAY º¯°æ 
+ 804   7                    u16RfPacketCount = PER_PACKET_COUNT - 1;  // °­Á¦·Î end cmd reponse 
+ 805   7                  }
+ 806   6                  else if(ptMsgFormat->u8DataMsgCMD == CMD_ID_RF_DATA_STOP)
+ 807   6                  {
+ 808   7                    zPrintf(1, "\n >> ----- STOP ----- ");
+ 809   7                    zPrintf(1, "\n");
+ 810   7                    u8AppRFSq = SQ_WAIT;
+ 811   7                  }             
+ 812   6                  else if(ptMsgFormat->u8DataMsgCMD == CMD_ID_RF_DATA_PER)  // PER Test Start
+ 813   6                  {
+ 814   7                    if(u8AppRFSq != SQ_WAIT) {  // ÃÖÃÊ ÇÑ¹ø¸¸ Ãâ·Â
+ 815   8                      zPrintf(1, "\n >> START PER Test ");
+ 816   8                      u16RfPacketCount = 0;
+ 817   8                    } 
+ 818   7                    
+ 819   7                    tPER.u8DisplayPktInfo = tMacInfo.i8RSSI;
+ 820   7                    
+ 821   7                    u8AppRFSq = SQ_RF_TX_PER;
+ 822   7                    u16RfPacketCount++;
+ 823   7                  }
+ 824   6                  else if(ptMsgFormat->u8DataMsgCMD == CMD_ID_RF_DATA_RESTART)
+ 825   6                  {
+ 826   7                    zPrintf(1, "\n >> RESTART(´Ù½Ã½ÃÀÛ...)");
+ 827   7                    zPrintf(1, "\n");
+ 828   7                    AppLib_Delay(10);
+ 829   7                    xRTINT1=1;      
+ 830   7                    SYS_WdtReset(0);
+ 831   7                  }             
+ 832   6                  else if(ptMsgFormat->u8DataMsgCMD == CMD_ID_RF_SEN_DEBUG) // DEBUG cmd 
+ 833   6                  {
+ 834   7                    zPrintf(1, "\n >>  SENSOR DEBUG MODE START ");
+ 835   7                    zPrintf(1, "\n >>  Changed  TxTimePeriod  = 1   ");
+ 836   7                    TxTimePeriod = 1;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 15  
+
+ 837   7                  }
+ 838   6                  else if(ptMsgFormat->u8DataMsgCMD == CMD_ID_RF_SEN_OPTION)
+ 839   6                  { 
+ 840   7                    // 02 10 06  panid  chennel  srcid  op12345678  xx  03  
+ 841   7                    // received option data
+ 842   7                    if (u8AppRFSq == SQ_WAIT) {   // ¼Û½Å µ¿ÀÛÀÌ ¸ØÃá »óÅÂ¿¡¼­ ¸¸ option ¸í·ÉÀ» ¹Þ¾Æ µéÀÌµµ·Ï
+ 843   8                      rpmemcpy((UINT8*)&gtPIB.Option, (UINT8*)&ptMsgFormat->u8DataMsgBody.u8DataMsgDestID, OPTION_MESSAG
+             -E_LEN);
+ 844   8                      SetOptionData();
+ 845   8                    } 
+ 846   7                    else {
+ 847   8                      zPrintf(1, "\n >>  Stop!!  Sensor  Transmittion.");
+ 848   8                    } 
+ 849   7                  }                           
+ 850   6                  else if(ptMsgFormat->u8DataMsgCMD == CMD_ID_RF_SEN_EXT2)
+ 851   6                  {
+ 852   7                    
+ 853   7                  }             
+ 854   6                  break;
+ 855   6                  
+ 856   6                case CMD_DATA_ALLRESET:   // CMD_ID_RF_DATA_RESTART ¿¡¼­ resetÀ» ¼öÇà
+ 857   6                  zPrintf(1, "\n >> RESET(´Ù½Ã½ÃÀÛ...)");
+ 858   6                  zPrintf(1, "\n");
+ 859   6                  AppLib_Delay(10);
+ 860   6                  xRTINT1=0;      
+ 861   6                  SYS_WdtReset(0);
+ 862   6                  break;                                                      
+ 863   6                default :
+ 864   6                  break;
+ 865   6                
+ 866   6              } // end of switch
+ 867   5              }
+ 868   4            }
+ 869   3          }
+ 870   2          SYS_RxQueueClear();
+ 871   2        }
+ 872   1      }
+ 873          
+ 874          
+ 875          // ¼ö½ÅµÈ ¿É¼Ç µ¥ÀÌÅ¸¸¦ ½ÇÁ¦ º¯¼ö¿¡ Àû¿ë ¹× ÀúÀå 
+ 876          void SetOptionData(void)
+ 877          {
+ 878   1        
+ 879   1        if (gtPIB.Option.u8ProductMode == 0xFF) {   // ÃÊ±âÈ­ 
+ 880   2          #if (_USE_DIPSWITCH)  
+                  SetDipSwitch_ChannelPanID();
+                  #endif
+ 883   2          Init_FlashDefault();
+ 884   2          gtPIB.Option.u8Pid_Chan = 0xFF;
+ 885   2          gtPIB.Option.u8Option3 = 0xFF;    // tx time 
+ 886   2          gtPIB.Option.u8Option4 = 0xFF;    // sleep time 
+ 887   2          
+ 888   2          // ³ª¸ÓÁö ¿É¼ÇÀº ¾ÆÁ÷ »ç¿ë ÇÏÁö ¾ÊÀ½ 
+ 889   2        }   
+ 890   1        else {
+ 891   2          //  optionÀÌ default °ª(0xff) ÀÌ¸é °ªÀ» Àû¿ë ÇÏÁö ¾Êµµ·Ï ·çÆ¾ Ãß°¡ ???? 
+ 892   2        
+ 893   2          // Porduct_Mode |= gtPIB.Option.u8ProductMode & PM_SAVE_MASK;    
+ 894   2          gtPIB.u16PanID = (gtMIB.u16PanID & 0xFF00) | ((gtPIB.Option.u8Pid_Chan >> 4) & 0x0F);   // pan id 
+ 895   2          gtPIB.u8Channel = (gtPIB.Option.u8Pid_Chan  & 0x0F) + 11;           // channel 
+ 896   2        }
+ 897   1        
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 16  
+
+ 898   1        Pair_PIB_SAVE();
+ 899   1        Pair_Display_table();
+ 900   1      
+ 901   1      } 
+ 902          
+ 903            
+ 904          void SetDestIEEEAddress(UINT8 *address)
+ 905          {
+ 906   1      
+ 907   1        rpmemcpy(gtMIB.au8DstIEEEAddr, address, 8);
+ 908   1      
+ 909   1        // copy short address
+ 910   1        gtMIB.u16DstShortAddr = gtMIB.au8DstIEEEAddr[1];
+ 911   1        gtMIB.u16DstShortAddr = gtMIB.u16DstShortAddr << 8 | gtMIB.au8DstIEEEAddr[0];
+ 912   1      
+ 913   1      }
+ 914          
+ 915          // »óÀ§ ¿©¼¸ ¹ÙÀÌÆ®´Â ±×´ë·Î »ç¿ë
+ 916          void SetDestShortIEEEAddress(UINT8 *address)
+ 917          {
+ 918   1        
+ 919   1        rpmemcpy(gtMIB.au8DstIEEEAddr, address, 2);
+ 920   1        
+ 921   1        // copy short address
+ 922   1        gtMIB.u16DstShortAddr = address[1];
+ 923   1        gtMIB.u16DstShortAddr |=(UINT16)address[0] << 8;
+ 924   1        
+ 925   1        
+ 926   1      }
+ 927          
+ 928          #if _USE_DIPSWITCH
+              void SetDipSwitch_ChannelPanID(void)
+              {
+                UINT8   u8pen_id = 0;
+                UINT16  u16switch_in = 0;
+              
+                HAL_Gpio0InOutSet(0, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio0InOutSet(1, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio0InOutSet(2, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio0InOutSet(3, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio0InOutSet(4, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio0InOutSet(5, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio0InOutSet(6, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio0InOutSet(7, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio3InOutSet(3, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+                HAL_Gpio3InOutSet(4, GPIO_INPUT, GPIO_PULL_UP );
+                AppLib_DelayFor1us();
+              
+                #if (NEW_BOARD_DIP_SW)
+                
+                if (!GP00)    u16switch_in |= 1<<9;
+                if (!GP01)    u16switch_in |= 1<<8;
+                if (!GP02)    u16switch_in |= 1<<7;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 17  
+
+                if (!GP03)    u16switch_in |= 1<<6;
+                if (!GP04)    u16switch_in |= 1<<5;
+                if (!GP05)    u16switch_in |= 1<<4;
+                if (!GP06)    u16switch_in |= 1<<3;
+                if (!GP07)    u16switch_in |= 1<<2;
+                if (!GP33)    u16switch_in |= 1<<1;
+                if (!GP34)    u16switch_in |= 1<<0;   
+                
+                #else
+                
+                if (!GP00)    u16switch_in |= 1<<0;
+                if (!GP01)    u16switch_in |= 1<<1;
+                if (!GP02)    u16switch_in |= 1<<2;
+                if (!GP03)    u16switch_in |= 1<<3;
+                if (!GP04)    u16switch_in |= 1<<4;
+                if (!GP05)    u16switch_in |= 1<<5;
+                if (!GP06)    u16switch_in |= 1<<6;
+                if (!GP07)    u16switch_in |= 1<<7;
+                if (!GP33)    u16switch_in |= 1<<8;
+                if (!GP34)    u16switch_in |= 1<<9;   
+                
+              
+                #endif
+                  
+                gtPIB.u8Channel = (u16switch_in&0x000F) + 11; // 0 = 11ch
+                gtMIB.u8Channel = gtPIB.u8Channel;
+                
+                u8pen_id = (u16switch_in&0x03F0)>>4;
+                gtMIB.u16PanID = (gtMIB.u16PanID & 0xFF00) | (u8pen_id & 0x0F); // »óÀ§ 1¹ÙÀÌÆ®´Â ÀúÀåµÈ °ªÀ» ±×´ë·Î »ç¿ë
+                gtMIB.u16DstPanID=gtMIB.u16PanID;   
+              
+              
+                #if (NO_RPT_MODE) 
+                // nothing  
+                #else
+                // pan id MSB(bit5)¸¦ repeater »ç¿ë ¿©ºÎ¸¦ °áÁ¤ ÇÏ´Âµ¥ »ç¿ë ÇÏµµ·Ï : pan id ´Â 5bit(0x1f) ¸¸ »ç¿ë
+                if (u8pen_id & 0x20) 
+                  Porduct_Mode  |= PM_RPT_MODE;
+                
+                // repeater mode ÀÏ¶§¸¸ Ã¤³ÎÀ» dip switch ¿Í ´Ù¸£°Ô º¯°æ ½ÃÅ´
+                if (Porduct_Mode  & PM_RPT_MODE) {
+                  if (gtMIB.u8Channel >= 13) {
+                    gtMIB.u8Channel -= 2;
+                    zPrintf(1, "\n Repeater Mode : Current router Channel(DIP switch - 2)  = %02d",(short)gtMIB.u8Channel);
+             -  
+                  } 
+                  else
+                    zPrintf(1, "\n Error Channel Configuration (13 ~ 25)  ERROR !!!! : %02d",(short)gtMIB.u8Channel); 
+                } 
+                #endif
+                  
+              }
+              
+              #endif
+1013          
+1014          
+1015          // dip switch¸¦ »ç¿ë ÇÏÁö ¾ÊÀ»¶§
+1016          void Set_ChannelPanID(void)
+1017          {
+1018   1        if (gtPIB.uPairCount==0 ) {
+1019   2          // use default value
+1020   2          gtPIB.u16PanID = DEFAULT_PANID;
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 18  
+
+1021   2          gtPIB.u8Channel = DEFAULT_CHANNEL;
+1022   2        }
+1023   1          
+1024   1        gtMIB.u16PanID = gtPIB.u16PanID;
+1025   1        gtMIB.u16DstPanID=gtMIB.u16PanID; 
+1026   1        gtMIB.u8Channel = gtPIB.u8Channel; 
+1027   1        
+1028   1        #if (NO_RPT_MODE) 
+1029   1        // nothing  
+1030   1        #else
+                // repeater mode ÀÏ¶§¸¸ Ã¤³ÎÀ» dip switch ¿Í ´Ù¸£°Ô º¯°æ ½ÃÅ´  
+                if (Porduct_Mode  & PM_RPT_MODE) {
+                  if (gtMIB.u8Channel >= 13) {
+                    gtMIB.u8Channel -= 2;
+                    zPrintf(1, "\n Current router Channel(DIP switch - 2)  = %02d",(short)gtMIB.u8Channel); 
+                  } 
+                  else
+                    zPrintf(1, "\n Error Channel Configuration (13 ~ 25)  ERROR !!!! : %02d",(short)gtMIB.u8Channel); 
+                } 
+                #endif
+1041   1        
+1042   1      } 
+1043          
+1044          
+1045          UINT8 au8Key0[16];
+1046          UINT8 au8NonceExtAddr[8];
+1047          UINT32  u32FrameCounter;
+1048          UINT8 u8KeySeqNum;
+1049          
+1050          void Security_Material(void)
+1051          {
+1052   1        UINT8 iw=0;
+1053   1        
+1054   1        // Security Material
+1055   1        for(iw=0 ; iw<16 ; iw++)  au8Key0[iw] = 0xA0 + iw;
+1056   1        for(iw=0 ; iw<8 ; iw++) au8NonceExtAddr[iw] = 0xB0 + iw;
+1057   1        u32FrameCounter = 0x1DEA1B17;
+1058   1        u8KeySeqNum = 0x1B;
+1059   1        
+1060   1        HAL_SecKey0Set(au8Key0);
+1061   1        HAL_SecTxKeyChoice(SEC_KEY0);
+1062   1        HAL_SecRxKeyChoice(SEC_KEY0);
+1063   1        
+1064   1        HAL_SecTxNonceExtAddrSet(au8NonceExtAddr);
+1065   1        HAL_SecRxNonceExtAddrSet(au8NonceExtAddr);  
+1066   1      
+1067   1      }
+1068          
+1069          
+1070          
+1071          UINT8 App_GetRandSeed(UINT8 u8Min, UINT8 u8Offset)
+1072          {
+1073   1        UINT8 u8RetSeed;
+1074   1      
+1075   1              u8RetSeed = rand() & u8Offset;
+1076   1              u8RetSeed = u8RetSeed + u8Min;
+1077   1                 
+1078   1              return u8RetSeed; /* Min = u8Min,  Max = u8Min + u16Offset */
+1079   1      }
+1080          
+1081          
+1082          UINT16  App_Get2ByteRandWait(void)
+C51 COMPILER V9.53.0.0   IB_ZIGBEE                                                         01/28/2020 11:28:57 PAGE 19  
+
+1083          {
+1084   1      
+1085   1              UINT8   i;
+1086   1              UINT8   u8RandCnt = 0;
+1087   1              UINT16 u16RandID = 0;
+1088   1      
+1089   1              for(i = 0; i < 8; i++)
+1090   1              {
+1091   2                u8RandCnt ^= gtMIB.au8IEEEAddr[i];
+1092   2              }          
+1093   1      
+1094   1              u16RandID = (UINT16)App_GetRandSeed(0x01, 0xfe);       
+1095   1              u16RandID ^= (UINT16)u8RandCnt & 0x00ff;
+1096   1              u16RandID ^= ((UINT16)u8RandCnt << 8) & 0xff00;
+1097   1              srand(u16RandID);
+1098   1      
+1099   1        u16RandID &= 0x0fff;
+1100   1      
+1101   1              return  u16RandID;
+1102   1      
+1103   1      }
+1104          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2636    ----
+   CONSTANT SIZE    =    588    ----
+   XDATA SIZE       =     70     125
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -45,19 +45,19 @@
 //--------------------------
 
 
-#define	FW_UPDATE_DATE						"20190409"
+#define	FW_UPDATE_DATE						"20200116"
 // Smart Sensor End Device VERSION  		
 #define	SSE_VER_MAIN							'1'
-#define	SSE_VER_SUB1							'6'	// ver 변경시  Rename_HexFile.bat 파일의 ver 도 같이 변경 할것  !!!!!!  
+#define	SSE_VER_SUB1							'0'	// ver 변경시  Rename_HexFile.bat 파일의 ver 도 같이 변경 할것  !!!!!!  
 #define	SSE_VER_SUB2							' '
 
                                    		
 // Library_VERSION = V2.5           		
 #define	LIB_VER_MAIN							'2'
-#define	LIB_VER_SUB							'5'
+#define	LIB_VER_SUB								'5'
 
 
-#define TEST_SENSOR							0	// Multi comm 테스트용 센서 보드 사용시
+#define TEST_SENSOR								0	// Multi comm 테스트용 센서 보드 사용시
 
 // 컴파일러 에서 정의  
 #ifdef	__ZENER_BOARD
@@ -76,7 +76,7 @@
 #define _POWERDOWN_USE							1			// POWERDOWN MODE 사용 유무 ( 0:NOT USE , 1:USE )
 #define _POWERDOWN_MODE							1			// POWERDOWN MODE SELECT ( 1-POWERDOWN1 / 2-POWERDOWN2 )
 
-#define POWER_DOWN_TIME_INIT					30			//  sec : 초기  Power on후 wiat time Org 30  --> 0으로 셋팅시 POWER DOWN 동작 안됨 (Remark!!)
+#define POWER_DOWN_TIME_INIT					30			//  sec : 초기  Power on후 wiat time Org 30  --> 0으로 셋팅시 POWER DOWN 동작 안됨 (Remark!!) 
 #define POWER_DOWN_TIME							60			//  sec : 동작중 sleep mode  송신 주기 Kong Org 60
 
 #define _TIMER0_USE								0			// TIMER0 사용 유무  ( 0:NOT USE , 1:USE )
@@ -93,7 +93,7 @@
 ///	\n	0 = 9.0 dBm.   1 = 8.0 dBm.		2 = 8.0 dBm.		3 = 8.0 dBm....		9 = 0.0 dBm.
 ///	\n	10 = -1 dBm....				18 = -10 dBm.
 ///	\n	19 = -23 dBm.	 20 = -27 dBm.	21 = -33 dBm.		22 = -64 dBm.
-#define	RF_TX_POWERLEVEL						18
+#define	RF_TX_POWERLEVEL						0
 
 //--- NTC Thermister ADC Offset Value
 #define TEMP_OFFSET								0			//--- Org -302

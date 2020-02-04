@@ -1,0 +1,1 @@
+"..\..\..\Utility\UTIL_APP.c" LARGE OPTIMIZE (9,SIZE) INCDIR(..\..\..\..\Platform\Include\;..\..\..\..\Platform\SampleEVB\; ..\..\..\..\Platform\hal\; ..\..\..\Include\; ..\..\..\Utility\; ..\..\) DEFINE (DEBUG) PRINT(.\LST\UTIL_APP.lst) OBJECT(.\HEX\UTIL_APP.obj)

@@ -1,0 +1,530 @@
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.02b
+OBJECT MODULE PLACED IN .\HEX\STARTUP_BANK_RP_MG2470.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE Platform\asm\STARTUP_BANK_RP_MG2470.a51 SET(LARGE) PRINT(.\LST\STARTUP_
+                      BANK_RP_MG2470.lst) OBJECT(.\HEX\STARTUP_BANK_RP_MG2470.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;============================================================
+                       2     ;
+                       3     ;       This STARTUP File is used for code banking of RadioPulse's MG2470B
+                       4     ;
+                       5     ;       NAME    : STARTUP_BANK_RP_MG2470.A51
+                       6     ;       Chip            : MG2470B
+                       7     ;       Vendor  : RadioPulse Inc. 2012.
+                       8     ;       DATE    : 2012-04-25
+                       9     ;       Version : V2.0
+                      10     ;
+                      11     ;       [2012-04-25] V2.0
+                      12     ;       - Initial Version for MG2470B(ChipID=0x71)
+                      13     ;       
+                      14     ;============================================================
+                      15     
+                      16     
+                      17     
+                      18     $nomod51 
+                      19     ;------------------------------------------------------------------------------
+                      20     ;  This file is part of the C51 Compiler package
+                      21     ;  Copyright (c) 1988-2002 Keil Elektronik GmbH and Keil Software, Inc.
+                      22     ;------------------------------------------------------------------------------
+                      23     ;  STARTUP.A51:  This code is executed after processor reset.
+                      24     ;
+                      25     ;  To translate this file use A51 with the following invocation:
+                      26     ;
+                      27     ;     A51 STARTUP.A51
+                      28     ;
+                      29     ;  To link the modified STARTUP.OBJ file to your application use the following
+                      30     ;  BL51 invocation:
+                      31     ;
+                      32     ;     BL51 <your object file list>, STARTUP.OBJ <controls>
+                      33     ;
+                      34     ;------------------------------------------------------------------------------
+                      35     ;
+                      36     ;  User-defined Power-On Initialization of Memory
+                      37     ;
+                      38     ;  With the following EQU statements the initialization of memory
+                      39     ;  at processor reset can be defined:
+                      40     ;
+                      41     ;               ; the absolute start-address of IDATA memory is always 0
+  0000                42     IDATALEN                EQU     00H             ; the length of IDATA memory in bytes.
+                      43     ;
+  0000                44     XDATASTART              EQU     0H                      ; the absolute start-address of XDA
+                             TA memory
+                      45     ;XDATALEN               EQU     17FFH           ; the length of XDATA memory in bytes.
+  0000                46     XDATALEN                EQU     0H              ; the length of XDATA memory in bytes.
+                      47     ;
+  0000                48     PDATASTART              EQU     0H              ; the absolute start-address of PDATA memor
+                             y
+  0000                49     PDATALEN                EQU     0H                      ; the length of PDATA memory in byt
+                             es.
+                      50     ;
+                      51     ;  Notes:  The IDATA space overlaps physically the DATA and BIT areas of the
+                      52     ;          8051 CPU. At minimum the memory space occupied from the C51 
+                      53     ;          run-time routines must be set to zero.
+                      54     ;------------------------------------------------------------------------------
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     2
+
+                      55     ;
+                      56     ;  Reentrant Stack Initilization
+                      57     ;
+                      58     ;  The following EQU statements define the stack pointer for reentrant
+                      59     ;  functions and initialized it:
+                      60     ;
+                      61     ;  Stack Space for reentrant functions in the SMALL model.
+  0000                62     IBPSTACK                EQU     0                       ; set to 1 if small reentrant is us
+                             ed.
+  0001                63     IBPSTACKTOP             EQU     1               ; set top of stack to highest location+1.
+                      64     ;
+                      65     ;  Stack Space for reentrant functions in the LARGE model.      
+  0001                66     XBPSTACK                EQU     1                       ; set to 1 if large reentrant is us
+                             ed.
+  1800                67     XBPSTACKTOP             EQU     17FFH+1 ; set top of stack to highest location+1.
+                      68     ;
+                      69     ;  Stack Space for reentrant functions in the COMPACT model.    
+  0000                70     PBPSTACK                EQU     0                       ; set to 1 if compact reentrant is 
+                             used.
+  0001                71     PBPSTACKTOP             EQU     1                       ; set top of stack to highest locat
+                             ion+1.
+                      72     ;
+                      73     ;------------------------------------------------------------------------------
+                      74     ;
+                      75     ;  Page Definition for Using the Compact Model with 64 KByte xdata RAM
+                      76     ;
+                      77     ;  The following EQU statements define the xdata page used for pdata
+                      78     ;  variables. The EQU PPAGE must conform with the PPAGE control used
+                      79     ;  in the linker invocation.
+                      80     ;
+  0000                81     PPAGEENABLE             EQU     0                       ; set to 1 if pdata object are used
+                             .
+                      82     ;
+  0000                83     PPAGE                           EQU     0                       ; define PPAGE number.
+                      84     ;
+  00A0                85     PPAGE_SFR               DATA    0A0H            ; SFR that supplies uppermost address byte
+                      86     ;               (most 8051 variants use P2 as uppermost address byte)
+                      87     ;
+                      88     ;------------------------------------------------------------------------------
+  22E0                89     PDCON                   EQU             22E0H           ; xPDCON
+  22E1                90     RCOSC                   EQU             22E1H           ; xRCOSC
+  22E2                91     RTDLY                   EQU             22E2H           ; xRTDLY
+  22E6                92     PDMON                   EQU             22E6H           ; xPDMON
+  22E7                93     GPIOPS0                 EQU             22E7H           ; xGPIOPS0
+  22E8                94     GPIOPS1                 EQU             22E8H           ; xGPIOPS1
+  22E9                95     GPIOPS3                 EQU             22E9H           ; xGPIOPS3
+  22EA                96     GPIOPE0                 EQU             22EAH           ; xGPIOPE0
+  22EB                97     GPIOPE1                 EQU             22EBH           ; xGPIOPE1
+  22EC                98     GPIOPE3                 EQU             22ECH           ; xGPIOPE3
+  22ED                99     GPIOPOL0                EQU             22EDH           ; xGPIOPOL0
+  22EE               100     GPIOPOL1                EQU             22EEH           ; xGPIOPOL1
+  22EF               101     GPIOPOL3                EQU             22EFH           ; xGPIOPOL3
+  22F0               102     GPIOMSK0                EQU             22F0H           ; xGPIOMSK0
+  22F1               103     GPIOMSK1                EQU             22F1H           ; xGPIOMSK1
+  22F2               104     GPIOMSK3                EQU             22F2H           ; xGPIOMSK3
+                     105     
+  2700               106     FCN_CMD         EQU             2700H
+  2702               107     FCN_ADR1                EQU             2702H
+  2703               108     FCN_ADR0                EQU             2703H
+  2708               109     FCN_LEN1                EQU             2708H
+  2709               110     FCN_LEN0                EQU             2709H
+  270E               111     FCN_NOWAIT              EQU             270EH
+  2720               112     FCN_TERS1               EQU             2720H
+  2721               113     FCN_TERS0               EQU             2721H
+  2722               114     FCN_TME1                EQU             2722H
+  2723               115     FCN_TME0                EQU             2723H
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     3
+
+  2724               116     FCN_TPRG                EQU             2724H
+  2725               117     FCN_TRCV                EQU             2725H
+  2726               118     FCN_THV1                EQU             2726H
+  2727               119     FCN_THV0                EQU             2727H
+  2728               120     FCN_TNVS                EQU             2728H
+  2729               121     FCN_TNVH                EQU             2729H
+  272A               122     FCN_TPGS                EQU             272AH
+  272B               123     FCN_TNVH1               EQU             272BH
+                     124     ;------------------------------------------------------------------------------
+  0000               125     CRYSTAL_16M             EQU             0H
+  22B2               126     PLLDIV2                 EQU             22B2H           ; xPLLDIV2
+  22B5               127     PLLDFRAC1               EQU             22B5H           ; xPLLDFRAC1
+  2785               128     MPTOP_CLK_SEL   EQU             2785H           ; xPHY_MPTOP_CLK_SEL
+  220F               129     PLLWT1                  EQU             220FH           ; xPLLWT1
+                     130     ;------------------------------------------------------------------------------
+                     131     
+                     132     ; Standard SFR Symbols 
+  00E0               133     ACC             DATA    0E0H
+  00F0               134     B               DATA    0F0H
+  0081               135     SP              DATA    81H
+  0082               136     DPL             DATA    82H
+  0083               137     DPH             DATA    83H
+  00C1               138     REN             BIT             0C0H.1  
+  0098               139     CLK_STP0        DATA    98H                     ; PERI_CLK_STP0
+  0099               140     CLK_STP1        DATA    99H                     ; PERI_CLK_STP1
+  008E               141     CLK_CON1        DATA    8EH                     ; CLKCON1
+                     142     
+                     143                     NAME    ?C_STARTUP
+                     144     
+                     145     ?C_C51STARTUP   SEGMENT   CODE
+                     146     ?STACK          SEGMENT   IDATA
+                     147     
+----                 148                     RSEG    ?STACK
+0000                 149                     DS              1
+                     150     
+                     151                     EXTRN CODE (?C_START)
+                     152                     PUBLIC  ?C_STARTUP
+                     153     
+----                 154                     CSEG    AT      0
+0000                 155     ?C_STARTUP:     
+0000 020000   F      156                     LJMP            STARTUP1
+                     157                     
+----                 158                     RSEG    ?C_C51STARTUP
+                     159     
+0000                 160     STARTUP1:
+                     161     
+                     162     ;
+                     163     ;
+                     164     ;
+                     165     ;
+                     166     ;
+0000 759800          167                     MOV             CLK_STP0, #0x00
+0003 759920          168                     MOV             CLK_STP1, #0x20
+                     169                     
+0006 9022E0          170                     MOV             DPTR, #PDCON
+0009 74D9            171                     MOV             A, #0xD9
+000B F0              172                     MOVX    @DPTR, A
+                     173     
+                     174     ;
+                     175     ;       Initialize FLASH Registers
+                     176     ;
+                     177     
+000C 90270E          178                     MOV             DPTR, #FCN_NOWAIT
+000F 7400            179                     MOV             A, #0x00
+0011 F0              180                     MOVX    @DPTR, A
+                     181     
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     4
+
+0012 902702          182                     MOV             DPTR, #FCN_ADR1
+0015 7470            183                     MOV             A, #0x70
+0017 F0              184                     MOVX    @DPTR, A
+                     185     
+0018 902703          186                     MOV             DPTR, #FCN_ADR0
+001B 7400            187                     MOV             A, #0x00
+001D F0              188                     MOVX    @DPTR, A
+                     189     
+                     190                     ;
+001E E4              191                     CLR             A
+001F 900000          192                     MOV             DPTR, #0x0000
+0022 F0              193                     MOVX    @DPTR, A
+0023                 194             DELAYLOOP:
+0023 900000          195                     MOV             DPTR, #0x0000
+0026 E0              196                     MOVX    A, @DPTR
+0027 04              197                     INC             A
+0028 F0              198                     MOVX    @DPTR, A
+0029 E0              199                     MOVX    A, @DPTR
+002A B4C8F6          200                     CJNE    A, #0xC8, DELAYLOOP     
+                     201                     ;
+                     202     
+002D 902700          203                     MOV             DPTR, #FCN_CMD
+0030 7480            204                     MOV             A, #0x80
+0032 F0              205                     MOVX    @DPTR, A
+                     206     
+0033 902708          207                     MOV             DPTR, #FCN_LEN1
+0036 7400            208                     MOV             A, #0x00
+0038 F0              209                     MOVX    @DPTR, A
+                     210     
+0039 902709          211                     MOV             DPTR, #FCN_LEN0
+                     212     ;               MOV             A, #0x00
+003C F0              213                     MOVX    @DPTR, A
+                     214     
+003D 902720          215                     MOV             DPTR, #FCN_TERS1
+                     216     ;               MOV             A, #0x00
+0040 F0              217                     MOVX    @DPTR, A
+                     218     
+0041 902721          219                     MOV             DPTR, #FCN_TERS0
+                     220     ;               MOV             A, #0x00
+0044 F0              221                     MOVX    @DPTR, A
+                     222     
+0045 902722          223                     MOV             DPTR, #FCN_TME1
+                     224     ;               MOV             A, #0x00
+0048 F0              225                     MOVX    @DPTR, A
+                     226     
+0049 902723          227                     MOV             DPTR, #FCN_TME0
+                     228     ;               MOV             A, #0x00
+004C F0              229                     MOVX    @DPTR, A
+                     230     
+004D 902724          231                     MOV             DPTR, #FCN_TPRG
+                     232     ;               MOV             A, #0x00
+0050 F0              233                     MOVX    @DPTR, A
+                     234     
+0051 902725          235                     MOV             DPTR, #FCN_TRCV
+                     236     ;               MOV             A, #0x00
+0054 F0              237                     MOVX    @DPTR, A
+                     238     
+0055 902726          239                     MOV             DPTR, #FCN_THV1
+                     240     ;               MOV             A, #0x00
+0058 F0              241                     MOVX    @DPTR, A
+                     242     
+0059 902727          243                     MOV             DPTR, #FCN_THV0
+                     244     ;               MOV             A, #0x00
+005C F0              245                     MOVX    @DPTR, A
+                     246     
+005D 902728          247                     MOV             DPTR, #FCN_TNVS
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     5
+
+                     248     ;               MOV             A, #0x00
+0060 F0              249                     MOVX    @DPTR, A
+                     250     
+0061 902729          251                     MOV             DPTR, #FCN_TNVH
+                     252     ;               MOV             A, #0x00
+0064 F0              253                     MOVX    @DPTR, A
+                     254     
+0065 90272A          255                     MOV             DPTR, #FCN_TPGS
+                     256     ;               MOV             A, #0x00
+0068 F0              257                     MOVX    @DPTR, A
+                     258     
+0069 90272B          259                     MOV             DPTR, #FCN_TNVH1
+                     260     ;               MOV             A, #0x00
+006C F0              261                     MOVX    @DPTR, A
+                     262     
+006D 759900          263                     MOV             CLK_STP1, #0x00
+                     264     
+                     265     ;
+                     266     ;       Initialize 3V Logic Registers
+                     267     ;
+                     268     
+0070 9022E1          269                     MOV             DPTR, #RCOSC
+0073 7400            270                     MOV             A, #0x00
+0075 F0              271                     MOVX    @DPTR, A
+                     272     
+0076 9022E2          273                     MOV             DPTR, #RTDLY
+0079 7490            274                     MOV             A, #0x90
+007B F0              275                     MOVX    @DPTR, A
+                     276     
+                     277     ;               MOV             DPTR, #PDMON
+                     278     ;               MOV             A, #0xC3
+                     279     ;               MOVX    @DPTR, A
+                     280     
+007C 9022E7          281                     MOV             DPTR, #GPIOPS0
+007F 74FF            282                     MOV             A, #0xFF
+0081 F0              283                     MOVX    @DPTR, A
+                     284     
+0082 9022E8          285                     MOV             DPTR, #GPIOPS1
+                     286     ;               MOV             A, #0xFF
+0085 F0              287                     MOVX    @DPTR, A
+                     288     
+0086 9022E9          289                     MOV             DPTR, #GPIOPS3
+                     290     ;               MOV             A, #0xFF
+0089 F0              291                     MOVX    @DPTR, A
+                     292     
+008A 9022EA          293                     MOV             DPTR, #GPIOPE0
+                     294     ;               MOV             A, #0xFF
+008D F0              295                     MOVX    @DPTR, A
+                     296                     
+008E 9022EB          297                     MOV             DPTR, #GPIOPE1
+                     298     ;               MOV             A, #0xFF
+0091 F0              299                     MOVX    @DPTR, A
+                     300     
+0092 9022EC          301                     MOV             DPTR, #GPIOPE3
+                     302     ;               MOV             A, #0xFF
+0095 F0              303                     MOVX    @DPTR, A
+                     304     
+0096 9022ED          305                     MOV             DPTR, #GPIOPOL0
+0099 7400            306                     MOV             A, #0x00
+009B F0              307                     MOVX    @DPTR, A
+                     308     
+009C 9022EE          309                     MOV             DPTR, #GPIOPOL1
+                     310     ;               MOV             A, #0x00
+009F F0              311                     MOVX    @DPTR, A
+                     312     
+00A0 9022EF          313                     MOV             DPTR, #GPIOPOL3
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     6
+
+                     314     ;               MOV             A, #0x00
+00A3 F0              315                     MOVX    @DPTR, A
+                     316     
+00A4 9022F0          317                     MOV             DPTR, #GPIOMSK0
+                     318     ;               MOV             A, #0x00
+00A7 F0              319                     MOVX    @DPTR, A
+                     320     
+00A8 9022F1          321                     MOV             DPTR, #GPIOMSK1
+                     322     ;               MOV             A, #0x00
+00AB F0              323                     MOVX    @DPTR, A
+                     324     
+00AC 9022F2          325                     MOV             DPTR, #GPIOMSK3
+                     326     ;               MOV             A, #0x00
+00AF F0              327                     MOVX    @DPTR, A
+                     328     
+                     329     IF CRYSTAL_16M <> 0
+                                             MOV             DPTR, #PLLDIV2
+                                             MOV             A, #0x80
+                                             MOVX    @DPTR, A
+                             
+                                             MOV             DPTR, #PLLDFRAC1
+                                             MOV             A, #0x04
+                                             MOVX    @DPTR, A
+                             
+                                             MOV             DPTR, #MPTOP_CLK_SEL
+                                             MOV             A, #0x07
+                                             MOVX    @DPTR, A
+                             
+                                             MOV             CLK_CON1, #0x08
+                             
+                                             MOV             DPTR, #PLLWT1
+                                             MOV             A, #0x16
+                                             MOVX    @DPTR, A
+                             ENDIF
+                     348     
+                     349     ;
+                     350     ;
+                     351     ;
+                     352     ;
+                     353     ;
+                     354     
+                     355     IF IDATALEN <> 0
+                                             MOV             R0,#IDATALEN - 1
+                                             CLR             A
+                             IDATALOOP:      MOV     @R0,A
+                                             DJNZ    R0,IDATALOOP
+                             ENDIF
+                     361     
+                     362     IF XDATALEN <> 0
+                                             MOV             DPTR,#XDATASTART
+                                             MOV             R7,#LOW (XDATALEN)
+                               IF (LOW (XDATALEN)) <> 0
+                                             MOV             R6,#(HIGH (XDATALEN)) +1
+                               ELSE
+                                             MOV             R6,#HIGH (XDATALEN)
+                               ENDIF
+                                             CLR             A
+                             XDATALOOP:      
+                                             MOVX    @DPTR,A
+                                             INC             DPTR
+                                             DJNZ    R7,XDATALOOP
+                                             DJNZ    R6,XDATALOOP
+                             ENDIF
+                     377     
+                     378     IF PPAGEENABLE <> 0
+                                             MOV             PPAGE_SFR,#PPAGE
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     7
+
+                             ENDIF
+                     381     
+                     382     IF PDATALEN <> 0
+                                             MOV             R0,#LOW (PDATASTART)
+                                             MOV             R7,#LOW (PDATALEN)
+                                             CLR             A
+                             PDATALOOP:      
+                                             MOVX    @R0,A
+                                             INC             R0
+                                             DJNZ    R7,PDATALOOP
+                             ENDIF
+                     391     
+                     392     IF IBPSTACK <> 0
+                             EXTRN DATA (?C_IBP)
+                                             MOV             ?C_IBP,#LOW IBPSTACKTOP
+                             ENDIF
+                     396     
+                     397     IF XBPSTACK <> 0
+                     398     EXTRN DATA (?C_XBP)
+00B0 750018   F      399                     MOV             ?C_XBP,#HIGH XBPSTACKTOP
+00B3 750000   F      400                     MOV             ?C_XBP+1,#LOW XBPSTACKTOP
+                     401     ENDIF
+                     402     
+                     403     IF PBPSTACK <> 0
+                             EXTRN DATA (?C_PBP)
+                                             MOV             ?C_PBP,#LOW PBPSTACKTOP
+                             ENDIF
+00B6 758100   F      407                     MOV             SP,#?STACK-1
+00B9 C2C1            408                     CLR             REN
+                     409                     
+                     410          EXTRN CODE (?B_SWITCH0)
+00BB 120000   F      411                     CALL            ?B_SWITCH0
+                     412                     
+00BE 020000   F      413                     LJMP            ?C_START
+                     414                     END
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     8
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+?B_SWITCH0 . . . .  C ADDR   -----       EXT
+?C_C51STARTUP. . .  C SEG    00C1H       REL=UNIT
+?C_START . . . . .  C ADDR   -----       EXT
+?C_STARTUP . . . .  C ADDR   0000H   A   
+?C_XBP . . . . . .  D ADDR   -----       EXT
+?STACK . . . . . .  I SEG    0001H       REL=UNIT
+ACC. . . . . . . .  D ADDR   00E0H   A   
+B. . . . . . . . .  D ADDR   00F0H   A   
+CLK_CON1 . . . . .  D ADDR   008EH   A   
+CLK_STP0 . . . . .  D ADDR   0098H   A   
+CLK_STP1 . . . . .  D ADDR   0099H   A   
+CRYSTAL_16M. . . .  N NUMB   0000H   A   
+DELAYLOOP. . . . .  C ADDR   0023H   R   SEG=?C_C51STARTUP
+DPH. . . . . . . .  D ADDR   0083H   A   
+DPL. . . . . . . .  D ADDR   0082H   A   
+FCN_ADR0 . . . . .  N NUMB   2703H   A   
+FCN_ADR1 . . . . .  N NUMB   2702H   A   
+FCN_CMD. . . . . .  N NUMB   2700H   A   
+FCN_LEN0 . . . . .  N NUMB   2709H   A   
+FCN_LEN1 . . . . .  N NUMB   2708H   A   
+FCN_NOWAIT . . . .  N NUMB   270EH   A   
+FCN_TERS0. . . . .  N NUMB   2721H   A   
+FCN_TERS1. . . . .  N NUMB   2720H   A   
+FCN_THV0 . . . . .  N NUMB   2727H   A   
+FCN_THV1 . . . . .  N NUMB   2726H   A   
+FCN_TME0 . . . . .  N NUMB   2723H   A   
+FCN_TME1 . . . . .  N NUMB   2722H   A   
+FCN_TNVH . . . . .  N NUMB   2729H   A   
+FCN_TNVH1. . . . .  N NUMB   272BH   A   
+FCN_TNVS . . . . .  N NUMB   2728H   A   
+FCN_TPGS . . . . .  N NUMB   272AH   A   
+FCN_TPRG . . . . .  N NUMB   2724H   A   
+FCN_TRCV . . . . .  N NUMB   2725H   A   
+GPIOMSK0 . . . . .  N NUMB   22F0H   A   
+GPIOMSK1 . . . . .  N NUMB   22F1H   A   
+GPIOMSK3 . . . . .  N NUMB   22F2H   A   
+GPIOPE0. . . . . .  N NUMB   22EAH   A   
+GPIOPE1. . . . . .  N NUMB   22EBH   A   
+GPIOPE3. . . . . .  N NUMB   22ECH   A   
+GPIOPOL0 . . . . .  N NUMB   22EDH   A   
+GPIOPOL1 . . . . .  N NUMB   22EEH   A   
+GPIOPOL3 . . . . .  N NUMB   22EFH   A   
+GPIOPS0. . . . . .  N NUMB   22E7H   A   
+GPIOPS1. . . . . .  N NUMB   22E8H   A   
+GPIOPS3. . . . . .  N NUMB   22E9H   A   
+IBPSTACK . . . . .  N NUMB   0000H   A   
+IBPSTACKTOP. . . .  N NUMB   0001H   A   
+IDATALEN . . . . .  N NUMB   0000H   A   
+MPTOP_CLK_SEL. . .  N NUMB   2785H   A   
+PBPSTACK . . . . .  N NUMB   0000H   A   
+PBPSTACKTOP. . . .  N NUMB   0001H   A   
+PDATALEN . . . . .  N NUMB   0000H   A   
+PDATASTART . . . .  N NUMB   0000H   A   
+PDCON. . . . . . .  N NUMB   22E0H   A   
+PDMON. . . . . . .  N NUMB   22E6H   A   
+PLLDFRAC1. . . . .  N NUMB   22B5H   A   
+PLLDIV2. . . . . .  N NUMB   22B2H   A   
+PLLWT1 . . . . . .  N NUMB   220FH   A   
+PPAGE. . . . . . .  N NUMB   0000H   A   
+PPAGEENABLE. . . .  N NUMB   0000H   A   
+A51 MACRO ASSEMBLER  STARTUP_BANK_RP_MG2470                                               01/28/2020 11:28:52 PAGE     9
+
+PPAGE_SFR. . . . .  D ADDR   00A0H   A   
+RCOSC. . . . . . .  N NUMB   22E1H   A   
+REN. . . . . . . .  B ADDR   00C0H.1 A   
+RTDLY. . . . . . .  N NUMB   22E2H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+STARTUP1 . . . . .  C ADDR   0000H   R   SEG=?C_C51STARTUP
+XBPSTACK . . . . .  N NUMB   0001H   A   
+XBPSTACKTOP. . . .  N NUMB   1800H   A   
+XDATALEN . . . . .  N NUMB   0000H   A   
+XDATASTART . . . .  N NUMB   0000H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

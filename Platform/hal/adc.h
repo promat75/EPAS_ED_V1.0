@@ -11,13 +11,7 @@
 #define	ADC_CHAN_0						0
 #define	ADC_CHAN_1						1
 #define	ADC_CHAN_2						2
-
-#if 1	//--- Kong.sh 0 --> EVKIT 보드 테스트용 
-#define	ADC_CHAN_3						3		// Release
-#else
-#define	ADC_CHAN_3						0		// EVK Board 테스트용 
-#endif
-
+#define	ADC_CHAN_3						3
 #define	ADC_CHAN_DIFFERENCE_01			4
 #define	ADC_CHAN_DIFFERENCE_23			5
 #define	ADC_CHAN_TEMPERATURE			6

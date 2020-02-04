@@ -1,0 +1,556 @@
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE FLASH
+OBJECT MODULE PLACED IN .\HEX\FLASH.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\FLASH.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inc
+                    -lude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\FLAS
+                    -H.lst) TABS(2) OBJECT(.\HEX\FLASH.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2014-10-21
+   6            - Version   : V2.5
+   7          
+   8            [2014-10-21] V2.5
+   9            - HAL_FlashPageWrite() : enhanced.
+  10            - HAL_FlashWrite() : added.
+  11          
+  12            [2014-08-28] V2.4
+  13            - HAL_FlashPageRead() : Change naming to HAL_FlashRead(), check-sum meathod enhanced.
+  14          
+  15            [2014-01-23] V2.3
+  16            - HAL_FlashPageWrite() : enhanced.
+  17            - HAL_FlashPageRead() : enhanced.
+  18          
+  19            [2013-01-14] V2.2
+  20            - HAL_FlashPageRead() : enhanced. // Check-sum added when flash page read done
+  21          
+  22            [2012-09-06] V2.1
+  23            - HAL_FlashPageWrite() : enhanced. // Check-sum added when flash page write done
+  24          
+  25            [2012-04-25] V2.0
+  26            - Initial Version for MG2470B(ChipID=0x71)
+  27          *******************************************************************************/
+  28          
+  29          #include "INCLUDE_MG2470.h"
+  30          #include "flash.h"
+  31          #include "clock.h"
+  32          #include "wdt.h"
+  33          #include "phy.h"
+  34          #include "timer.h"
+  35          
+  36          ///////////////////////////////////////////////////////////////////////////////////////////////
+  37          /// 
+  38          ///   Global variable which indicates whether flash-writing is protected.
+  39          /// When this is 0x80, flash-writing is not permitted. (Protection mode)
+  40          /// So, before writing, it should be cleared to 0x00. And after writing, it should be backed to 0x80 for p
+             -rotection.
+  41          /// 
+  42          ///////////////////////////////////////////////////////////////////////////////////////////////
+  43          UINT8 gu8FlashWriteProtect = 0x80;      // 0x00=Unprotected, 0x80=Protected
+  44          
+  45          ///////////////////////////////////////////////////////////////////////////////////////////////
+  46          /// 
+  47          ///   Unprotects flash-writing by setting gu8FlashWriteProtect to 0x00.
+  48          ///
+  49          /// @param  void
+  50          /// @return void
+  51          /// 
+  52          ///////////////////////////////////////////////////////////////////////////////////////////////
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 2   
+
+  53          void HAL_FlashWriteUnprotected(void)
+  54          {
+  55   1        gu8FlashWriteProtect = 0x00;
+  56   1      }
+  57          
+  58          ///////////////////////////////////////////////////////////////////////////////////////////////
+  59          /// 
+  60          ///   Protects flash-writing by setting gu8FlashWriteProtect and corresponding register to 0x80.
+  61          ///
+  62          /// @param  void
+  63          /// @return void
+  64          /// 
+  65          ///////////////////////////////////////////////////////////////////////////////////////////////
+  66          void HAL_FlashWriteProtected(void)
+  67          {
+  68   1        gu8FlashWriteProtect = 0x80;
+  69   1        //xFCN_CMD = 0x80;  // Protection for flash-writing.
+  70   1      }
+  71          
+  72          ///////////////////////////////////////////////////////////////////////////////////////////////
+  73          /// 
+  74          ///   Erases flash by 1 page(512 Bytes).
+  75          ///
+  76          /// @param  void
+  77          /// @return void
+  78          /// @note When this function is called directly, the flash is not erased. 
+  79          ///     It is valid only when called in HAL_FlashPageWrite().
+  80          /// 
+  81          ///////////////////////////////////////////////////////////////////////////////////////////////
+  82          void HAL_FlashPageErase(UINT16 u16FlashWordAddr)
+  83          {
+  84   1        xFCN_NOWAIT = 0x00;
+  85   1      
+  86   1        while(xFCN_STS0 & BIT0);
+  87   1      
+  88   1        _nop_();
+  89   1        _nop_();
+  90   1        _nop_();
+  91   1        _nop_();
+  92   1      
+  93   1        xFCN_ADR0 = u16FlashWordAddr & 0xFF;
+  94   1        xFCN_ADR1 = (u16FlashWordAddr>>8);
+  95   1        xFCN_LEN1 = 0;
+  96   1        xFCN_LEN0 = 1;
+  97   1        xFCN_CMD = (gu8FlashWriteProtect | BIT1); // Page Erase
+  98   1      
+  99   1        _nop_();
+ 100   1        _nop_();
+ 101   1        _nop_();
+ 102   1        _nop_();
+ 103   1      
+ 104   1        while(xFCN_STS0 & BIT0);
+ 105   1        xFCN_CMD = 0x80;  // Write-Protected
+ 106   1      
+ 107   1      }
+ 108          
+ 109          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 110          /// 
+ 111          ///   Writes flash by 1 page(512 Bytes).
+ 112          /// \n  This function should be called after unprotecting by HAL_FlashWriteUnprotected().
+ 113          /// \n  And, after writing, HAL_FlashWriteProtected() should be called to protect unintended flash writing.
+ 114          ///
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 3   
+
+ 115          /// @param  u16CodeAddr   : Code address from which flash is written. For 512 bytes aligning, 
+ 116          ///               bit[8:0] of this parameter should be all zeros.
+ 117          /// @param  pu8ByteBuf    : Pointer to the buffer to be written.
+ 118          /// @param  u8Option      : Option for writing
+ 119          ///         \n  bit[7:1]  : reserved
+ 120          ///         \n  bit[0]  : 1=Erasing only. Writing is not permitted.
+ 121          /// @return UINT8. Status.
+ 122          /// @note The sequence to write flash is below.
+ 123          ///   \n  HAL_FlashWriteUnprotected();
+ 124          ///   \n  HAL_FlashPageWrite();
+ 125          ///   \n  HAL_FlashWriteProtected();
+ 126          /// 
+ 127          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 128          UINT8 HAL_FlashPageWrite(UINT16 u16CodeAddr, UINT8* pu8ByteBuf, UINT8 u8Option)
+ 129          {
+ 130   1        UINT16  u16ByteAddr;
+ 131   1        UINT16  u16WordLen;
+ 132   1        UINT16  u16CurrWordAddr;
+ 133   1        UINT16  u16StartWordAddr;
+ 134   1        UINT8 u8Status;
+ 135   1      
+ 136   1        UINT8 code * pu8CodeBuf;
+ 137   1        UINT16  iw;
+ 138   1        UINT8 u8WriteLoop;
+ 139   1      
+ 140   1        if(u16CodeAddr & 0x01FF)          // 512 bytes align
+ 141   1        {
+ 142   2          assert_error(FLASH_CODE | RETURN_FLASH_ALIGN_FAILURE);
+ 143   2          return RETURN_FLASH_ALIGN_FAILURE;
+ 144   2        }
+ 145   1      
+ 146   1        u16StartWordAddr = u16CodeAddr >> 2;    // 1 word = 4 bytes
+ 147   1      
+ 148   1        FLASH_CLK_ON;
+ 149   1      
+ 150   1        xFCN_NOWAIT = 0x00;
+ 151   1      
+ 152   1        if(gu8McuPeriClockMode == CLOCK_MODE_16_MHz)
+ 153   1        {
+ 154   2          LIB_FlashParking(0x80);
+ 155   2        }
+ 156   1        else
+ 157   1        {
+ 158   2          LIB_FlashParking(0);
+ 159   2        }
+ 160   1      
+ 161   1      //
+ 162   1      //  STEP-1 : Check registers
+ 163   1      //
+ 164   1        if(   (gu8FlashWriteProtect)
+ 165   1        ||  (xFCN_CMD != 0x80)
+ 166   1        ||  (xFCN_LEN1 != 0x00)
+ 167   1        ||  (xFCN_LEN0 != 0x00)
+ 168   1        ||  (xFCN_ADR1 != 0x70)
+ 169   1        ||  (xFCN_ADR0 != 0x00) )
+ 170   1        {
+ 171   2          u8Status = RETURN_FLASH_PROTECTED;
+ 172   2          goto JP_HAL_FlashPageWrite;
+ 173   2        }
+ 174   1      
+ 175   1        //  RF RX Off
+ 176   1        HAL_RxEnable(0);
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 4   
+
+ 177   1      
+ 178   1        for(u8WriteLoop = 0; u8WriteLoop < 4; u8WriteLoop++)
+ 179   1        {
+ 180   2      //
+ 181   2      //  STEP-2 : Erase Page
+ 182   2      //
+ 183   2          HAL_WdtRestart();
+ 184   2          HAL_FlashPageErase(u16StartWordAddr);
+ 185   2      
+ 186   2          if(u8Option & BIT0)
+ 187   2          {
+ 188   3            u8Status = RETURN_FLASH_SUCCESS;
+ 189   3            TL0 = gu8Timer0ReloadTL0;
+ 190   3            TH0 = gu8Timer0ReloadTH0;
+ 191   3            goto JP_HAL_FlashPageWrite;
+ 192   3          }
+ 193   2      
+ 194   2      //
+ 195   2      //  STEP-3 : IDLE CHECK
+ 196   2      //
+ 197   2          while(xFCN_STS0 & BIT0);
+ 198   2      
+ 199   2      //
+ 200   2      //  STEP-4 : PAGE WRITE
+ 201   2      //
+ 202   2          xFCN_LEN0 = 0x01;
+ 203   2          xFCN_LEN1 = 0x00;
+ 204   2      
+ 205   2          u16ByteAddr = 0;
+ 206   2          u16CurrWordAddr = u16StartWordAddr;
+ 207   2          u16WordLen = 512/4;     // 512 bytes / 1 word(4bytes) = 128 words
+ 208   2          while(u16WordLen)
+ 209   2          {
+ 210   3            HAL_WdtRestart();
+ 211   3      
+ 212   3            xFCN_ADR0 = u16CurrWordAddr & 0xFF;
+ 213   3            xFCN_ADR1 = (u16CurrWordAddr >> 8);
+ 214   3      
+ 215   3            xFCN_DAT0 = pu8ByteBuf[u16ByteAddr + 0];
+ 216   3            xFCN_DAT1 = pu8ByteBuf[u16ByteAddr + 1];
+ 217   3            xFCN_DAT2 = pu8ByteBuf[u16ByteAddr + 2];
+ 218   3            xFCN_DAT3 = pu8ByteBuf[u16ByteAddr + 3];
+ 219   3      
+ 220   3            xFCN_CMD  = (gu8FlashWriteProtect | BIT0);
+ 221   3      
+ 222   3            _nop_();
+ 223   3            _nop_();
+ 224   3            _nop_();
+ 225   3            _nop_();
+ 226   3      
+ 227   3            u16ByteAddr += 4;     /* byte addr */
+ 228   3            u16CurrWordAddr += 1;   /* word addr */
+ 229   3            u16WordLen -= 1;      /* word length */
+ 230   3          }
+ 231   2          while(xFCN_STS0 & BIT0);
+ 232   2      
+ 233   2          TL0 = gu8Timer0ReloadTL0;
+ 234   2          TH0 = gu8Timer0ReloadTH0;
+ 235   2      
+ 236   2      //
+ 237   2      //  STEP-5 : CHECK WRITTEN PAGE
+ 238   2      //
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 5   
+
+ 239   2          pu8CodeBuf = (UINT8 code *)u16CodeAddr;
+ 240   2      
+ 241   2          u8Status = RETURN_FLASH_SUCCESS;
+ 242   2          for(iw = 0; iw < 512; iw++)
+ 243   2          {
+ 244   3            if(pu8ByteBuf[iw] != pu8CodeBuf[iw])
+ 245   3            {
+ 246   4              u8Status = RETURN_FLASH_PAGE_WRITE_FAIL;
+ 247   4              break;
+ 248   4            }
+ 249   3          }
+ 250   2      
+ 251   2          // Exit from Write-loop
+ 252   2          if(u8Status == RETURN_FLASH_SUCCESS)
+ 253   2          {
+ 254   3            break;
+ 255   3          }
+ 256   2        }
+ 257   1      
+ 258   1        JP_HAL_FlashPageWrite :
+ 259   1      
+ 260   1        //
+ 261   1        xFCN_CMD = 0x80;    /* protect bit set */
+ 262   1        xFCN_ADR1 = 0x70;   /* address register parking at 0x6000-0x7FFF */
+ 263   1        xFCN_ADR0 = 0x00;
+ 264   1        xFCN_LEN1 = 0x00;   /* length register parking with 0x0000 */
+ 265   1        xFCN_LEN0 = 0x00;
+ 266   1        LIB_FlashParking(1);  
+ 267   1        //
+ 268   1      
+ 269   1        FLASH_CLK_OFF;
+ 270   1      
+ 271   1        //  RF RX On
+ 272   1        HAL_RxEnable(1);
+ 273   1      
+ 274   1        if(u8Status)
+ 275   1        {
+ 276   2          assert_error(FLASH_CODE | u8Status);
+ 277   2        }
+ 278   1      
+ 279   1        return u8Status;
+ 280   1      }
+ 281          
+ 282          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 283          /// 
+ 284          ///   Writes flash(Erase by 1 page(512 Bytes)).
+ 285          /// \n  This function should be called after unprotecting by HAL_FlashWriteUnprotected().
+ 286          /// \n  And, after writing, HAL_FlashWriteProtected() should be called to protect unintended flash writing.
+ 287          ///
+ 288          /// @param  u16CodeAddr   : Code address from which flash is written. For 512 bytes aligning, 
+ 289          ///               bit[8:0] of this parameter should be all zeros.
+ 290          /// @param  pu8ByteBuf    : Pointer to the buffer to be written.
+ 291          /// @param  u16ByteLen    : Number of bytes to be written. 0 ~ 512.
+ 292          ///               If u16ByteLen = 0, Erasing only. Writing is not permitted.
+ 293          /// @return UINT8. Status.
+ 294          /// @note The sequence to write flash is below.
+ 295          ///   \n  HAL_FlashWriteUnprotected();
+ 296          ///   \n  HAL_FlashWrite();
+ 297          ///   \n  HAL_FlashWriteProtected();
+ 298          ///
+ 299          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 300          UINT8 HAL_FlashWrite(UINT16 u16CodeAddr, UINT8* pu8ByteBuf, UINT16 u16ByteLen)
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 6   
+
+ 301          {
+ 302   1        UINT16  u16ByteAddr;
+ 303   1        UINT16  u16WordLen;
+ 304   1        UINT16  u16CurrWordAddr;
+ 305   1        UINT16  u16StartWordAddr;
+ 306   1        UINT8 u8Status;
+ 307   1      
+ 308   1        UINT8 code * pu8CodeBuf;
+ 309   1        UINT16  iw;
+ 310   1        UINT8 u8WriteLoop;
+ 311   1      
+ 312   1        if(u16CodeAddr & 0x01FF)          // 512 bytes align
+ 313   1        {
+ 314   2          assert_error(FLASH_CODE | RETURN_FLASH_ALIGN_FAILURE);
+ 315   2          return RETURN_FLASH_ALIGN_FAILURE;
+ 316   2        }
+ 317   1      
+ 318   1        u16StartWordAddr = u16CodeAddr >> 2;    // 1 word = 4 bytes
+ 319   1      
+ 320   1        FLASH_CLK_ON;
+ 321   1        xFCN_NOWAIT = 0x00;
+ 322   1      
+ 323   1        if(gu8McuPeriClockMode == CLOCK_MODE_16_MHz)
+ 324   1        {
+ 325   2          LIB_FlashParking(0x80);
+ 326   2        }
+ 327   1        else
+ 328   1        {
+ 329   2          LIB_FlashParking(0);
+ 330   2        }
+ 331   1      
+ 332   1      //
+ 333   1      //  STEP-1 : Check registers
+ 334   1      //
+ 335   1        if(   (gu8FlashWriteProtect)
+ 336   1        ||  (xFCN_CMD != 0x80)
+ 337   1        ||  (xFCN_LEN1 != 0x00)
+ 338   1        ||  (xFCN_LEN0 != 0x00)
+ 339   1        ||  (xFCN_ADR1 != 0x70)
+ 340   1        ||  (xFCN_ADR0 != 0x00) )
+ 341   1        {
+ 342   2          u8Status = RETURN_FLASH_PROTECTED;
+ 343   2          goto JP_HAL_FlashPageWrite;
+ 344   2        }
+ 345   1      
+ 346   1        //  RF RX Off
+ 347   1        HAL_RxEnable(0);
+ 348   1      
+ 349   1        for(u8WriteLoop = 0; u8WriteLoop < 4; u8WriteLoop++)
+ 350   1        {
+ 351   2      //
+ 352   2      //  STEP-2 : Erase Page
+ 353   2      //
+ 354   2          HAL_WdtRestart();
+ 355   2          HAL_FlashPageErase(u16StartWordAddr);
+ 356   2      
+ 357   2          if(u16ByteLen == 0)
+ 358   2          {
+ 359   3            u8Status = RETURN_FLASH_SUCCESS;
+ 360   3            TL0 = gu8Timer0ReloadTL0;
+ 361   3            TH0 = gu8Timer0ReloadTH0;
+ 362   3            break;
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 7   
+
+ 363   3          }
+ 364   2      
+ 365   2        //
+ 366   2        //  STEP-3 : IDLE CHECK
+ 367   2        //
+ 368   2          while(xFCN_STS0 & BIT0);
+ 369   2      
+ 370   2        //
+ 371   2        //  STEP-4 : PAGE WRITE
+ 372   2        //
+ 373   2          xFCN_LEN0 = 0x01;
+ 374   2          xFCN_LEN1 = 0x00;
+ 375   2      
+ 376   2          u16ByteAddr = 0;
+ 377   2          u16CurrWordAddr = u16StartWordAddr;
+ 378   2          u16WordLen = u16ByteLen/4;      // u16ByteLen / 1 word(4bytes) = MAX 128 words
+ 379   2          if( (u16ByteLen%4) != 0)
+ 380   2          {
+ 381   3            u16WordLen += 1;
+ 382   3          }
+ 383   2      
+ 384   2          while(u16WordLen)
+ 385   2          {
+ 386   3            HAL_WdtRestart();
+ 387   3      
+ 388   3            xFCN_ADR0 = u16CurrWordAddr & 0xFF;
+ 389   3            xFCN_ADR1 = (u16CurrWordAddr >> 8);
+ 390   3      
+ 391   3            xFCN_DAT0 = pu8ByteBuf[u16ByteAddr + 0];
+ 392   3            xFCN_DAT1 = pu8ByteBuf[u16ByteAddr + 1];
+ 393   3            xFCN_DAT2 = pu8ByteBuf[u16ByteAddr + 2];
+ 394   3            xFCN_DAT3 = pu8ByteBuf[u16ByteAddr + 3];
+ 395   3      
+ 396   3            xFCN_CMD  = (gu8FlashWriteProtect | BIT0);
+ 397   3      
+ 398   3            _nop_();
+ 399   3            _nop_();
+ 400   3            _nop_();
+ 401   3            _nop_();
+ 402   3      
+ 403   3            u16ByteAddr += 4;     /* byte addr */
+ 404   3            u16CurrWordAddr += 1;   /* word addr */
+ 405   3            u16WordLen -= 1;      /* word length */
+ 406   3          }
+ 407   2      
+ 408   2          while(xFCN_STS0 & BIT0);
+ 409   2      
+ 410   2          TL0 = gu8Timer0ReloadTL0;
+ 411   2          TH0 = gu8Timer0ReloadTH0;
+ 412   2      
+ 413   2        //
+ 414   2        //  STEP-5 : CHECK WRITTEN PAGE
+ 415   2        //
+ 416   2          pu8CodeBuf = (UINT8 code *)u16CodeAddr;
+ 417   2      
+ 418   2          u8Status = RETURN_FLASH_SUCCESS;
+ 419   2          for(iw = 0; iw < u16ByteLen; iw++)
+ 420   2          {
+ 421   3            if(pu8ByteBuf[iw] != pu8CodeBuf[iw])
+ 422   3            {
+ 423   4              u8Status = RETURN_FLASH_PAGE_WRITE_FAIL;
+ 424   4              break;
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 8   
+
+ 425   4            }
+ 426   3          }
+ 427   2      
+ 428   2          // Exit from Write-loop
+ 429   2          if(u8Status == RETURN_FLASH_SUCCESS)
+ 430   2          {
+ 431   3            break;
+ 432   3          }
+ 433   2        }
+ 434   1      
+ 435   1        JP_HAL_FlashPageWrite :
+ 436   1      
+ 437   1        //
+ 438   1        xFCN_CMD = 0x80;    /* protect bit set */
+ 439   1        xFCN_ADR1 = 0x70;   /* address register parking at 0x6000-0x7FFF */
+ 440   1        xFCN_ADR0 = 0x00;
+ 441   1        xFCN_LEN1 = 0x00;   /* length register parking with 0x0000 */
+ 442   1        xFCN_LEN0 = 0x00;
+ 443   1        LIB_FlashParking(1);  
+ 444   1        //
+ 445   1      
+ 446   1        FLASH_CLK_OFF;
+ 447   1      
+ 448   1        //  RF RX On
+ 449   1        HAL_RxEnable(1);
+ 450   1      
+ 451   1        if(u8Status)
+ 452   1        {
+ 453   2          assert_error(FLASH_CODE | u8Status);
+ 454   2        }
+ 455   1      
+ 456   1        return u8Status;
+ 457   1      }
+ 458          
+ 459          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 460          ///
+ 461          ///   Reads flash.
+ 462          ///
+ 463          /// @param  u16CodeAddr : Code address from which flash is read.
+ 464          /// @param  pu8ReadBuf  : Pointer to the buffer in which read flash is stored.
+ 465          /// @param  u16ByteLen  : Number of bytes to read.
+ 466          /// @return UINT8. Status.
+ 467          ///
+ 468          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 469          UINT8 HAL_FlashRead(UINT16 u16CodeAddr, UINT8* pu8ReadBuf, UINT16 u16ByteLen)
+ 470          {
+ 471   1        UINT16  iw;
+ 472   1        UINT8 u8Retry;
+ 473   1        UINT8 u8Status;
+ 474   1        UINT32  u32LastCodeAddr;
+ 475   1        UINT8 code * pu8CodeBuf;
+ 476   1      
+ 477   1        u32LastCodeAddr = u16CodeAddr;
+ 478   1        u32LastCodeAddr += (u16ByteLen - 1);
+ 479   1      
+ 480   1        if(u32LastCodeAddr & 0xFFFF0000)
+ 481   1        {
+ 482   2          assert_error(FLASH_CODE | RETURN_FLASH_INVALID_ADDRESS);
+ 483   2          return RETURN_FLASH_INVALID_ADDRESS;
+ 484   2        }
+ 485   1      
+ 486   1        u8Status = RETURN_FLASH_SUCCESS;
+C51 COMPILER V9.53.0.0   FLASH                                                             01/28/2020 11:28:53 PAGE 9   
+
+ 487   1        pu8CodeBuf = (UINT8 code *)u16CodeAddr;
+ 488   1      
+ 489   1        for(u8Retry = 0; u8Retry < 4; u8Retry++)
+ 490   1        {
+ 491   2          for(iw = 0; iw < u16ByteLen; iw++)
+ 492   2          {
+ 493   3            pu8ReadBuf[iw] = pu8CodeBuf[iw];
+ 494   3          }
+ 495   2      
+ 496   2          for(iw = 0; iw < u16ByteLen; iw++)
+ 497   2          {
+ 498   3            if(pu8ReadBuf[iw] != pu8CodeBuf[iw])
+ 499   3            {
+ 500   4              u8Status = RETURN_FLASH_PAGE_READ_FAIL;
+ 501   4              break;
+ 502   4            }
+ 503   3          }
+ 504   2      
+ 505   2          if(u8Status == RETURN_FLASH_SUCCESS)
+ 506   2          {
+ 507   3            break;
+ 508   3          }
+ 509   2        }
+ 510   1      
+ 511   1        return u8Status;
+ 512   1      }
+ 513          
+ 514          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1290    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      1      58
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

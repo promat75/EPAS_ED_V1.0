@@ -1,0 +1,1 @@
+"Sample\EVB\ib_ir_sen.c" LARGE OPTIMIZE (9,SIZE) BROWSE INCDIR(.\Platform\Include\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE (__DEBUG,__INTERNAL_MODE) PRINT(.\LST\ib_ir_sen.lst) TABS (2) OBJECT(.\HEX\ib_ir_sen.obj)

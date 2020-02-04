@@ -1,0 +1,994 @@
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE PWM
+OBJECT MODULE PLACED IN .\HEX\PWM.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\PWM.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Inclu
+                    -de\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\PWM.ls
+                    -t) TABS(2) OBJECT(.\HEX\PWM.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2014-01-23
+   6            - Version   : V2.3
+   7          
+   8            [2014-01-23] V2.3
+   9            - Remove compile warning message.
+  10          
+  11            [2013-03-19] V2.2
+  12            - HAL_Pwm4Set_PwmMode() : bug fix.
+  13          
+  14            [2012-05-23] V2.1
+  15            - SYS_Pwm0Set_PwmMode() : added
+  16            - SYS_Pwm1Set_PwmMode() : added
+  17            - SYS_Pwm2Set_PwmMode() : added
+  18            - SYS_Pwm3Set_PwmMode() : added
+  19            - SYS_Pwm4Set_PwmMode() : added
+  20          
+  21            [2012-04-25] V2.0
+  22            - Initial Version for MG2470B(ChipID=0x71)
+  23          *******************************************************************************/
+  24          
+  25          #include "INCLUDE_MG2470.h"
+  26          #include "pwm.h"
+  27          
+  28          ///////////////////////////////////////////////////////////////////////////////////////////////
+  29          /// 
+  30          ///   Controls PWM Interrupt and the priority. 
+  31          /// \n  To use PWM Interrupt for timer , EIE2[3] should be set by this function.
+  32          ///   And, PWMx_CTRL[7] should be also set by HAL_PwmxSet_TimerMode().
+  33          ///
+  34          /// @param  u8IntEna  : 0=Disable, 1=Enable.
+  35          /// @param  u8Priority  : Priority of Interrupt. 0=Low, 1=High.
+  36          /// @return void
+  37          /// @note To enable each GPIO interrupt, refer to HAL_PwmxSet_TimerMode().
+  38          /// 
+  39          ///////////////////////////////////////////////////////////////////////////////////////////////
+  40          void HAL_PwmIntModeSet(UINT8 u8IntEna, UINT8 u8Priority)
+  41          {
+  42   1        if(u8Priority)
+  43   1        {
+  44   2          EIP2 |= BIT3;
+  45   2        }
+  46   1        else
+  47   1        {
+  48   2          EIP2 &= ~BIT3;
+  49   2        }
+  50   1      
+  51   1        if(u8IntEna)
+  52   1        {
+  53   2          EIE2 |= BIT3;
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 2   
+
+  54   2        }
+  55   1        else
+  56   1        {
+  57   2          EIE2 &= ~BIT3;
+  58   2        }
+  59   1      }
+  60          
+  61          
+  62          #ifdef __MG2470_PWM0_INCLUDE__
+  63          
+  64          ///////////////////////////////////////////////////////////////////////////////////////////////
+  65          /// 
+  66          ///   Sets clock for PWM0.
+  67          ///
+  68          /// @param  u8On  : 0=Off, 1=On
+  69          /// @return void
+  70          /// 
+  71          ///////////////////////////////////////////////////////////////////////////////////////////////
+  72          void HAL_Pwm0ClockOn(UINT8 u8On)    // Default Off
+  73          {
+  74   1        if(u8On)
+  75   1        {
+  76   2          PWM0_CLK_ON;
+  77   2        }
+  78   1        else
+  79   1        {
+  80   2          PWM0_CLK_OFF;
+  81   2        }
+  82   1      }
+  83          
+  84          
+  85          ///////////////////////////////////////////////////////////////////////////////////////////////
+  86          /// 
+  87          ///   Sets PWM0 as PWM mode. GPIO0_0 is output of PWM signal.
+  88          ///
+  89          /// @param  u8Ena   : 0=Disable, 1=Enable.
+  90          /// @param  u16Period : Period of one PWM signal. This should be equal to or more than "u16HighDuty".
+  91          ///             \n The period = "u16Period" x 1 clock duty(Refer to @note).
+  92          /// @param  u16HighDuty : Specifies duty time of each level. This should not be more than "u16Period".
+  93          ///             \n High level duty time = "u16HighDuty" x 1 clock duty(Refer to @note).
+  94          ///             \n Low level duty time = ("u16Period" - "u16HighDuty") x 1 clock duty(Refer to @note).
+  95          /// @param  u8Option    : reserved.
+  96          /// @return UINT8. Status.
+  97          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+  98          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+  99          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 100          /// 
+ 101          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 102          UINT8 HAL_Pwm0Set_PwmMode(UINT8 u8Ena, UINT16 u16Period, UINT16 u16HighDuty, UINT8 u8Option)
+ 103          {
+ 104   1        if(PWM0_CLK_STATE == 0)
+ 105   1        {
+ 106   2          assert_error(PWM_CODE | RETURN_PWM0_CLOCK_OFF);
+ 107   2          return RETURN_PWM0_CLOCK_OFF;
+ 108   2        }
+ 109   1      
+ 110   1        if(u16HighDuty > u16Period)
+ 111   1        {
+ 112   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 113   2          return RETURN_PWM_INVALID_PARAMETER;
+ 114   2        }
+ 115   1      
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 3   
+
+ 116   1        xPWM0_CTRL = BIT5;
+ 117   1        if(u8Ena)
+ 118   1        {
+ 119   2          xPWM0_HRCL = u16Period;
+ 120   2          xPWM0_HRCH = u16Period >> 8;
+ 121   2          xPWM0_LRCL = u16HighDuty;
+ 122   2          xPWM0_LRCH = u16HighDuty >> 8;
+ 123   2      
+ 124   2          xPWM0_CTRL = BIT3 | BIT0;
+ 125   2      
+ 126   2          xPWM0_HRCL = u16HighDuty;
+ 127   2          xPWM0_HRCH = u16HighDuty >> 8;
+ 128   2          xPWM0_LRCL = u16Period;
+ 129   2          xPWM0_LRCH = u16Period >> 8;
+ 130   2        }
+ 131   1      
+ 132   1        u8Option = 0;
+ 133   1      
+ 134   1        return RETURN_PWM_SUCCESS;
+ 135   1      }
+ 136          
+ 137          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 138          /// 
+ 139          ///   Sets PWM0 as timer mode. When counter is overflowed, PWM interrupt is generated and PWM_ISR() is call
+             -ed.
+ 140          /// \n  When this is called with "u8IntEna=1", EIE[3] is also set to enable PWM Interrupt. 
+ 141          ///   In other words, Calling HAL_PwmIntModeSet() is not needed.
+ 142          /// \n  But if this is called with "u8IneEna=0", EIE[3] is not cleared. Because, another PWM ports are stil
+             -l used
+ 143          ///   for PWM Interrupt.
+ 144          ///
+ 145          /// @param  u8Ena     : 0=Disable, 1=Enable.
+ 146          /// @param  u8Priority      : Priority of Interrupt. 0=Low, 1=High.
+ 147          /// @param  u16Tick_125ns   : Number of ticks for the interrupt in 1 clock duty(Refer to [note]). 800 ~ 6553
+             -5.
+ 148          ///               \n Interrupt period = "u16Tick_125ns" x 1 clock duty(Refer to [note]). 
+ 149          /// @param  u8Option      : reserved.
+ 150          /// @return UINT8. Status.
+ 151          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 152          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 153          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 154          /// @note To control EIE[3] independently, use HAL_PwmIntModeSet().
+ 155          /// 
+ 156          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 157          UINT8 HAL_Pwm0Set_TimerMode(UINT8 u8IntEna, UINT8 u8Priority, UINT16 u16Tick_125ns, UINT8 u8Option)
+ 158          {
+ 159   1        if(PWM0_CLK_STATE == 0)
+ 160   1        {
+ 161   2          assert_error(PWM_CODE | RETURN_PWM0_CLOCK_OFF);
+ 162   2          return RETURN_PWM0_CLOCK_OFF;
+ 163   2        }
+ 164   1      
+ 165   1        if(u16Tick_125ns < 800)
+ 166   1        {
+ 167   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 168   2          return RETURN_PWM_INVALID_PARAMETER;
+ 169   2        }
+ 170   1      
+ 171   1        xPWM0_CTRL = BIT5;
+ 172   1        if(u8IntEna)
+ 173   1        { 
+ 174   2          xPWM0_HRCL = u16Tick_125ns;
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 4   
+
+ 175   2          xPWM0_HRCH = u16Tick_125ns >> 8;
+ 176   2          xPWM0_LRCL = xPWM0_HRCL;
+ 177   2          xPWM0_LRCH = xPWM0_HRCH;
+ 178   2          xPWM0_CTRL = BIT7 | BIT0;
+ 179   2      
+ 180   2          HAL_PwmIntModeSet(1, u8Priority);
+ 181   2        }
+ 182   1      
+ 183   1        u8Option = 0;
+ 184   1      
+ 185   1        return RETURN_PWM_SUCCESS;
+ 186   1      }
+ 187          
+ 188          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 189          ///
+ 190          ///   Sets PWM0 as PWM mode. GPIO0_0 is output of PWM signal.
+ 191          ///
+ 192          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 193          /// @param  u32Frequency  : Frequency of PWM signal(Degree : Hz).
+ 194          ///             \n The frequency = "u32Frequency"Hz (Min : 123Hz ~ Max : 80,000Hz).
+ 195          /// @param  u8HighDuty  : Percentage of "u32Frequency". (Min : 1% ~ Max : 99%)
+ 196          /// @param  u8Option    : reserved.
+ 197          /// @return UINT8. Status.
+ 198          ///
+ 199          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 200          UINT8 SYS_Pwm0Set_PwmMode(UINT8 u8Ena, UINT32 u32Frequency, UINT8 u8HighDuty, UINT8 u8Option)
+ 201          {
+ 202   1        UINT16  u16Period;
+ 203   1        UINT16  u16HighDuty;
+ 204   1        UINT8 u8Status;
+ 205   1      
+ 206   1        if( (u32Frequency > 80000) || (u32Frequency < 123) )
+ 207   1        {
+ 208   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 209   2          return RETURN_PWM_INVALID_PARAMETER;
+ 210   2        }
+ 211   1      
+ 212   1        if( (u8HighDuty > 99) || (u8HighDuty < 1) )
+ 213   1        {
+ 214   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 215   2          return RETURN_PWM_INVALID_PARAMETER;
+ 216   2        }
+ 217   1      
+ 218   1        u16Period = 8000000/u32Frequency; // for 8MHz MCU Clock
+ 219   1        u16HighDuty = ((float)u16Period * ((float)u8HighDuty / 100));
+ 220   1        if(u16HighDuty == 0)  u16HighDuty = 1;
+ 221   1      
+ 222   1        u8Status = HAL_Pwm0Set_PwmMode(u8Ena, u16Period, u16HighDuty, u8Option);
+ 223   1      
+ 224   1        return u8Status;
+ 225   1      
+ 226   1      }
+ 227          
+ 228          #endif  // #ifdef __MG2470_PWM0_INCLUDE__
+ 229          
+ 230          
+ 231          
+ 232          
+ 233          
+ 234          #ifdef __MG2470_PWM1_INCLUDE__
+ 235          
+ 236          ///////////////////////////////////////////////////////////////////////////////////////////////
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 5   
+
+ 237          /// 
+ 238          ///   Sets clock for PWM1.
+ 239          ///
+ 240          /// @param  u8On  : 0=Off, 1=On
+ 241          /// @return void
+ 242          /// 
+ 243          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 244          void HAL_Pwm1ClockOn(UINT8 u8On)    // Default Off
+ 245          {
+ 246   1        if(u8On)
+ 247   1        {
+ 248   2          PWM1_CLK_ON;
+ 249   2        }
+ 250   1        else
+ 251   1        {
+ 252   2          PWM1_CLK_OFF;
+ 253   2        }
+ 254   1      }
+ 255          
+ 256          
+ 257          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 258          /// 
+ 259          ///   Sets PWM1 as PWM mode. GPIO0_1 is output of PWM signal.
+ 260          ///
+ 261          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 262          /// @param  u16Period : Period of one PWM signal. This should be equal to or more than "u16HighDuty".
+ 263          ///             \n The period = "u16Period" x 1 clock duty(Refer to @note).
+ 264          /// @param  u16HighDuty : Specifies duty time of each level. This should not be more than "u16Period".
+ 265          ///             \n High level duty time = "u16HighDuty" x 1 clock duty(Refer to @note).
+ 266          ///             \n Low level duty time = ("u16Period" - "u16HighDuty") x 1 clock duty(Refer to @note).
+ 267          /// @param  u8Option    : reserved.
+ 268          /// @return UINT8. Status.
+ 269          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 270          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 271          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 272          /// 
+ 273          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 274          UINT8 HAL_Pwm1Set_PwmMode(UINT8 u8Ena, UINT16 u16Period, UINT16 u16HighDuty, UINT8 u8Option)
+ 275          {
+ 276   1        if(PWM1_CLK_STATE == 0)
+ 277   1        {
+ 278   2          assert_error(PWM_CODE | RETURN_PWM1_CLOCK_OFF);
+ 279   2          return RETURN_PWM1_CLOCK_OFF;
+ 280   2        }
+ 281   1      
+ 282   1        if(u16HighDuty > u16Period)
+ 283   1        {
+ 284   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 285   2          return RETURN_PWM_INVALID_PARAMETER;
+ 286   2        }
+ 287   1      
+ 288   1        xPWM1_CTRL = BIT5;
+ 289   1        if(u8Ena)
+ 290   1        {
+ 291   2          xPWM1_HRCL = u16Period;
+ 292   2          xPWM1_HRCH = u16Period >> 8;
+ 293   2          xPWM1_LRCL = u16HighDuty;
+ 294   2          xPWM1_LRCH = u16HighDuty >> 8;
+ 295   2          
+ 296   2          xPWM1_CTRL = BIT3 | BIT0;
+ 297   2      
+ 298   2          xPWM1_HRCL = u16HighDuty;
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 6   
+
+ 299   2          xPWM1_HRCH = u16HighDuty >> 8;
+ 300   2          xPWM1_LRCL = u16Period;
+ 301   2          xPWM1_LRCH = u16Period >> 8;
+ 302   2        }
+ 303   1      
+ 304   1        u8Option = 0;
+ 305   1      
+ 306   1        return RETURN_PWM_SUCCESS;
+ 307   1      }
+ 308          
+ 309          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 310          /// 
+ 311          ///   Sets PWM1 as timer mode. When counter is overflowed, PWM interrupt is generated and PWM_ISR() is call
+             -ed.
+ 312          /// \n  When this is called with "u8IntEna=1", EIE[3] is also set to enable PWM Interrupt. 
+ 313          ///   In other words, Calling HAL_PwmIntModeSet() is not needed.
+ 314          /// \n  But if this is called with "u8IneEna=0", EIE[3] is not cleared. Because, another PWM ports are stil
+             -l used
+ 315          ///   for PWM Interrupt.
+ 316          ///
+ 317          /// @param  u8Ena     : 0=Disable, 1=Enable.
+ 318          /// @param  u8Priority      : Priority of Interrupt. 0=Low, 1=High.
+ 319          /// @param  u16Tick_125ns   : Number of ticks for the interrupt in 1 clock duty(Refer to [note]). 800 ~ 6553
+             -5.
+ 320          ///               \n Interrupt period = "u16Tick_125ns" x 1 clock duty(Refer to [note]). 
+ 321          /// @param  u8Option      : reserved.
+ 322          /// @return UINT8. Status.
+ 323          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 324          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 325          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 326          /// @note To control EIE[3] independently, use HAL_PwmIntModeSet().
+ 327          /// 
+ 328          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 329          UINT8 HAL_Pwm1Set_TimerMode(UINT8 u8IntEna, UINT8 u8Priority, UINT16 u16Tick_125ns, UINT8 u8Option)
+ 330          {
+ 331   1        if(PWM1_CLK_STATE == 0)
+ 332   1        {
+ 333   2          assert_error(PWM_CODE | RETURN_PWM1_CLOCK_OFF);
+ 334   2          return RETURN_PWM1_CLOCK_OFF;
+ 335   2        }
+ 336   1      
+ 337   1        if(u16Tick_125ns < 800)
+ 338   1        {
+ 339   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 340   2          return RETURN_PWM_INVALID_PARAMETER;
+ 341   2        }
+ 342   1      
+ 343   1        xPWM1_CTRL = BIT5;
+ 344   1        if(u8IntEna)
+ 345   1        {
+ 346   2          xPWM1_HRCL = u16Tick_125ns;
+ 347   2          xPWM1_HRCH = u16Tick_125ns >> 8;
+ 348   2          xPWM1_LRCL = xPWM1_HRCL;
+ 349   2          xPWM1_LRCH = xPWM1_HRCH;
+ 350   2          xPWM1_CTRL = BIT7 | BIT0;
+ 351   2          HAL_PwmIntModeSet(1, u8Priority);
+ 352   2        }
+ 353   1      
+ 354   1        u8Option = 0;
+ 355   1      
+ 356   1        return RETURN_PWM_SUCCESS;
+ 357   1      }
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 7   
+
+ 358          
+ 359          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 360          ///
+ 361          ///   Sets PWM1 as PWM mode. GPIO0_1 is output of PWM signal.
+ 362          ///
+ 363          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 364          /// @param  u32Frequency  : Frequency of PWM signal(Degree : Hz).
+ 365          ///             \n The frequency = "u32Frequency"Hz (Min : 123Hz ~ Max : 80,000Hz).
+ 366          /// @param  u8HighDuty  : Percentage of "u32Frequency". (Min : 1% ~ Max : 99%)
+ 367          /// @param  u8Option    : reserved.
+ 368          /// @return UINT8. Status.
+ 369          ///
+ 370          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 371          UINT8 SYS_Pwm1Set_PwmMode(UINT8 u8Ena, UINT32 u32Frequency, UINT8 u8HighDuty, UINT8 u8Option)
+ 372          {
+ 373   1        UINT16  u16Period;
+ 374   1        UINT16  u16HighDuty;
+ 375   1        UINT8 u8Status;
+ 376   1      
+ 377   1        if( (u32Frequency > 80000) || (u32Frequency < 123) )
+ 378   1        {
+ 379   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 380   2          return RETURN_PWM_INVALID_PARAMETER;
+ 381   2        }
+ 382   1      
+ 383   1        if( (u8HighDuty > 99) || (u8HighDuty < 1) )
+ 384   1        {
+ 385   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 386   2          return RETURN_PWM_INVALID_PARAMETER;
+ 387   2        }
+ 388   1      
+ 389   1        u16Period = 8000000/u32Frequency; // for 8MHz MCU Clock
+ 390   1        u16HighDuty = ((float)u16Period * ((float)u8HighDuty / 100));
+ 391   1        if(u16HighDuty == 0)  u16HighDuty = 1;
+ 392   1      
+ 393   1        u8Status = HAL_Pwm1Set_PwmMode(u8Ena, u16Period, u16HighDuty, u8Option);
+ 394   1      
+ 395   1        return u8Status;
+ 396   1      
+ 397   1      }
+ 398          
+ 399          #endif  // #ifdef __MG2470_PWM1_INCLUDE__
+ 400          
+ 401          
+ 402          
+ 403          
+ 404          
+ 405          
+ 406          
+ 407          
+ 408          #ifdef __MG2470_PWM2_INCLUDE__
+ 409          
+ 410          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 411          /// 
+ 412          ///   Sets clock for PWM2.
+ 413          ///
+ 414          /// @param  u8On  : 0=Off, 1=On
+ 415          /// @return void
+ 416          /// 
+ 417          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 418          void HAL_Pwm2ClockOn(UINT8 u8On)    // Default Off
+ 419          {
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 8   
+
+ 420   1        if(u8On)
+ 421   1        {
+ 422   2          PWM2_CLK_ON;
+ 423   2        }
+ 424   1        else
+ 425   1        {
+ 426   2          PWM2_CLK_OFF;
+ 427   2        }
+ 428   1      }
+ 429          
+ 430          
+ 431          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 432          /// 
+ 433          ///   Sets PWM2 as PWM mode. GPIO0_2 is output of PWM signal.
+ 434          ///
+ 435          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 436          /// @param  u16Period : Period of one PWM signal. This should be equal to or more than "u16HighDuty".
+ 437          ///             \n The period = "u16Period" x 1 clock duty(Refer to @note).
+ 438          /// @param  u16HighDuty : Specifies duty time of each level. This should not be more than "u16Period".
+ 439          ///             \n High level duty time = "u16HighDuty" x 1 clock duty(Refer to @note).
+ 440          ///             \n Low level duty time = ("u16Period" - "u16HighDuty") x 1 clock duty(Refer to @note).
+ 441          /// @param  u8Option    : reserved.
+ 442          /// @return UINT8. Status.
+ 443          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 444          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 445          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 446          /// 
+ 447          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 448          UINT8 HAL_Pwm2Set_PwmMode(UINT8 u8Ena, UINT16 u16Period, UINT16 u16HighDuty, UINT8 u8Option)
+ 449          {
+ 450   1        if(PWM2_CLK_STATE == 0)
+ 451   1        {
+ 452   2          assert_error(PWM_CODE | RETURN_PWM2_CLOCK_OFF);
+ 453   2          return RETURN_PWM2_CLOCK_OFF;
+ 454   2        }
+ 455   1      
+ 456   1        if(u16HighDuty > u16Period)
+ 457   1        {
+ 458   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 459   2          return RETURN_PWM_INVALID_PARAMETER;
+ 460   2        }
+ 461   1      
+ 462   1        xPWM2_CTRL = BIT5;
+ 463   1        if(u8Ena)
+ 464   1        {
+ 465   2          xPWM2_HRCL = u16Period;
+ 466   2          xPWM2_HRCH = u16Period >> 8;
+ 467   2          xPWM2_LRCL = u16HighDuty;
+ 468   2          xPWM2_LRCH = u16HighDuty >> 8;
+ 469   2          
+ 470   2          xPWM2_CTRL = BIT3 | BIT0;
+ 471   2      
+ 472   2          xPWM2_HRCL = u16HighDuty;
+ 473   2          xPWM2_HRCH = u16HighDuty >> 8;
+ 474   2          xPWM2_LRCL = u16Period;
+ 475   2          xPWM2_LRCH = u16Period >> 8;
+ 476   2        }
+ 477   1      
+ 478   1        u8Option = 0;
+ 479   1      
+ 480   1        return RETURN_PWM_SUCCESS;
+ 481   1      }
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 9   
+
+ 482          
+ 483          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 484          /// 
+ 485          ///   Sets PWM2 as timer mode. When counter is overflowed, PWM interrupt is generated and PWM_ISR() is call
+             -ed.
+ 486          /// \n  When this is called with "u8IntEna=1", EIE[3] is also set to enable PWM Interrupt. 
+ 487          ///   In other words, Calling HAL_PwmIntModeSet() is not needed.
+ 488          /// \n  But if this is called with "u8IneEna=0", EIE[3] is not cleared. Because, another PWM ports are stil
+             -l used
+ 489          ///   for PWM Interrupt.
+ 490          ///
+ 491          /// @param  u8Ena     : 0=Disable, 1=Enable.
+ 492          /// @param  u8Priority      : Priority of Interrupt. 0=Low, 1=High.
+ 493          /// @param  u16Tick_125ns   : Number of ticks for the interrupt in 1 clock duty(Refer to [note]). 800 ~ 6553
+             -5.
+ 494          ///               \n Interrupt period = "u16Tick_125ns" x 1 clock duty(Refer to [note]). 
+ 495          /// @param  u8Option      : reserved.
+ 496          /// @return UINT8. Status.
+ 497          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 498          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 499          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 500          /// @note To control EIE[3] independently, use HAL_PwmIntModeSet().
+ 501          /// 
+ 502          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 503          UINT8 HAL_Pwm2Set_TimerMode(UINT8 u8IntEna, UINT8 u8Priority, UINT16 u16Tick_125ns, UINT8 u8Option)
+ 504          {
+ 505   1        if(PWM2_CLK_STATE == 0)
+ 506   1        {
+ 507   2          assert_error(PWM_CODE | RETURN_PWM2_CLOCK_OFF);
+ 508   2          return RETURN_PWM2_CLOCK_OFF;
+ 509   2        }
+ 510   1      
+ 511   1        if(u16Tick_125ns < 800)
+ 512   1        {
+ 513   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 514   2          return RETURN_PWM_INVALID_PARAMETER;
+ 515   2        }
+ 516   1      
+ 517   1        xPWM2_CTRL = BIT5;
+ 518   1        if(u8IntEna)
+ 519   1        {
+ 520   2          xPWM2_HRCL = u16Tick_125ns;
+ 521   2          xPWM2_HRCH = u16Tick_125ns >> 8;
+ 522   2          xPWM2_LRCL = xPWM2_HRCL;
+ 523   2          xPWM2_LRCH = xPWM2_HRCH;
+ 524   2          xPWM2_CTRL = BIT7 | BIT0;
+ 525   2          HAL_PwmIntModeSet(1, u8Priority);
+ 526   2        }
+ 527   1      
+ 528   1        u8Option = 0;
+ 529   1      
+ 530   1        return RETURN_PWM_SUCCESS;
+ 531   1      }
+ 532          
+ 533          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 534          ///
+ 535          ///   Sets PWM2 as PWM mode. GPIO0_2 is output of PWM signal.
+ 536          ///
+ 537          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 538          /// @param  u32Frequency  : Frequency of PWM signal(Degree : Hz).
+ 539          ///             \n The frequency = "u32Frequency"Hz (Min : 123Hz ~ Max : 80,000Hz).
+ 540          /// @param  u8HighDuty  : Percentage of "u32Frequency". (Min : 1% ~ Max : 99%)
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 10  
+
+ 541          /// @param  u8Option    : reserved.
+ 542          /// @return UINT8. Status.
+ 543          ///
+ 544          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 545          UINT8 SYS_Pwm2Set_PwmMode(UINT8 u8Ena, UINT32 u32Frequency, UINT8 u8HighDuty, UINT8 u8Option)
+ 546          {
+ 547   1        UINT16  u16Period;
+ 548   1        UINT16  u16HighDuty;
+ 549   1        UINT8 u8Status;
+ 550   1      
+ 551   1        if( (u32Frequency > 80000) || (u32Frequency < 123) )
+ 552   1        {
+ 553   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 554   2          return RETURN_PWM_INVALID_PARAMETER;
+ 555   2        }
+ 556   1      
+ 557   1        if( (u8HighDuty > 99) || (u8HighDuty < 1) )
+ 558   1        {
+ 559   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 560   2          return RETURN_PWM_INVALID_PARAMETER;
+ 561   2        }
+ 562   1      
+ 563   1        u16Period = 8000000/u32Frequency; // for 8MHz MCU Clock
+ 564   1        u16HighDuty = ((float)u16Period * ((float)u8HighDuty / 100));
+ 565   1        if(u16HighDuty == 0)  u16HighDuty = 1;
+ 566   1      
+ 567   1        u8Status = HAL_Pwm2Set_PwmMode(u8Ena, u16Period, u16HighDuty, u8Option);
+ 568   1      
+ 569   1        return u8Status;
+ 570   1      
+ 571   1      }
+ 572          
+ 573          #endif  // #ifdef __MG2470_PWM2_INCLUDE__
+ 574          
+ 575          
+ 576          
+ 577          
+ 578          
+ 579          
+ 580          
+ 581          
+ 582          #ifdef __MG2470_PWM3_INCLUDE__
+ 583          
+ 584          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 585          /// 
+ 586          ///   Sets clock for PWM3.
+ 587          ///
+ 588          /// @param  u8On  : 0=Off, 1=On
+ 589          /// @return void
+ 590          /// 
+ 591          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 592          void HAL_Pwm3ClockOn(UINT8 u8On)    // Default Off
+ 593          {
+ 594   1        if(u8On)
+ 595   1        {
+ 596   2          PWM3_CLK_ON;
+ 597   2        }
+ 598   1        else
+ 599   1        {
+ 600   2          PWM3_CLK_OFF;
+ 601   2        }
+ 602   1      }
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 11  
+
+ 603          
+ 604          
+ 605          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 606          /// 
+ 607          ///   Sets PWM3 as PWM mode. GPIO0_3 is output of PWM signal.
+ 608          ///
+ 609          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 610          /// @param  u16Period : Period of one PWM signal. This should be equal to or more than "u16HighDuty".
+ 611          ///             \n The period = "u16Period" x 1 clock duty(Refer to @note).
+ 612          /// @param  u16HighDuty : Specifies duty time of each level. This should not be more than "u16Period".
+ 613          ///             \n High level duty time = "u16HighDuty" x 1 clock duty(Refer to @note).
+ 614          ///             \n Low level duty time = ("u16Period" - "u16HighDuty") x 1 clock duty(Refer to @note).
+ 615          /// @param  u8Option    : reserved.
+ 616          /// @return UINT8. Status.
+ 617          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 618          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 619          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 620          /// 
+ 621          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 622          UINT8 HAL_Pwm3Set_PwmMode(UINT8 u8Ena, UINT16 u16Period, UINT16 u16HighDuty, UINT8 u8Option)
+ 623          {
+ 624   1        if(PWM3_CLK_STATE == 0)
+ 625   1        {
+ 626   2          assert_error(PWM_CODE | RETURN_PWM3_CLOCK_OFF);
+ 627   2          return RETURN_PWM3_CLOCK_OFF;
+ 628   2        }
+ 629   1      
+ 630   1        if(u16HighDuty > u16Period)
+ 631   1        {
+ 632   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 633   2          return RETURN_PWM_INVALID_PARAMETER;
+ 634   2        }
+ 635   1      
+ 636   1        xPWM3_CTRL = BIT5;
+ 637   1        if(u8Ena)
+ 638   1        {
+ 639   2          xPWM3_HRCL = u16Period;
+ 640   2          xPWM3_HRCH = u16Period >> 8;
+ 641   2          xPWM3_LRCL = u16HighDuty;
+ 642   2          xPWM3_LRCH = u16HighDuty >> 8;
+ 643   2          
+ 644   2          xPWM3_CTRL = BIT3 | BIT0;
+ 645   2      
+ 646   2          xPWM3_HRCL = u16HighDuty;
+ 647   2          xPWM3_HRCH = u16HighDuty >> 8;
+ 648   2          xPWM3_LRCL = u16Period;
+ 649   2          xPWM3_LRCH = u16Period >> 8;
+ 650   2        }
+ 651   1      
+ 652   1        u8Option = 0;
+ 653   1      
+ 654   1        return RETURN_PWM_SUCCESS;
+ 655   1      }
+ 656          
+ 657          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 658          /// 
+ 659          ///   Sets PWM3 as timer mode. When counter is overflowed, PWM interrupt is generated and PWM_ISR() is call
+             -ed.
+ 660          /// \n  When this is called with "u8IntEna=1", EIE[3] is also set to enable PWM Interrupt. 
+ 661          ///   In other words, Calling HAL_PwmIntModeSet() is not needed.
+ 662          /// \n  But if this is called with "u8IneEna=0", EIE[3] is not cleared. Because, another PWM ports are stil
+             -l used
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 12  
+
+ 663          ///   for PWM Interrupt.
+ 664          ///
+ 665          /// @param  u8Ena     : 0=Disable, 1=Enable.
+ 666          /// @param  u8Priority      : Priority of Interrupt. 0=Low, 1=High.
+ 667          /// @param  u16Tick_125ns   : Number of ticks for the interrupt in 1 clock duty(Refer to [note]). 800 ~ 6553
+             -5.
+ 668          ///               \n Interrupt period = "u16Tick_125ns" x 1 clock duty(Refer to [note]). 
+ 669          /// @param  u8Option      : reserved.
+ 670          /// @return UINT8. Status.
+ 671          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 672          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 673          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 674          /// @note To control EIE[3] independently, use HAL_PwmIntModeSet().
+ 675          /// 
+ 676          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 677          UINT8 HAL_Pwm3Set_TimerMode(UINT8 u8IntEna, UINT8 u8Priority, UINT16 u16Tick_125ns, UINT8 u8Option)
+ 678          {
+ 679   1        if(PWM3_CLK_STATE == 0)
+ 680   1        {
+ 681   2          assert_error(PWM_CODE | RETURN_PWM3_CLOCK_OFF);
+ 682   2          return RETURN_PWM3_CLOCK_OFF;
+ 683   2        }
+ 684   1      
+ 685   1        if(u16Tick_125ns < 800)
+ 686   1        {
+ 687   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 688   2          return RETURN_PWM_INVALID_PARAMETER;
+ 689   2        }
+ 690   1      
+ 691   1        xPWM3_CTRL = BIT5;
+ 692   1        if(u8IntEna)
+ 693   1        {
+ 694   2          xPWM3_HRCL = u16Tick_125ns;
+ 695   2          xPWM3_HRCH = u16Tick_125ns >> 8;
+ 696   2          xPWM3_LRCL = xPWM3_HRCL;
+ 697   2          xPWM3_LRCH = xPWM3_HRCH;
+ 698   2          xPWM3_CTRL = BIT7 | BIT0;
+ 699   2          HAL_PwmIntModeSet(1, u8Priority);
+ 700   2        }
+ 701   1      
+ 702   1        u8Option = 0;
+ 703   1      
+ 704   1        return RETURN_PWM_SUCCESS;
+ 705   1      }
+ 706          
+ 707          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 708          ///
+ 709          ///   Sets PWM3 as PWM mode. GPIO0_4 is output of PWM signal.
+ 710          ///
+ 711          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 712          /// @param  u32Frequency  : Frequency of PWM signal(Degree : Hz).
+ 713          ///             \n The frequency = "u32Frequency"Hz (Min : 123Hz ~ Max : 80,000Hz).
+ 714          /// @param  u8HighDuty  : Percentage of "u32Frequency". (Min : 1% ~ Max : 99%)
+ 715          /// @param  u8Option    : reserved.
+ 716          /// @return UINT8. Status.
+ 717          ///
+ 718          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 719          UINT8 SYS_Pwm3Set_PwmMode(UINT8 u8Ena, UINT32 u32Frequency, UINT8 u8HighDuty, UINT8 u8Option)
+ 720          {
+ 721   1        UINT16  u16Period;
+ 722   1        UINT16  u16HighDuty;
+ 723   1        UINT8 u8Status;
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 13  
+
+ 724   1      
+ 725   1        if( (u32Frequency > 80000) || (u32Frequency < 123) )
+ 726   1        {
+ 727   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 728   2          return RETURN_PWM_INVALID_PARAMETER;
+ 729   2        }
+ 730   1      
+ 731   1        if( (u8HighDuty > 99) || (u8HighDuty < 1) )
+ 732   1        {
+ 733   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 734   2          return RETURN_PWM_INVALID_PARAMETER;
+ 735   2        }
+ 736   1      
+ 737   1        u16Period = 8000000/u32Frequency; // for 8MHz MCU Clock
+ 738   1        u16HighDuty = ((float)u16Period * ((float)u8HighDuty / 100));
+ 739   1        if(u16HighDuty == 0)  u16HighDuty = 1;
+ 740   1      
+ 741   1        u8Status = HAL_Pwm3Set_PwmMode(u8Ena, u16Period, u16HighDuty, u8Option);
+ 742   1      
+ 743   1        return u8Status;
+ 744   1      
+ 745   1      }
+ 746          
+ 747          #endif  // #ifdef __MG2470_PWM3_INCLUDE__
+ 748          
+ 749          
+ 750          
+ 751          
+ 752          
+ 753          
+ 754          
+ 755          
+ 756          
+ 757          #ifdef __MG2470_PWM4_INCLUDE__
+ 758          
+ 759          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 760          /// 
+ 761          ///   Sets clock for PWM4.
+ 762          ///
+ 763          /// @param  u8On  : 0=Off, 1=On
+ 764          /// @return void
+ 765          /// 
+ 766          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 767          void HAL_Pwm4ClockOn(UINT8 u8On)    // Default Off
+ 768          {
+ 769   1        if(u8On)
+ 770   1        {
+ 771   2          PWM4_CLK_ON;
+ 772   2        }
+ 773   1        else
+ 774   1        {
+ 775   2          PWM4_CLK_OFF;
+ 776   2        }
+ 777   1      }
+ 778          
+ 779          
+ 780          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 781          /// 
+ 782          ///   Sets PWM4 as PWM mode. GPIO0_4 is output of PWM signal.
+ 783          ///
+ 784          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 785          /// @param  u16Period : Period of one PWM signal. This should be equal to or more than "u16HighDuty".
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 14  
+
+ 786          ///             \n The period = "u16Period" x 1 clock duty(Refer to @note).
+ 787          /// @param  u16HighDuty : Specifies duty time of each level. This should not be more than "u16Period".
+ 788          ///             \n High level duty time = "u16HighDuty" x 1 clock duty(Refer to @note).
+ 789          ///             \n Low level duty time = ("u16Period" - "u16HighDuty") x 1 clock duty(Refer to @note).
+ 790          /// @param  u8Option    : reserved.
+ 791          /// @return UINT8. Status.
+ 792          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 793          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 794          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 795          /// 
+ 796          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 797          UINT8 HAL_Pwm4Set_PwmMode(UINT8 u8Ena, UINT16 u16Period, UINT16 u16HighDuty, UINT8 u8Option)
+ 798          {
+ 799   1        if(PWM4_CLK_STATE == 0)
+ 800   1        {
+ 801   2          assert_error(PWM_CODE | RETURN_PWM4_CLOCK_OFF);
+ 802   2          return RETURN_PWM4_CLOCK_OFF;
+ 803   2        }
+ 804   1      
+ 805   1        if(u16HighDuty > u16Period)
+ 806   1        {
+ 807   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 808   2          return RETURN_PWM_INVALID_PARAMETER;
+ 809   2        }
+ 810   1      
+ 811   1        xPWM4_CTRL = BIT5;
+ 812   1        if(u8Ena)
+ 813   1        {
+ 814   2          xPWM4_HRCL = u16Period;
+ 815   2          xPWM4_HRCH = u16Period >> 8;
+ 816   2          xPWM4_LRCL = u16HighDuty;
+ 817   2          xPWM4_LRCH = u16HighDuty >> 8;
+ 818   2          
+ 819   2          xPWM4_CTRL = BIT3 | BIT0;
+ 820   2      
+ 821   2          xPWM4_HRCL = u16HighDuty;
+ 822   2          xPWM4_HRCH = u16HighDuty >> 8;
+ 823   2          xPWM4_LRCL = u16Period;
+ 824   2          xPWM4_LRCH = u16Period >> 8;
+ 825   2        }
+ 826   1      
+ 827   1        u8Option = 0;
+ 828   1      
+ 829   1        return RETURN_PWM_SUCCESS;
+ 830   1      }
+ 831          
+ 832          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 833          /// 
+ 834          ///   Sets PWM4 as timer mode. When counter is overflowed, PWM interrupt is generated and PWM_ISR() is call
+             -ed.
+ 835          /// \n  When this is called with "u8IntEna=1", EIE[3] is also set to enable PWM Interrupt. 
+ 836          ///   In other words, Calling HAL_PwmIntModeSet() is not needed.
+ 837          /// \n  But if this is called with "u8IneEna=0", EIE[3] is not cleared. Because, another PWM ports are stil
+             -l used
+ 838          ///   for PWM Interrupt.
+ 839          ///
+ 840          /// @param  u8Ena     : 0=Disable, 1=Enable.
+ 841          /// @param  u8Priority      : Priority of Interrupt. 0=Low, 1=High.
+ 842          /// @param  u16Tick_125ns   : Number of ticks for the interrupt in 1 clock duty(Refer to [note]). 800 ~ 6553
+             -5.
+ 843          ///               \n Interrupt period = "u16Tick_125ns" x 1 clock duty(Refer to [note]). 
+ 844          /// @param  u8Option      : reserved.
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 15  
+
+ 845          /// @return UINT8. Status.
+ 846          /// @note 1 clock duty is 125ns at 8MHz MCU frequency. It is dependent on MCU frequency. 
+ 847          ///     And, The MCU frequency is determined by HAL_McuPeriClockSet().
+ 848          ///       \n 1 clock duty = 125ns * (8MHz / MCU frequency)
+ 849          /// @note To control EIE[3] independently, use HAL_PwmIntModeSet().
+ 850          /// 
+ 851          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 852          UINT8 HAL_Pwm4Set_TimerMode(UINT8 u8IntEna, UINT8 u8Priority, UINT16 u16Tick_125ns, UINT8 u8Option)
+ 853          {
+ 854   1        if(PWM4_CLK_STATE == 0)
+ 855   1        {
+ 856   2          assert_error(PWM_CODE | RETURN_PWM4_CLOCK_OFF);
+ 857   2          return RETURN_PWM4_CLOCK_OFF;
+ 858   2        }
+ 859   1      
+ 860   1        if(u16Tick_125ns < 800)
+ 861   1        {
+ 862   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 863   2          return RETURN_PWM_INVALID_PARAMETER;
+ 864   2        }
+ 865   1      
+ 866   1        xPWM4_CTRL = BIT5;
+ 867   1        if(u8IntEna)
+ 868   1        {
+ 869   2          xPWM4_HRCL = u16Tick_125ns;
+ 870   2          xPWM4_HRCH = u16Tick_125ns >> 8;
+ 871   2          xPWM4_LRCL = xPWM4_HRCL;
+ 872   2          xPWM4_LRCH = xPWM4_HRCH;
+ 873   2          xPWM4_CTRL = BIT7 | BIT0;
+ 874   2          HAL_PwmIntModeSet(1, u8Priority);
+ 875   2        }
+ 876   1      
+ 877   1        u8Option = 0;
+ 878   1      
+ 879   1        return RETURN_PWM_SUCCESS;
+ 880   1      }
+ 881          
+ 882          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 883          ///
+ 884          ///   Sets PWM4 as PWM mode. GPIO0_4 is output of PWM signal.
+ 885          ///
+ 886          /// @param  u8Ena   : 0=Disable, 1=Enable.
+ 887          /// @param  u32Frequency  : Frequency of PWM signal(Degree : Hz).
+ 888          ///             \n The frequency = "u32Frequency"Hz (Min : 123Hz ~ Max : 80,000Hz).
+ 889          /// @param  u8HighDuty  : Percentage of "u32Frequency". (Min : 1% ~ Max : 99%)
+ 890          /// @param  u8Option      : reserved.
+ 891          /// @return UINT8. Status.
+ 892          ///
+ 893          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 894          UINT8 SYS_Pwm4Set_PwmMode(UINT8 u8Ena, UINT32 u32Frequency, UINT8 u8HighDuty, UINT8 u8Option)
+ 895          {
+ 896   1        UINT16  u16Period;
+ 897   1        UINT16  u16HighDuty;
+ 898   1        UINT8 u8Status;
+ 899   1      
+ 900   1        if( (u32Frequency > 80000) || (u32Frequency < 123) )
+ 901   1        {
+ 902   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 903   2          return RETURN_PWM_INVALID_PARAMETER;
+ 904   2        }
+ 905   1      
+ 906   1        if( (u8HighDuty > 99) || (u8HighDuty < 1) )
+C51 COMPILER V9.53.0.0   PWM                                                               01/28/2020 11:28:54 PAGE 16  
+
+ 907   1        {
+ 908   2          assert_error(PWM_CODE | RETURN_PWM_INVALID_PARAMETER);
+ 909   2          return RETURN_PWM_INVALID_PARAMETER;
+ 910   2        }
+ 911   1      
+ 912   1        u16Period = 8000000/u32Frequency; // for 8MHz MCU Clock
+ 913   1        u16HighDuty = ((float)u16Period * ((float)u8HighDuty / 100));
+ 914   1        if(u16HighDuty == 0)  u16HighDuty = 1;
+ 915   1      
+ 916   1        u8Status = HAL_Pwm4Set_PwmMode(u8Ena, u16Period, u16HighDuty, u8Option);
+ 917   1      
+ 918   1        return u8Status;
+ 919   1      
+ 920   1      }
+ 921          
+ 922          #endif  // #ifdef __MG2470_PWM4_INCLUDE__
+ 923          
+ 924          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1618    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----     100
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

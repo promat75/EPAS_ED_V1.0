@@ -1,0 +1,1 @@
+"..\..\..\Utility\UTIL_SYS.c" LARGE OPTIMIZE (9,SIZE) BROWSE INCDIR(..\..\..\..\Platform\Include\; ..\..\..\..\Platform\hal\; ..\..\..\Include\; ..\..\..\Utility\; ..\..\) DEFINE (DEBUG) NOPRINT OBJECT(.\HEX\UTIL_SYS.obj)

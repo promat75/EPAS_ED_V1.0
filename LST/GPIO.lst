@@ -1,0 +1,373 @@
+C51 COMPILER V9.53.0.0   GPIO                                                              01/28/2020 11:28:53 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE GPIO
+OBJECT MODULE PLACED IN .\HEX\GPIO.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Platform\hal\GPIO.c LARGE OPTIMIZE(9,SIZE) BROWSE INCDIR(.\Platform\Incl
+                    -ude\;.\Platform\hal\;.\Sample\Include\;.\Sample\Utility\;.\Sample\EVB) DEFINE(__DEBUG,__INTERNAL_MODE) PRINT(.\LST\GPIO.
+                    -lst) TABS(2) OBJECT(.\HEX\GPIO.obj)
+
+line level    source
+
+   1          
+   2          /*******************************************************************************
+   3            - Chip    : MG2470B
+   4            - Vendor    : RadioPulse Inc, 2012.
+   5            - Date    : 2012-04-25
+   6            - Version   : V2.0
+   7          
+   8            [2012-04-25] V2.0
+   9            - Initial Version for MG2470B(ChipID=0x71)
+  10          *******************************************************************************/
+  11          
+  12          #include "INCLUDE_MG2470.h"
+  13          #include "gpio.h"
+  14          
+  15          ///////////////////////////////////////////////////////////////////////////////////////////////
+  16          /// 
+  17          ///   Sets clock for GPIO.
+  18          ///
+  19          /// @param  u8On  : 0=Off, 1=On
+  20          /// @return void
+  21          /// 
+  22          ///////////////////////////////////////////////////////////////////////////////////////////////
+  23          void HAL_GpioClockOn(UINT8 u8On)    // Default On
+  24          {
+  25   1        if(u8On)
+  26   1        {
+  27   2          GPIO_CLK_ON;
+  28   2        }
+  29   1        else
+  30   1        {
+  31   2          GPIO_CLK_OFF;
+  32   2        }
+  33   1      }
+  34          
+  35          ///////////////////////////////////////////////////////////////////////////////////////////////
+  36          /// 
+  37          ///   Checks whether parameters is valid.
+  38          ///
+  39          /// @param  u8Port  : 0~7=Port Number, 0xA=All Ports.
+  40          /// @param  u8OutEna  : 0=Input mode, 1=Output mode.
+  41          /// @param  u8Option  : Options for GPIO.
+  42          ///       \n  When u8OutEna=1 :  Drive Strength. 0=4mA, 1=8mA.
+  43          ///       \n  when u8OutEna=0 :  Pull-up/down or Hi-impedance. 0=Pull-up, 1=Pull-down, 2=High-impedance.
+  44          /// @return UINT8. Status.
+  45          /// 
+  46          ///////////////////////////////////////////////////////////////////////////////////////////////
+  47          UINT8 HAL_GpioParameterCheck(UINT8 u8Port, UINT8 u8OutEna, UINT8 u8Option)
+  48          {
+  49   1        if( (u8Port > 0x07) && (u8Port != 0x0A) )
+  50   1        {
+  51   2          return RETURN_GPIO_INVALID_PORT;
+  52   2        }
+  53   1      
+C51 COMPILER V9.53.0.0   GPIO                                                              01/28/2020 11:28:53 PAGE 2   
+
+  54   1        if(u8OutEna)
+  55   1        {
+  56   2          if(u8Option > 1)
+  57   2          {
+  58   3            return RETURN_GPIO_INVALID_PARAMETER;
+  59   3          }   
+  60   2        }
+  61   1        else
+  62   1        {
+  63   2          if(u8Option > 2)
+  64   2          {
+  65   3            return RETURN_GPIO_INVALID_PARAMETER;
+  66   3          }
+  67   2        } 
+  68   1      
+  69   1        return RETURN_GPIO_SUCCESS;
+  70   1      }
+  71          
+  72          #ifdef __MG2470_GPIO0_INCLUDE__
+  73          
+  74          ///////////////////////////////////////////////////////////////////////////////////////////////
+  75          /// 
+  76          ///   Sets the mode of GPIO0(0.x) ports.
+  77          ///
+  78          /// @param  u8Port  : 0~7=Port Number, 0xA=All Ports.
+  79          /// @param  u8OutEna  : 0=Input mode, 1=Output mode.
+  80          /// @param  u8Option  : Options for GPIO.
+  81          ///       \n  When u8OutEna=1 :  Drive Strength. 0=4mA, 1=8mA.
+  82          ///       \n  when u8OutEna=0 :  Pull-up/down or Hi-impedance. 0=Pull-up, 1=Pull-down, 2=High-impedance.
+  83          /// @return UINT8. Status.
+  84          /// 
+  85          ///////////////////////////////////////////////////////////////////////////////////////////////
+  86          UINT8 HAL_Gpio0InOutSet(UINT8 u8Port, UINT8 u8OutEna, UINT8 u8Option)
+  87          {
+  88   1        UINT8 u8MaskOR;
+  89   1        UINT8 u8MaskAND;
+  90   1        UINT8 u8Status;
+  91   1      
+  92   1        if(GPIO_CLK_STATE == 0)
+  93   1        {
+  94   2          assert_error(GPIO_CODE | RETURN_GPIO_CLOCK_OFF);
+  95   2          return RETURN_GPIO_CLOCK_OFF;
+  96   2        }
+  97   1      
+  98   1        u8Status = HAL_GpioParameterCheck(u8Port, u8OutEna, u8Option);
+  99   1        if(u8Status)
+ 100   1        {
+ 101   2          assert_error(GPIO_CODE | u8Status);
+ 102   2          return u8Status;
+ 103   2        } 
+ 104   1      
+ 105   1        switch(u8Port)
+ 106   1        {
+ 107   2          case 0x0  : u8MaskOR = BIT0;  u8MaskAND = ~BIT0;  break;
+ 108   2          case 0x1  : u8MaskOR = BIT1;  u8MaskAND = ~BIT1;  break;
+ 109   2          case 0x2  : u8MaskOR = BIT2;  u8MaskAND = ~BIT2;  break;
+ 110   2          case 0x3  : u8MaskOR = BIT3;  u8MaskAND = ~BIT3;  break;
+ 111   2          case 0x4  : u8MaskOR = BIT4;  u8MaskAND = ~BIT4;  break;
+ 112   2          case 0x5  : u8MaskOR = BIT5;  u8MaskAND = ~BIT5;  break;
+ 113   2          case 0x6  : u8MaskOR = BIT6;  u8MaskAND = ~BIT6;  break;
+ 114   2          case 0x7  : u8MaskOR = BIT7;  u8MaskAND = ~BIT7;  break;
+ 115   2          case 0xA  : u8MaskOR = 0xFF;  u8MaskAND = ~0xFF;  break;
+C51 COMPILER V9.53.0.0   GPIO                                                              01/28/2020 11:28:53 PAGE 3   
+
+ 116   2        }
+ 117   1      
+ 118   1        if(u8OutEna)
+ 119   1        {
+ 120   2          P0OEN &= u8MaskAND;   // clear bits. Output Enable(Active low)
+ 121   2          xGPIOPE0 &= u8MaskAND;  // PEx[n]=0. High-impedance
+ 122   2      
+ 123   2          if(u8Option)
+ 124   2          {
+ 125   3            P0_DS |= u8MaskOR;  // set bits
+ 126   3          }
+ 127   2          else
+ 128   2          {
+ 129   3            P0_DS &= u8MaskAND; // clear bits
+ 130   3          }
+ 131   2        }
+ 132   1        else
+ 133   1        {
+ 134   2          if(u8Option == 0)   // pull-up
+ 135   2          {
+ 136   3            xGPIOPE0 |= u8MaskOR; // PEx[n]=1
+ 137   3            xGPIOPS0 |= u8MaskOR; // PSx[n]=1       
+ 138   3          }
+ 139   2          else if(u8Option == 1)  // pull-down
+ 140   2          {
+ 141   3            xGPIOPE0 |= u8MaskOR; // PEx[n]=1
+ 142   3            xGPIOPS0 &= u8MaskAND;  // PSx[n]=0
+ 143   3          }
+ 144   2          else    // high-impedance
+ 145   2          {
+ 146   3            xGPIOPE0 &= u8MaskAND;  // PEx[n]=0
+ 147   3          }
+ 148   2          P0OEN |= u8MaskOR;    // set bits. Output disable(Active low)
+ 149   2          P0_IE |= u8MaskOR;    // set bits. Input enable(Active high)
+ 150   2        }
+ 151   1      
+ 152   1        return RETURN_GPIO_SUCCESS;
+ 153   1      }
+ 154          
+ 155          #endif // #ifdef __MG2470_GPIO0_INCLUDE__
+ 156          
+ 157          
+ 158          
+ 159          
+ 160          #ifdef __MG2470_GPIO1_INCLUDE__
+ 161          
+ 162          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 163          /// 
+ 164          ///   Sets the mode of GPIO1(1.x) ports.
+ 165          ///
+ 166          /// @param  u8Port  : 0~7=Port Number, 0xA=All Ports.
+ 167          /// @param  u8OutEna  : 0=Input mode, 1=Output mode.
+ 168          /// @param  u8Option  : Options for GPIO.
+ 169          ///       \n  When u8OutEna=1 :  Drive Strength. 0=4mA, 1=8mA.
+ 170          ///       \n  when u8OutEna=0 :  Pull-up/down or Hi-impedance. 0=Pull-up, 1=Pull-down, 2=High-impedance.
+ 171          /// @return UINT8. Status.
+ 172          /// 
+ 173          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 174          UINT8 HAL_Gpio1InOutSet(UINT8 u8Port, UINT8 u8OutEna, UINT8 u8Option)
+ 175          {
+ 176   1        UINT8 u8MaskOR;
+ 177   1        UINT8 u8MaskAND;
+C51 COMPILER V9.53.0.0   GPIO                                                              01/28/2020 11:28:53 PAGE 4   
+
+ 178   1        UINT8 u8Status;
+ 179   1      
+ 180   1        if(GPIO_CLK_STATE == 0) 
+ 181   1        {
+ 182   2          assert_error(GPIO_CODE | RETURN_GPIO_CLOCK_OFF);
+ 183   2          return RETURN_GPIO_CLOCK_OFF;
+ 184   2        }
+ 185   1      
+ 186   1        u8Status = HAL_GpioParameterCheck(u8Port, u8OutEna, u8Option);
+ 187   1        if(u8Status)
+ 188   1        {
+ 189   2          assert_error(GPIO_CODE | u8Status);
+ 190   2          return u8Status;
+ 191   2        } 
+ 192   1      
+ 193   1        switch(u8Port)
+ 194   1        {
+ 195   2          case 0x0  : u8MaskOR = BIT0;  u8MaskAND = ~BIT0;  break;
+ 196   2          case 0x1  : u8MaskOR = BIT1;  u8MaskAND = ~BIT1;  break;
+ 197   2          case 0x2  : u8MaskOR = BIT2;  u8MaskAND = ~BIT2;  break;
+ 198   2          case 0x3  : u8MaskOR = BIT3;  u8MaskAND = ~BIT3;  break;
+ 199   2          case 0x4  : u8MaskOR = BIT4;  u8MaskAND = ~BIT4;  break;
+ 200   2          case 0x5  : u8MaskOR = BIT5;  u8MaskAND = ~BIT5;  break;
+ 201   2          case 0x6  : u8MaskOR = BIT6;  u8MaskAND = ~BIT6;  break;
+ 202   2          case 0x7  : u8MaskOR = BIT7;  u8MaskAND = ~BIT7;  break;
+ 203   2          case 0xA  : u8MaskOR = 0xFF;  u8MaskAND = ~0xFF;  break;
+ 204   2        }
+ 205   1      
+ 206   1        if(u8OutEna)
+ 207   1        {
+ 208   2          P1OEN &= u8MaskAND;   // clear bits. Output Enable(Active low)
+ 209   2          xGPIOPE1 &= u8MaskAND;  // PEx[n]=0. High-impedance
+ 210   2      
+ 211   2          if(u8Option)
+ 212   2          {
+ 213   3            P1_DS |= u8MaskOR;  // set bits
+ 214   3          }
+ 215   2          else
+ 216   2          {
+ 217   3            P1_DS &= u8MaskAND; // clear bits
+ 218   3          }
+ 219   2        }
+ 220   1        else
+ 221   1        {
+ 222   2          if(u8Option == 0)   // pull-up
+ 223   2          {
+ 224   3            xGPIOPE1 |= u8MaskOR; // PEx[n]=1
+ 225   3            xGPIOPS1 |= u8MaskOR; // PSx[n]=1       
+ 226   3          }
+ 227   2          else if(u8Option == 1)  // pull-down
+ 228   2          {
+ 229   3            xGPIOPE1 |= u8MaskOR; // PEx[n]=1
+ 230   3            xGPIOPS1 &= u8MaskAND;  // PSx[n]=0       
+ 231   3          }
+ 232   2          else    // high-impedance
+ 233   2          {
+ 234   3            xGPIOPE1 &= u8MaskAND;  // PEx[n]=0
+ 235   3          }
+ 236   2          P1OEN |= u8MaskOR;    // set bits. Output disable(Active low)
+ 237   2          P1_IE |= u8MaskOR;    // set bits. Input enable(Active high)
+ 238   2        }
+ 239   1      
+C51 COMPILER V9.53.0.0   GPIO                                                              01/28/2020 11:28:53 PAGE 5   
+
+ 240   1        return RETURN_GPIO_SUCCESS;
+ 241   1      }
+ 242          
+ 243          #endif // #ifdef __MG2470_GPIO1_INCLUDE__
+ 244          
+ 245          
+ 246          
+ 247          
+ 248          #ifdef __MG2470_GPIO3_INCLUDE__
+ 249          
+ 250          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 251          /// 
+ 252          ///   Sets the mode of GPIO3(3.x) ports.
+ 253          ///
+ 254          /// @param  u8Port  : 0~7=Port Number, 0xA=All Ports.
+ 255          /// @param  u8OutEna  : 0=Input mode, 1=Output mode.
+ 256          /// @param  u8Option  : Options for GPIO.
+ 257          ///       \n  When u8OutEna=1 :  Drive Strength. 0=4mA, 1=8mA.
+ 258          ///       \n  when u8OutEna=0 :  Pull-up/down or Hi-impedance. 0=Pull-up, 1=Pull-down, 2=High-impedance.
+ 259          /// @return UINT8. Status.
+ 260          /// 
+ 261          ///////////////////////////////////////////////////////////////////////////////////////////////
+ 262          UINT8 HAL_Gpio3InOutSet(UINT8 u8Port, UINT8 u8OutEna, UINT8 u8Option)
+ 263          {
+ 264   1        UINT8 u8MaskOR;
+ 265   1        UINT8 u8MaskAND;
+ 266   1        UINT8 u8Status;
+ 267   1      
+ 268   1        if(GPIO_CLK_STATE == 0)
+ 269   1        {
+ 270   2          assert_error(GPIO_CODE | RETURN_GPIO_CLOCK_OFF);
+ 271   2          return RETURN_GPIO_CLOCK_OFF;
+ 272   2        }
+ 273   1      
+ 274   1        u8Status = HAL_GpioParameterCheck(u8Port, u8OutEna, u8Option);
+ 275   1        if(u8Status)
+ 276   1        {
+ 277   2          assert_error(GPIO_CODE | u8Status);
+ 278   2          return u8Status;
+ 279   2        }
+ 280   1      
+ 281   1        switch(u8Port)
+ 282   1        {
+ 283   2          case 0x0  : u8MaskOR = BIT0;  u8MaskAND = ~BIT0;  break;
+ 284   2          case 0x1  : u8MaskOR = BIT1;  u8MaskAND = ~BIT1;  break;
+ 285   2          case 0x2  : u8MaskOR = BIT2;  u8MaskAND = ~BIT2;  break;
+ 286   2          case 0x3  : u8MaskOR = BIT3;  u8MaskAND = ~BIT3;  break;
+ 287   2          case 0x4  : u8MaskOR = BIT4;  u8MaskAND = ~BIT4;  break;
+ 288   2          case 0x5  : u8MaskOR = BIT5;  u8MaskAND = ~BIT5;  break;
+ 289   2          case 0x6  : u8MaskOR = BIT6;  u8MaskAND = ~BIT6;  break;
+ 290   2          case 0x7  : u8MaskOR = BIT7;  u8MaskAND = ~BIT7;  break;
+ 291   2          case 0xA  : u8MaskOR = 0xFF;  u8MaskAND = ~0xFF;  break;
+ 292   2        }
+ 293   1      
+ 294   1        if(u8OutEna)
+ 295   1        {
+ 296   2          P3OEN &= u8MaskAND;   // clear bits. Output Enable(Active low)
+ 297   2          xGPIOPE3 &= u8MaskAND;  // PEx[n]=0. High-impedance
+ 298   2      
+ 299   2          if(u8Option)
+ 300   2          {
+ 301   3            P3_DS |= u8MaskOR;  // set bits
+C51 COMPILER V9.53.0.0   GPIO                                                              01/28/2020 11:28:53 PAGE 6   
+
+ 302   3          }
+ 303   2          else
+ 304   2          {
+ 305   3            P3_DS &= u8MaskAND; // clear bits
+ 306   3          }
+ 307   2        }
+ 308   1        else
+ 309   1        {
+ 310   2          if(u8Option == 0)   // pull-up
+ 311   2          {
+ 312   3            xGPIOPE3 |= u8MaskOR; // PEx[n]=1
+ 313   3            xGPIOPS3 |= u8MaskOR; // PSx[n]=1
+ 314   3          }
+ 315   2          else if(u8Option == 1)  // pull-down
+ 316   2          {
+ 317   3            xGPIOPE3 |= u8MaskOR; // PEx[n]=1
+ 318   3            xGPIOPS3 &= u8MaskAND;  // PSx[n]=0
+ 319   3          }
+ 320   2          else    // high-impedance
+ 321   2          {
+ 322   3            xGPIOPE3 &= u8MaskAND;  // PEx[n]=0
+ 323   3          }
+ 324   2          P3OEN |= u8MaskOR;    // set bits. Output disable(Active low)
+ 325   2          P3_IE |= u8MaskOR;    // set bits. Input enable(Active high)
+ 326   2        }
+ 327   1      
+ 328   1        return RETURN_GPIO_SUCCESS;
+ 329   1      }
+ 330          
+ 331          #endif // #ifdef __MG2470_GPIO3_INCLUDE__
+ 332          
+ 333          
+ 334          
+ 335          
+ 336          
+ 337          
+ 338          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    640    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
